@@ -30,7 +30,8 @@
 		checkbox chkSelectedOnly "Selected faces only" pos:[145, bmpSize + 30 + 55] checked:false
 		imgTag imgCurrColor bitmap:colorBitmap pos:[150, bmpSize + 10] width:50 height:50
 		label lbl3dPickColor "Alt = 3D color picker" pos:[210, bmpSize + 10] 
-		checkbox chkMirror "Mirror Paint" pos:[210,bmpSize + 30] checked:true
+		checkbox chkMirror "Mirror Paint" pos:[210,bmpSize + 30] checked:false
+		spinner spnSpread "Spread" range:[0,10,0] type:#integer pos:[240, bmpSize + 50] width:50
 		
 		function updateColorBitmap = 
 		(
@@ -69,13 +70,34 @@
 			poly
 		)
 		
-		function putPlyxel poly UV =
+		function setAllUVto poly UV =
 		(
 			local vnum = (polyop.getMapFace theObj 1 poly).count
 			for i=1 to vnum do
 			(
 				theObj.Unwrap_UVW.setFaceVertex [ UV.x, UV.y,0] poly i false
-			)			
+			)	
+		)
+		
+		function putPlyxel poly UV =
+		(
+			if spnSpread.value == 0 then setAllUVto poly UV 
+				else
+			(
+				local faces = #{poly}
+				local verts = #{}
+				for j = 1 to spnSpread.value do
+				(
+					verts = verts + polyOp.getVertsUsingFace theObj faces
+					faces = faces + polyOp.getFacesUsingVert theObj verts
+				)
+				for i in faces do
+				(
+					setAllUVto i UV
+				)
+				
+			)
+			
 		)
 		
 		function getPlyxel poly =
