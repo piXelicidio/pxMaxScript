@@ -27,11 +27,12 @@
 		imgTag bmpColorPal bitmap:tempBitmap pos:[0,0] style:#bmp_stretch
 		checkButton paint3D "Start Paint Tool" pos:[18, bmpSize + 10 ] width:126 height:55		
 		button btnFullRepaint "Full Repaint" pos:[28,bmpSize + 20 + 55]  width:100 height:40
-		checkbox chkSelectedOnly "Selected faces only" pos:[145, bmpSize + 30 + 55] checked:false
+		checkbox chkSelectedOnly "Selected faces only" pos:[28, bmpSize + 30 + 90] checked:false
 		imgTag imgCurrColor bitmap:colorBitmap pos:[150, bmpSize + 10] width:50 height:50
 		label lbl3dPickColor "Alt = 3D color picker" pos:[210, bmpSize + 10] 
 		checkbox chkMirror "Mirror Paint" pos:[210,bmpSize + 30] checked:false
 		spinner spnSpread "Spread" range:[0,10,0] type:#integer pos:[240, bmpSize + 50] width:50
+		checkButton btnFill "Fill Area" pos:[210, bmpSize + 80] width:90 height:30 enabled:false
 		
 		function updateColorBitmap = 
 		(
@@ -39,12 +40,17 @@
 			bmpColorPal.bitmap = theObj.material.diffuseMap.bitmap --tempBitmap
 		)
 		
-		function updateCurrColor =
+		function UVtoColor UV =
 		(
 			local w = bmpColorPal.bitmap.width
 			local h = bmpColorPal.bitmap.height
-			local p = getPixels bmpColorPal.bitmap [ curr_UV.x * w ,  (1-curr_UV.y) * h ] 1 			
-			p = p[1]
+			(getPixels bmpColorPal.bitmap [ UV.x * w ,  (1-UV.y) * h ] 1)[1]
+		)
+		
+		
+		function updateCurrColor =
+		(			
+			local p = UVtoColor curr_UV 						
 			print p
 			if p != undefined then
 			(
@@ -122,6 +128,47 @@
 			)
 			
 			
+		)	
+
+		function SameColor c1 c2  =
+		(			
+			local d = distance (c1 as point3) (c2 as point3)
+			result = d < 5			
+		)
+		
+		
+		function fillArea iniPoly UV =
+		(
+			local faces = #{iniPoly}
+			local bkColor = UVtoColor (getPlyxel iniPoly) --storing the background color
+			local fillColor = UVtoColor UV
+			putPlyxel iniPoly UV -- setting the color of the first Plyxel
+			update theObj
+			
+			local paintLimit = 0 -- To avoid an unexpected ininite loop...  
+			do
+			(
+			
+			local edges = polyOp.getEdgesUsingFace theObj faces			
+			local newFaces = polyOp.getFacesUsingEdge theObj edges
+			local removeFaces = #{}
+			for i in newFaces do
+			(
+				local c = UVtoColor (getPlyxel i) --Check the current color of each face
+				if (not ( sameColor c bkColor)) or (sameColor c fillColor)  then -- remove if not == bkColor, or == to fillColor
+					( 
+						removeFaces = removeFaces + #{i} 
+					)
+				else (putPlyxel i UV) --else paint				   
+			)				
+			newFaces = newFaces - removeFaces
+			print ( "neibor faces " + ((newFaces as array).count as string) )			
+			update theObj
+			redrawViews()
+			faces = newFaces
+			paintLimit = paintLimit + 1
+			
+			) while ( ((faces as array).count > 0 ) and  (paintLimit < 1000 )  )
 		)
 		
 		-- The main thing accours here ------------ PAINT STROKE -------------- ******************************
@@ -144,6 +191,9 @@
 				(
 				   curr_UV = getPlyxel polyIndex
 				   updateCurrColor()
+				) else if btnFill.checked then
+				(
+					fillArea polyIndex curr_UV					
 				) else -- DRAWING COLOR
 				(				
 					putPlyxel polyIndex curr_UV
@@ -246,6 +296,7 @@
 			(
 				endPainting3D()				
 			)
+			btnFill.enabled = paint3D.checked
 		)
 		
 		on bmpColorPal lbuttondown pos flags do
