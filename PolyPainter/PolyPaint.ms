@@ -16,8 +16,13 @@
 	local theObj = undefined
 	local bmpSize = 360
 	local curr_UV = [0.5,0.5,0]
+	local currStrokeNum = 0
 	local thePI = thePainterInterface
 	local rmIntersect = RayMeshGridIntersect()
+	local faceMapUndo = #()
+	local undoLevels = #()
+	local undoLevelsMax = 5
+	
 	 
 	local tempBitmap = bitmap bmpSize bmpSize color:white
 	local colorBitmap = bitmap 50 50 
@@ -33,6 +38,7 @@
 		checkbox chkMirror "Mirror Paint" pos:[210,bmpSize + 30] checked:false
 		spinner spnSpread "Spread" range:[0,10,0] type:#integer pos:[240, bmpSize + 50] width:50
 		checkButton btnFill "Fill Area" pos:[210, bmpSize + 80] width:90 height:30 enabled:false
+		button btnUndo "Undo" pos:[210, bmpSize + 120] width:90 height:30 
 		
 		function updateColorBitmap = 
 		(
@@ -59,7 +65,23 @@
 			)
 		)
 		
-		function startStroke = ( thePI.undoStart() )
+			
+		function clearUndo = 
+		(
+			-- store it, actually, in undo levels
+			--btnUndo.enabled = false
+			append undoLevels faceMapUndo
+			if undoLevels.count > undoLevelsMax then deleteItem undoLevels 1
+			faceMapUndo = #()		
+			print ("undo levels" + (undoLevels.count as string) )
+		)
+		
+		function startStroke = 
+		( 
+			--thePI.undoStart() 
+			clearUndo()
+			currStrokeNum = currStrokeNum + 1
+		)
 		
 		fn getPolyFaceByTri node tri =
 		(
@@ -77,8 +99,17 @@
 		
 		function setAllUVto poly UV =
 		(
-			local vnum = (polyop.getMapFace theObj 1 poly).count
-			for i=1 to vnum do
+			local mapFace = polyop.getMapFace theObj 1 poly
+			
+			-- UNDO DATA			
+			local faceUV = #()
+			faceUV[1] = poly 			
+			--saving, only the first vertex			
+			faceUV[2] = polyop.getMapVert theObj 1 mapFace[1]			
+			append faceMapUndo faceUV
+			
+			--modifiying
+			for i=1 to mapFace.count do
 			(
 				theObj.Unwrap_UVW.setFaceVertex [ UV.x, UV.y,0] poly i false
 			)	
@@ -171,7 +202,7 @@
 		
 		-- The main thing accours here ------------ PAINT STROKE -------------- ******************************
 		function paintStroke = 
-		(			
+		( 			
 			
 			thePI.getHitFaceData &bary &faceIndex theObj 0	
 			
@@ -193,7 +224,9 @@
 					fillArea polyIndex curr_UV					
 				) else -- DRAWING COLOR
 				(				
-					putPlyxel polyIndex curr_UV
+					
+						putPlyxel polyIndex curr_UV
+				    
 					if thePI.mirrorEnable == true then mirrorPaint()
 					update theObj	
 				)
@@ -202,14 +235,16 @@
 			lastTriFace = faceIndex				
 		)
 		
-		function endStroke = ( 
-			thePI.undoAccept()
-			lastTriFace = -1
-			
+		function endStroke = 
+			( 
+				--thePI.undoAccept()
+				print ("faces undo data: " + faceMapUndo.count as string)
+				lastTriFace = -1		
+				if faceMapUndo.count>0 then btnUndo.enabled = true
 			)
 		function cancelStroke = ( 
-			thePI.undoCancel()
-			lastTriFace = -1
+				--thePI.undoCancel()
+				lastTriFace = -1
 			)
 		function systemEndPaintSession = ( 
 			paint3d.checked = false
@@ -257,6 +292,7 @@
 			thePI.endPaintSession()
 			if paint3D.checked then paint3D.checked = false
 		)
+	
 		
 		-- EVENTS HANDLERS ***************************************
 		
@@ -349,9 +385,35 @@
 				)
 		)
 		
+		on btnUndo pressed do
+		(
+			for i=faceMapUndo.count to 1 by -1 do
+			(
+				local faceUV = faceMapUndo[i]
+				local faceMap = polyop.getMapFace theObj 1 faceUV[1] --get the vertex indices; may have changed				
+				for j=1 to faceMap.count do
+				(
+					--restore the UVs ********************************************** doesn't work yet
+					theObj.Unwrap_UVW.setFaceVertex faceUV[2] faceUV[1] j false				
+				)
+			)
+			update theObj
+			redrawViews() 
+			--more undo levels?
+			if undoLevels.count > 0 then
+			(
+				faceMapUndo = undoLevels[ undoLevels.count ] 
+				deleteItem undoLevels undoLevels.count
+			) else  
+			(
+				faceMapUndo = #()
+				btnUndo.enabled = false
+			)
+		)
+		
 	)
 
 	--// has to be with CreateDialog in order to get the lButtonDown event with mouse position
-	createdialog roll_PolyPaint bmpSize (bmpSize + 150 )
+	createdialog roll_PolyPaint bmpSize (bmpSize + 200 )
 	
 )
