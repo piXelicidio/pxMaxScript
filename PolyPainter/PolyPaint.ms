@@ -22,7 +22,7 @@
 	local tempBitmap = bitmap bmpSize bmpSize color:white
 	local colorBitmap = bitmap 50 50 
 	
-	rollout roll_polyPaint "Poly Paint" 
+	rollout roll_polyPaint "pX Poly Paint" 
 	(
 		imgTag bmpColorPal bitmap:tempBitmap pos:[0,0] style:#bmp_stretch
 		checkButton paint3D "Start Paint Tool" pos:[18, bmpSize + 10 ] width:126 height:55		
