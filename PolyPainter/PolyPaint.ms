@@ -15,7 +15,7 @@
 	local lastTriFace = -1
 	local theObj = undefined
 	local bmpSize = 360
-	local curr_UV = [0,0,0]
+	local curr_UV = [0.5,0.5,0]
 	local thePI = thePainterInterface
 	local rmIntersect = RayMeshGridIntersect()
 	 
@@ -44,14 +44,13 @@
 		(
 			local w = bmpColorPal.bitmap.width
 			local h = bmpColorPal.bitmap.height
-			(getPixels bmpColorPal.bitmap [ UV.x * w ,  (1-UV.y) * h ] 1)[1]
+			(getPixels bmpColorPal.bitmap [ UV.x * w ,  (1-UV.y) * h ] 1 linear:true )[1]
 		)
 		
 		
 		function updateCurrColor =
 		(			
-			local p = UVtoColor curr_UV 						
-			print p
+			local p = UVtoColor curr_UV 									
 			if p != undefined then
 			(
 				free colorBitmap
@@ -119,8 +118,7 @@
 			thePI.getMirrorHitPointData &localHit &localNormal &worldHit &worldNormal 0
 			local p1 = worldHit - worldNormal
 			local p2 = worldHit + worldNormal			
-			local result = rmIntersect.intersectSegment p1 p2 true
-			print "mirror"			
+			local result = rmIntersect.intersectSegment p1 p2 true			
 			if result>0 then
 			(
 				local Poly = getPolyFaceByTri theObj (rmIntersect.getHitFace 1) 
@@ -162,7 +160,7 @@
 				else (putPlyxel i UV) --else paint				   
 			)				
 			newFaces = newFaces - removeFaces
-			print ( "neibor faces " + ((newFaces as array).count as string) )			
+			print ( "filling faces " + ((newFaces as array).count as string) )			
 			update theObj
 			redrawViews()
 			faces = newFaces
@@ -181,8 +179,7 @@
 			--do not repeat stuff if we are still in the same face
 			-- bary != [0,0,0] dirty trick to detect ourside of node strokes
 			(				
-				local PolyIndex = (getPolyfaceByTri theObj faceIndex)								
-				print PolyIndex
+				local PolyIndex = (getPolyfaceByTri theObj faceIndex)												
 				--print bary	
 				local shift=false , ctrl=false, alt=false, pressure=0
 				thePI.getHitPressureData  &shift &ctrl &alt &pressure 0
@@ -208,7 +205,7 @@
 		function endStroke = ( 
 			thePI.undoAccept()
 			lastTriFace = -1
-			print "endStroke"
+			
 			)
 		function cancelStroke = ( 
 			thePI.undoCancel()
@@ -217,7 +214,7 @@
 		function systemEndPaintSession = ( 
 			paint3d.checked = false
 			lastTriFace = -1
-			print "paint end"
+			
 			)
 		
 		function startPainting3D =
@@ -228,6 +225,7 @@
 				paint3D.checked = false
 			) else
 			(
+				updateCurrColor()
 				paint3D.checked = true
 				thePI.pointGatherEnable = false
 				thePI.initializeNodes 0 # (theObj)
@@ -283,7 +281,7 @@
 								updateCurrColor()
 								startPainting3D() 
 								isOk = true
-								print "adelante"
+								
 							) else messageBox  "Need material applied with diffuseMap bitmap"
 						) else messageBox "Need material applied with diffuseMap bitmap"
 					) else 
