@@ -1,14 +1,3 @@
--- Poly  Paint, a tool to paint polygos with a flat color from texture, setting all vertices of a UV face to a single point in texture, giving always a flat color
--- By Denys Almaral - 2018
-
--- Updates
-
--- implmented Undo levels
--- added Flood Fill algorithm
--- Added Mirror functionality
--- Full repaint the whole object with selected color 
--- 2018-08-25 v1.0 basic functionality 
-
 macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
 (
 	local bary = [0,0,0]
