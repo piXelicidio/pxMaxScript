@@ -19,7 +19,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 	
 	rollout roll_polyPaint "pX Poly Paint" 
 	(
-		imgTag bmpColorPal bitmap:tempBitmap pos:[0,0] style:#bmp_stretch
+		imgTag bmpColorPal bitmap:tempBitmap pos:[0,0] style:#bmp_stretch transparent:(color 68 68 68)
 		label lblInfo "Select object and press Start Painting Tool" pos:[10,10]
 		checkButton paint3D "Start Paint Tool" pos:[18, bmpSize + 10 ] width:126 height:55		
 		button btnFullRepaint "Full Repaint" pos:[28,bmpSize + 20 + 55]  width:100 height:40
@@ -386,8 +386,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				local faceUV = faceMapUndo[i]
 				local faceMap = polyop.getMapFace theObj 1 faceUV[1] --get the vertex indices; may have changed				
 				for j=1 to faceMap.count do
-				(
-					--restore the UVs ********************************************** doesn't work yet
+				(					
 					theObj.Unwrap_UVW.setFaceVertex faceUV[2] faceUV[1] j false				
 				)
 			)
