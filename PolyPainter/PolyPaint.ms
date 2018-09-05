@@ -44,26 +44,37 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		
 		function updateColorBitmap = 
 		(
-			--copy $.material.diffuseMap.bitmap tempBitmap
-			bmpColorPal.bitmap = theObj.material.diffuseMap.bitmap --tempBitmap
+			copy $.material.diffuseMap.bitmap tempBitmap
+			bmpColorPal.bitmap = tempBitmap
 		)
 		
 		function UVtoColor UV =
 		(
-			local w = bmpColorPal.bitmap.width
-			local h = bmpColorPal.bitmap.height
-			(getPixels bmpColorPal.bitmap [ UV.x * w ,  (1-UV.y) * h ] 1 linear:true )[1]
+			local w = tempBitmap.width
+			local h = tempBitmap.height
+			(getPixels tempBitmap [ UV.x * w ,  (1-UV.y) * h ] 1 linear:true )[1]
 		)
 		
 		
 		function updateCurrColor =
 		(			
+			copy $.material.diffuseMap.bitmap tempBitmap	
+						
 			local p = UVtoColor curr_UV 									
 			if p != undefined then
 			(
 				free colorBitmap
 				colorBitmap = bitmap 50 50 color:p 
 				imgCurrColor.bitmap = colorBitmap
+				
+				-- draw pixel marker
+				xx = curr_UV.x * tempBitmap.width
+				yy = (1-curr_UV.y) * tempBitmap.height
+				setPixels tempBitmap [xx+1, yy] #(color 255 255 255)
+				setPixels tempBitmap [xx-1, yy] #(color 255 255 255)
+				setPixels tempBitmap [xx, yy+1] #(color 0 0 0)
+				setPixels tempBitmap [xx, yy-1] #(color 0 0 0)
+				bmpColorPal.bitmap = tempBitmap
 			)
 		)
 		
@@ -342,10 +353,14 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		(
 			if (pos.y <= bmpSize) then
 			(
-			   --	get the position of mouse clicks over the window and convert it to UV coordinates.
+			   --	get the position of mouse clicks over the Texture Image and convert it to UV coordinates.
 				curr_UV.x =  pos.x / bmpSize
-				curr_UV.y = 1 - ( pos.y / bmpSize )
+				curr_UV.y = 1 - ( pos.y / bmpSize )				
+				
 				updateCurrColor()
+				
+				
+				
 			)			
 		)
 		
