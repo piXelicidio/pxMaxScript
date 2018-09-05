@@ -5,8 +5,8 @@
 
 (
 	--settings
-	local texBigSize = 128
-	local texBmp = bitmap texBigSize texBigSize filename:".\\images\\outputTexBig.png" color:gray
+	local texBigSize = 300
+	local texBmp = bitmap texBigSize texBigSize filename:"c:\\temp\\outputTexBig.png" color:gray
 	local padding = 2
 	local rescaling =1
 	--vars
