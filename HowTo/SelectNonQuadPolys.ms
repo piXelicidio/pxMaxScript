@@ -1,4 +1,4 @@
-macroscript SelectNonQuadPolys category:"HowTo"
+macroscript SelectNGons category:"HowTo"
 (
 
 	on isEnabled return 
