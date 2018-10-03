@@ -11,12 +11,36 @@
 	local  Tolerance = 0.005
 	local MySelection = #{}
 	local MirrorRightToLeft  = true
+	
+	local DialogWidth = 180
+	local maxBWidth = DialogWidth - 20
 
 	rollout roll_proSymmetryTools "Pro Symmetry Tools"
 	(
+		progressbar pbar value:100 height:8 color:[200,0,0]
+		pickbutton btnPickObject " Pick Object " toolTip:"Pick Editable Poly to base symmetry on" width:maxBWidth height:30
+		checkbox chkEdgeAnalysis "Edge Analysis" checked:true tooltip:"Analyze edge connections to find symmetry. Slow for high poly counts."  align:#left
+		radioButtons radioAxis "" labels:#("X","Y","Z" ) default:1 tooltip:"Axis"
+		spinner spnTolerance "Tolerance:" range:[0,100,0.005] type:#float scale:0.001 align:#left 
 		
+		group "Make Symmetrical"
+		(
+			button btnPosToNeg "+ to -"  height:26 width:70 align:#left
+			button btnNegToPos "- to +" height:26 width:70  offset:[0,-31] align:#right
+			button btnFlip " Flip Symmetry " width:maxBWidth
+		)
 		
+		group "Vertex operations"
+		(
+			button btnCopySel "Copy Selected" width:maxBWidth
+			button btnPaste "Paste" width:maxBWidth
+			button btnPasteOpposite "Paste Opposite" width:maxBWidth
+		)
 		
+		group "Edit Geometry Symmetrical"
+		(
+			
+		)
 		/*----------  Advanced FindPairs Algorithm  -----------------		 
 		 
 		 - Find symmetrical pairs of vertices.
@@ -214,10 +238,23 @@
 				
 				
 			Result
-			
+			$.selectedVerts = FindPairs $
 		) -- FindPairs funciton END
 	
-		$.selectedVerts = FindPairs $
+		on btnPickObject picked obj do
+		(
+			if (classof obj)==Editable_poly then 
+			(
+				btnPickObject.text = obj.name	
+				pbar.color = [0,255,0]
+			) else messageBox "Pick an Editable Poly object" title:"Pro Symmetry Tools"
+		)
+		
 	)
+	
+	--rf = newRolloutFloater "Pro Symmetry Tools" 120 420
+	--addrollout roll_proSymmetryTools rf
+	createDialog roll_proSymmetryTools DialogWidth 500
+
 )
 
