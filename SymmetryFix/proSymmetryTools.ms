@@ -12,15 +12,18 @@
 	local MySelection = #{}
 	local MirrorRightToLeft  = true
 	
+	local baseObject = undefined
+	local VertsInfo = #() --array of TVertInfo
+	
 	local DialogWidth = 180
 	local maxBWidth = DialogWidth - 20
 
 	rollout roll_proSymmetryTools "Pro Symmetry Tools"
 	(
-		progressbar pbar value:100 height:8 color:[200,0,0]
+		progressbar proBar value:100 height:8 color:[200,0,0]
 		pickbutton btnPickObject " Pick Object " toolTip:"Pick Editable Poly to base symmetry on" width:maxBWidth height:30
 		checkbox chkEdgeAnalysis "Edge Analysis" checked:true tooltip:"Analyze edge connections to find symmetry. Slow for high poly counts."  align:#left
-		radioButtons radioAxis "" labels:#("X","Y","Z" ) default:1 tooltip:"Axis"
+		radioButtons radioAxis "" labels:#("X" ) default:1 tooltip:"Axis"
 		spinner spnTolerance "Tolerance:" range:[0,100,0.005] type:#float scale:0.001 align:#left 
 		
 		group "Make Symmetrical"
@@ -51,19 +54,18 @@
 		 - go for each non-paired Right-Side vertice
 		 -- Check its edge conections.
 		 -- Find a Left-Side vertice with same connections. 
-		 --- FOUND IF: Exist only one wieh same connections.
+		 --- FOUND IF: Exist only one with same connections.
 		 --- Update connections.
 		 UNTIL CAN'T find more new pairs   	*/
 		function FindPairs EPolyObj  = 
 		(
 			local N = polyop.getNumVerts EPolyObj 
-			local Result = #{}
-			Result.count = N	
-			Result = - Result
+			local Result = #{} -- Result is a bitArray, will tell non paired (=true) vertices at the end 
+			Result.count = N	  --with N elements			
+			Result = - Result  -- inverting makes all elements true.
 			
-			UnPairedTag = N+99
+			local UnPairedTag = N+99
 			
-			local VertsInfo = #() --array of TVertInfo
 			VertsInfo.count = N
 			
 			--initializing vertInfo
@@ -71,9 +73,9 @@
 			(
 				local v1 = polyop.getVert EPolyObj i
 				VertsInfo[i] = TVertInfo undefined undefined undefined v1
-				VertsInfo[i].RightSide = ( v1.x >= 0 )
+				VertsInfo[i].RightSide = ( v1.x >= 0 )  -- RightSide = positive
 				
-				--Vertices on the Symmetry AXE paired with themselves. 
+				--Vertices on the "center" Symmetry AXE paired with themselves. 
 				If 	abs(v1.x) <= Tolerance then 
 				(	
 					VertsInfo[i].PairedWith = i	
@@ -81,22 +83,24 @@
 				)
 				
 				--Links
-				--FindingEdge connections with other vertices
+				--Find the list of vertices connected via edge, store in LinkedTo bitarray
 				local MyEdges = polyop.getEdgesUsingVert EPolyObj  i
 				VertsInfo[i].Linkedto = #{}	
 				for k in MyEdges do
 				(
 					VertsInfo[i].Linkedto  = VertsInfo[i].Linkedto  + (polyop.getVertsUsingEdge EPolyObj k )			
 				)		
+				--remove self
 				VertsInfo[i].Linkedto =  VertsInfo[i].Linkedto - #{i}
 			)
 			
+			
+			--Finding Pairs by position------------------------------- The standard easy way				
+			print "Finding symmetrical pairs..."
 			for i=1 to N-1 do in coordsys local
 			(
-				local v1 = polyop.getVert EPolyObj i			
+				local v1 = polyop.getVert EPolyObj i							
 				
-				
-				--Finding first pairs by position	
 				for j=(i+1) to N do
 				(			
 					v2 = polyop.getVert EPolyObj j
@@ -112,12 +116,12 @@
 					)	
 				)
 			)
+			print "Done."
 			
-			-- Find pairs by links -------------------------- the cool start here --------------
-			
-			
-			
-			do 
+			-- Find pairs by links -------------------------- the cool start here -------------- Edge Connections Analysis
+			print "Finding pairs by edge connections..."
+			if chkEdgeAnalysis.checked==true then 
+			do
 			(
 				Local FoundNewPairs=0
 				
@@ -195,7 +199,7 @@
 													--Nice this is the first (hope only)
 													MyCandidate=j 
 													MyCandidateNum+= 1
-													print ("Candidate! " + (MyCandidate as string) )
+													--print ("Candidate! " + (MyCandidate as string) )
 												) else
 												(
 													--no need for more searching there are duplicated "ideal" conditions
@@ -219,35 +223,87 @@
 								Result[i]=false
 								Result[MyCandidate]=false
 								--Mirroring vertice
-								if MirrorRightToLeft then
-								(
-									local newPos = VertsInfo[i].vPos 
-									newPos.x = -newPos.x
-									polyop.setVert  EPolyObj #(MyCandidate) newPos
-								) else
-								(
-								)
-								print ("Pair:" + (i as string) + "-" + (MyCandidate as string) ) 
-							)
+								--if MirrorRightToLeft then
+								--(
+								--	local newPos = VertsInfo[i].vPos 
+								--	newPos.x = -newPos.x
+								--	polyop.setVert  EPolyObj #(MyCandidate) newPos
+								--)
+								--print ("Pair:" + (i as string) + "-" + (MyCandidate as string) ) 
+							)--if MyCandidateNum == 1
 							
-						)
-					)
+						)--if VertsInfo[i].PairedWith==undefined
+					)--if VertsInfo[i].RightSide
 				)--For I end
-				print ("Found New Pairs: " + (FoundNewPairs	as string))
+				--print ("Found New Pairs: " + (FoundNewPairs	as string))
 			)	while FoundNewPairs!=0
 				
-				
+			print "Done."
+			proBar.color = [0,255,0]
 			Result
-			$.selectedVerts = FindPairs $
+			EPolyObj.selectedVerts = Result
 		) -- FindPairs funciton END
 	
+		-- Mirroring vertices positions
+		-- PosToNeg Boolean; Axis String "x"|"y"|"z"
+		function MakeSymmetrical PosToNeg: Axis: Flip: =			
+		(
+			if PosToNeg == unsupplied then PosToNeg = true
+			if Axis == unsupplied then Axis = "x"
+			if Flip == unsupplied then Flip = false
+			-- copy Positive positions to Negative on selected object
+			if (classof $)==Editable_Poly then
+			(
+				for i=1 to VertsInfo.count do  in coordsys local
+				(
+					if VertsInfo[i].RightSide then 
+					(
+						--is positive copy to paired
+						if VertsInfo[i].PairedWith != undefined then
+						(
+							if PosToNeg then
+							(
+								local myPos = polyOp.getvert $ i	
+							
+								if Axis=="y" then myPos.y = - myPos.y else	
+									if Axis=="z" then myPos.z = - myPos.z else
+										if Axis=="x" then myPos.x = - myPos.x									
+								polyOp.setVert $ VertsInfo[i].PairedWith myPos
+							) else
+							(
+								local myPos = polyOp.getvert $ VertsInfo[i].PairedWith
+								if Axis=="y" then myPos.y = - myPos.y else	
+									if Axis=="z" then myPos.z = - myPos.z else
+										if Axis=="x" then myPos.x = - myPos.x									
+								polyOp.setVert $ i myPos
+							)
+						)						
+					)
+				)
+			)
+		)
+		
 		on btnPickObject picked obj do
 		(
 			if (classof obj)==Editable_poly then 
 			(
 				btnPickObject.text = obj.name	
-				pbar.color = [0,255,0]
+				probar.color = [0,255,0]
+				baseObject = obj
+				FindPairs baseObject
 			) else messageBox "Pick an Editable Poly object" title:"Pro Symmetry Tools"
+		)
+		
+		
+		
+		on btnPosToNeg pressed do
+		(
+			MakeSymmetrical PosToNeg:True Axis:"x"
+		)
+		
+		on btnNegToPos pressed do
+		(
+			MakeSymmetrical PosToNeg:False Axis:"x"
 		)
 		
 	)
