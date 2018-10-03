@@ -97,6 +97,7 @@
 			
 			--Finding Pairs by position------------------------------- The standard easy way				
 			print "Finding symmetrical pairs..."
+			proBar.color = [0,255,255]
 			for i=1 to N-1 do in coordsys local
 			(
 				local v1 = polyop.getVert EPolyObj i							
@@ -115,12 +116,17 @@
 						Result[j]=false
 					)	
 				)
+				proBar.value = (i * 100) / N
 			)
 			print "Done."
 			
 			-- Find pairs by links -------------------------- the cool start here -------------- Edge Connections Analysis
 			print "Finding pairs by edge connections..."
-			if chkEdgeAnalysis.checked==true then 
+			proBar.value = 0
+			proBar.color = [255, 255, 0]
+			local NewLinksCount = 0
+			local UnlinkedPairs = ((Result as array ).count / 2) +1
+			if (chkEdgeAnalysis.checked==true) and (Result.count!= 0) then 
 			do
 			(
 				Local FoundNewPairs=0
@@ -222,14 +228,10 @@
 								FoundNewPairs += 1 
 								Result[i]=false
 								Result[MyCandidate]=false
-								--Mirroring vertice
-								--if MirrorRightToLeft then
-								--(
-								--	local newPos = VertsInfo[i].vPos 
-								--	newPos.x = -newPos.x
-								--	polyop.setVert  EPolyObj #(MyCandidate) newPos
-								--)
-								--print ("Pair:" + (i as string) + "-" + (MyCandidate as string) ) 
+								NewLinksCount += 1
+								--updating progressbar
+								proBar.value = (100 * NewLinkscount) / UnlinkedPairs	
+									
 							)--if MyCandidateNum == 1
 							
 						)--if VertsInfo[i].PairedWith==undefined
@@ -239,9 +241,13 @@
 			)	while FoundNewPairs!=0
 				
 			print "Done."
+			print NewLinkscount
+			print UnlinkedPairs
+			proBar.value = 100;
 			proBar.color = [0,255,0]
-			Result
+			
 			EPolyObj.selectedVerts = Result
+			Result
 		) -- FindPairs funciton END
 	
 		-- Mirroring vertices positions
@@ -251,9 +257,12 @@
 			if PosToNeg == unsupplied then PosToNeg = true
 			if Axis == unsupplied then Axis = "x"
 			if Flip == unsupplied then Flip = false
+				
 			-- copy Positive positions to Negative on selected object
-			if (classof $)==Editable_Poly then
+			if (classof $)==Editable_Poly) then
 			(
+				-- TODO: Find Solution. Currently limited to Editable_Poly objects
+				-- there is a problem with Edit_Poly modifier, I can't set vertices: see: https://forums.cgsociety.org/t/help-me-maxscript-and-editpoly/1026305/7 
 				for i=1 to VertsInfo.count do  in coordsys local
 				(
 					if VertsInfo[i].RightSide then 
@@ -281,11 +290,10 @@
 		on btnPickObject picked obj do
 		(
 			if (classof obj)==Editable_poly then 
-			(
-				btnPickObject.text = obj.name	
-				probar.color = [0,255,0]
+			(				
 				baseObject = obj
 				FindPairs baseObject
+				btnPickObject.text = obj.name	
 			) else messageBox "Pick an Editable Poly object" title:"Pro Symmetry Tools"
 		)
 		
@@ -293,17 +301,26 @@
 		
 		on btnPosToNeg pressed do
 		(
-			MakeSymmetrical PosToNeg:True Axis:"x"
+			undo label:"+ to - symmetry" on
+			(
+				MakeSymmetrical PosToNeg:True Axis:"x"
+			)
 		)
 		
 		on btnNegToPos pressed do
 		(
+			undo label:"- to + symmetry" on
+			(
 			MakeSymmetrical PosToNeg:False Axis:"x"
+			)
 		)
 		
 		on btnFlip pressed do
 		(
+			undo label:"Symmetry Flip" on
+			(
 			MakeSymmetrical Flip:true Axis:"x"
+			)
 		)
 		
 	)
