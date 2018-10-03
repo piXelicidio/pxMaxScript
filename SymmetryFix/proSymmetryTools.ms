@@ -259,24 +259,19 @@
 					if VertsInfo[i].RightSide then 
 					(
 						--is positive copy to paired
-						if VertsInfo[i].PairedWith != undefined then
+						local him = VertsInfo[i].PairedWith
+						if him != undefined then
 						(
-							if PosToNeg then
-							(
-								local myPos = polyOp.getvert $ i	
+							local myPos = polyOp.getvert $ i	
+							local hisPos = polyOp.getvert $ him
 							
-								if Axis=="y" then myPos.y = - myPos.y else	
-									if Axis=="z" then myPos.z = - myPos.z else
-										if Axis=="x" then myPos.x = - myPos.x									
-								polyOp.setVert $ VertsInfo[i].PairedWith myPos
-							) else
-							(
-								local myPos = polyOp.getvert $ VertsInfo[i].PairedWith
-								if Axis=="y" then myPos.y = - myPos.y else	
-									if Axis=="z" then myPos.z = - myPos.z else
-										if Axis=="x" then myPos.x = - myPos.x									
-								polyOp.setVert $ i myPos
-							)
+							if Axis=="y" then (myPos.y = - myPos.y;  hisPos.y = - hisPos.y ) else	
+								if Axis=="z" then (myPos.z = - myPos.z; hisPos.z = -hisPos.z ) else
+									if Axis=="x" then ( myPos.x = - myPos.x; hisPos.x = - hisPos.x)
+										
+							if (PosToNeg or Flip) then polyOp.setVert $ him myPos 
+							if ((not PosToNeg) or Flip) then polyOp.setVert $ i hisPos							
+							
 						)						
 					)
 				)
@@ -304,6 +299,11 @@
 		on btnNegToPos pressed do
 		(
 			MakeSymmetrical PosToNeg:False Axis:"x"
+		)
+		
+		on btnFlip pressed do
+		(
+			MakeSymmetrical Flip:true Axis:"x"
 		)
 		
 	)
