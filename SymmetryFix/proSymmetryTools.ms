@@ -456,7 +456,7 @@
 		-- get the mirrored vertex selection; vertSel is bitArray, return bitArray
 		function mirrorVertSel  vertSel =
 		(
-			result = #{}
+			local result = #{}
 			vertlist = vertSel as array
 			for i=1 to vertlist.count do
 			(
@@ -474,11 +474,35 @@
 		(
 			local edges1 = polyOp.getEdgesUsingVert epoly #(Verts[1])
 			local edges2 = polyOp.getEdgesUsingVert epoly #(Verts[2])
-			Result = edges1 * edges2			
+			local Result = edges1 * edges2			
 			if Result.isEmpty then Result = undefined else
 			(
 				Result = Result as array
 				if Result.count == 1 then Result = Result[1] else Result = undefined
+			)
+			Result
+		)
+		
+		--check if edges are part of the same face, edges:Array ,return boolean,
+		function AreEdgesOnSameFace EPoly Edges =
+		(
+			--get all faces with relationship to the given edges
+			local bitEdges = Edges as bitarray
+			local faces = polyop.getFacesUsingEdge EPoly Edges 
+			faces = faces as array
+			local result = false
+            print faces
+			for i=1 to faces.count do
+		 	(
+				-- get each face edges
+				local faceEdges =  polyOp.getFaceEdges EPoly faces[i]
+				--check if one of the faces contains all the edges
+				faceEdges = faceEdges as bitarray
+				--check the intersection between sets
+				faceEdges = faceEdges * bitEdges				
+                -- if the intersection count is = to Edges count then is a match
+				Result = (faceEdges as array).count == Edges.count
+                if Result then exit
 			)
 			Result
 		)
@@ -548,70 +572,72 @@
 					-- edges
 					local edgeSel = polyOp.getEdgeSelection $
 					local edges = edgeSel as array
-					if edges.count == 2 then
+					if edges.count == 2 then 
 					(
-						--TODO: New condition, both need to be part of same face;
-						
-						--  store the original verts of each edge
-						local edgeVerts1 = polyop.getEdgeVerts $ edges[1]
-					    local edgeVerts2 = polyop.getEdgeVerts $ edges[2]
-						
-						-- divide the edges, connect the two new vertices
-						local v1 = polyop.divideEdge $ edges[1] 0.5
-						local v2 = polyop.divideEdge $ edges[2] 0.5
-						local v3 = undefined
-						local v4 = undefined
-						polyOp.createEdge $ v1 v2
-						
-						-- find the Symmetrical EdgeVerts
-						edgeVerts1[1] = VertsInfo[ edgeVerts1[1] ].pairedWith
-						edgeVerts1[2] = VertsInfo[ edgeVerts1[2] ].pairedWith
-						edgeVerts2[1] = VertsInfo[ edgeVerts2[1] ].pairedWith
-						edgeVerts2[2] = VertsInfo[ edgeVerts2[2] ].pairedWith
-						
-						--if any of them are undefined end of story
-						if (edgeVerts1[1] != undefined) and (edgeVerts1[2] != undefined) and
-						   (edgeVerts2[1] != undefined) and (edgeVerts2[2] != undefined) then
-						(
-							--get the correspondant edges
-							local edge1 = getEdgeByVerts $ edgeVerts1
-							local edge2 = getEdgeByVerts $ edgeVerts2						
-							if (edge1 != undefined) and (edge2 != undefined) then
+						if AreEdgesOnSameFace $ edges then
+						(			
+							
+							--  store the original verts of each edge
+							local edgeVerts1 = polyop.getEdgeVerts $ edges[1]
+							local edgeVerts2 = polyop.getEdgeVerts $ edges[2]
+							
+							-- divide the edges, connect the two new vertices
+							local v1 = polyop.divideEdge $ edges[1] 0.5
+							local v2 = polyop.divideEdge $ edges[2] 0.5
+							local v3 = undefined
+							local v4 = undefined
+							polyOp.createEdge $ v1 v2
+							
+							-- find the Symmetrical EdgeVerts
+							edgeVerts1[1] = VertsInfo[ edgeVerts1[1] ].pairedWith
+							edgeVerts1[2] = VertsInfo[ edgeVerts1[2] ].pairedWith
+							edgeVerts2[1] = VertsInfo[ edgeVerts2[1] ].pairedWith
+							edgeVerts2[2] = VertsInfo[ edgeVerts2[2] ].pairedWith
+							
+							--if any of them are undefined end of story
+							if (edgeVerts1[1] != undefined) and (edgeVerts1[2] != undefined) and
+							   (edgeVerts2[1] != undefined) and (edgeVerts2[2] != undefined) then
 							(
-								v3 = polyop.divideEdge $ edge1 0.5
-								v4 = polyop.divideEdge $ edge2 0.5
-								polyop.createEdge $ v3 v4
+								--get the correspondant edges
+								local edge1 = getEdgeByVerts $ edgeVerts1
+								local edge2 = getEdgeByVerts $ edgeVerts2						
+								if (edge1 != undefined) and (edge2 != undefined) then
+								(
+									v3 = polyop.divideEdge $ edge1 0.5
+									v4 = polyop.divideEdge $ edge2 0.5
+									polyop.createEdge $ v3 v4
+								)
+							)						  
+							
+							--TODO: update/add the new vertices to VertsInfo data
+							-- because potato, we know the new vertices are added to the end, so expand array
+							VertsInfo.count = polyOp.getNumVerts $
+							VertsInfo[ v1 ] = TVertInfo undefined undefined undefined undefined
+							VertsInfo[ v2 ] = TVertInfo undefined undefined undefined undefined
+							local v1Pos = polyOp.getVert $ v1
+							local v2Pos = polyOp.getVert $ v2
+							VertsInfo[v1].RightSide = (v1Pos.x >= 0)
+							VertsInfo[v2].RightSide = (v2Pos.x >= 0)
+							VertsInfo[v1].vPos = v1Pos
+							VertsInfo[v2].vPos = v2Pos						
+							if (v3 != undefined) and (v3 != undefined) then 
+							(
+								VertsInfo[ v3 ] = TVertInfo undefined undefined undefined undefined
+								VertsInfo[ v4 ] = TVertInfo undefined undefined undefined undefined
+								local v3Pos = polyOp.getVert $ v3
+								local v4Pos = polyOp.getVert $ v4
+								VertsInfo[ v3 ].RightSide = (v3Pos.x >= 0 );
+								VertsInfo[ v4 ].RightSide = (V4Pos.x >= 0);
+								VertsInfo[v3].vPos = v3Pos
+								VertsInfo[v4].vPos = v4Pos
+								-- pairing
+								VertsInfo[v1].PairedWith = v3
+								VertsInfo[v3].Pairedwith = v1
+								VertsInfo[v2].Pairedwith = v4
+								VertsInfo[v4].PairedWith = v2
 							)
-						)						  
-						
-						--TODO: update/add the new vertices to VertsInfo data
-						-- because potato, we know the new vertices are added to the end, so expand array
-						VertsInfo.count = polyOp.getNumVerts $
-						VertsInfo[ v1 ] = TVertInfo undefined undefined undefined undefined
-						VertsInfo[ v2 ] = TVertInfo undefined undefined undefined undefined
-						local v1Pos = polyOp.getVert $ v1
-						local v2Pos = polyOp.getVert $ v2
-						VertsInfo[v1].RightSide = (v1Pos.x >= 0)
-						VertsInfo[v2].RightSide = (v2Pos.x >= 0)
-						VertsInfo[v1].vPos = v1Pos
-						VertsInfo[v2].vPos = v2Pos						
-						if (v3 != undefined) and (v3 != undefined) then 
-						(
-							VertsInfo[ v3 ] = TVertInfo undefined undefined undefined undefined
-						 	VertsInfo[ v4 ] = TVertInfo undefined undefined undefined undefined
-							local v3Pos = polyOp.getVert $ v3
-							local v4Pos = polyOp.getVert $ v4
-							VertsInfo[ v3 ].RightSide = (v3Pos.x >= 0 );
-							VertsInfo[ v4 ].RightSide = (V4Pos.x >= 0);
-							VertsInfo[v3].vPos = v3Pos
-							VertsInfo[v4].vPos = v4Pos
-							-- pairing
-							VertsInfo[v1].PairedWith = v3
-							VertsInfo[v3].Pairedwith = v1
-							VertsInfo[v2].Pairedwith = v4
-							VertsInfo[v4].PairedWith = v2
-						)
-						
+							
+						) else messageBox "Please, select 2 edges on the same face."
 					) else messageBox "Please, select 2 edges."
 					
 				)
