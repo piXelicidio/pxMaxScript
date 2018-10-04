@@ -3,6 +3,9 @@
 
 -- Iplement similar funcionality of 3ds Max symmetry tool and extends with useful advanced features..
 
+--TODO:
+-- relative symmetrical vertex move; 
+
 --future macro
 (
 
@@ -14,6 +17,8 @@
 	
 	local baseObject = undefined
 	local VertsInfo = #() --array of TVertInfo
+	local ClipboardIndexes = #() --array of indices;
+	local ClipboardVerts = #() --array of verts
 	
 	local DialogWidth = 180
 	local maxBWidth = DialogWidth - 20
@@ -30,7 +35,9 @@
 		(
 			button btnPosToNeg "+ to -"  height:26 width:70 align:#left
 			button btnNegToPos "- to +" height:26 width:70  offset:[0,-31] align:#right
-			button btnFlip " Flip Symmetry " width:maxBWidth
+			checkbox chkRelative "Relative translation" checked:false tooltip:"Keeps the original position mirroring the offset translation"
+			button btnFlip " Flip Symmetry " width:maxBWidth 
+			button btnRestore "Restore Original" width:maxBWidth
 		)
 		
 		group "Vertex operations"
@@ -122,7 +129,7 @@
 			
 			-- Find pairs by links -------------------------- the cool start here -------------- Edge Connections Analysis
 			print "Finding pairs by edge connections..."
-			proBar.value = 0
+			--proBar.value = 0
 			proBar.color = [255, 255, 0]
 			local NewLinksCount = 0
 			local UnlinkedPairs = ((Result as array ).count / 2) +1
@@ -259,7 +266,7 @@
 			if Flip == unsupplied then Flip = false
 				
 			-- copy Positive positions to Negative on selected object
-			if (classof $)==Editable_Poly) then
+			if ((classof $)==Editable_Poly) then
 			(
 				-- TODO: Find Solution. Currently limited to Editable_Poly objects
 				-- there is a problem with Edit_Poly modifier, I can't set vertices: see: https://forums.cgsociety.org/t/help-me-maxscript-and-editpoly/1026305/7 
@@ -273,13 +280,27 @@
 						(
 							local myPos = polyOp.getvert $ i	
 							local hisPos = polyOp.getvert $ him
-							
-							if Axis=="y" then (myPos.y = - myPos.y;  hisPos.y = - hisPos.y ) else	
-								if Axis=="z" then (myPos.z = - myPos.z; hisPos.z = -hisPos.z ) else
-									if Axis=="x" then ( myPos.x = - myPos.x; hisPos.x = - hisPos.x)
-										
-							if (PosToNeg or Flip) then polyOp.setVert $ him myPos 
-							if ((not PosToNeg) or Flip) then polyOp.setVert $ i hisPos							
+																								
+							if chkRelative.checked==false then
+							(
+								--mirror positions
+								myPos.x = - myPos.x 
+								hisPos.x = - hisPos.x
+								--set to my pair
+								if (PosToNeg or Flip) then polyOp.setVert $ him myPos 
+								if ((not PosToNeg) or Flip) then polyOp.setVert $ i hisPos							
+							) else
+							(
+								--calc offset translations taking oriignal vertices as origin
+								local myOffset = myPos - VertsInfo[i].vPos
+								local hisOffset = hisPos - VertsInfo[him].vPos
+								--mirror the offset translation
+								myOffset.x = - myOffset.x
+								hisOffset.x = - hisOffset.x
+								--apply mirrored  offset on opposite 
+								if (PosToNeg or Flip) then polyOp.setVert $ him (VertsInfo[him].vPos + myOffset)
+								if ((not PosToNeg) or Flip) then polyOp.setVert $ i (VertsInfo[i].vPos + hisOffset)
+							)
 							
 						)						
 					)
@@ -322,6 +343,53 @@
 			MakeSymmetrical Flip:true Axis:"x"
 			)
 		)
+		
+		on btnCopySel pressed do
+		(
+			if ((classof $)==Editable_poly) then
+			(
+				ClipboardIndexes = (polyop.getVertSelection $) as array
+				ClipboardVerts.count = ClipboardIndexes.count
+				for i=1 to ClipboardIndexes.count do in coordsys local
+				(
+					ClipboardVerts[i] = (polyop.getVert $ ClipboardIndexes[i])
+				)
+				btnPaste.text = ("Paste (" + (ClipboardVerts.count as string) + ") ")
+			)
+		)
+		
+		on btnPaste pressed do in coordsys local
+		(
+			undo label:"Paste Verts" on
+			(
+			polyOp.setVert $ ClipboardIndexes ClipboardVerts
+			)
+		)
+		
+		on btnPasteOpposite pressed do in coordsys local
+		(
+			undo label:"Paste Opposite" on
+			(
+				for i=1 to ClipboardIndexes.count do
+				(
+					local maxverts = $.numVerts
+					if ClipboardIndexes[i]<=maxverts then
+					(
+						local opposite = VertsInfo[ ClipboardIndexes[i] ].pairedWith
+						if opposite != undefined then
+						(
+							if opposite <= maxverts then
+							(
+								local opvert = copy ClipboardVerts[i] 
+								opvert.x = -opvert.x
+								polyOp.setVert $ opposite opvert
+							)
+						)
+					)
+				)
+			)
+		)
+		
 		
 	)
 	
