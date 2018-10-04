@@ -20,8 +20,9 @@
 	local ClipboardIndexes = #() --array of indices;
 	local ClipboardVerts = #() --array of verts
 	
-	local DialogWidth = 180
-	local maxBWidth = DialogWidth - 20
+	local DialogWidth = 200
+	local DialogHeight = 600
+	local maxBWidth = DialogWidth - 30
 
 	rollout roll_proSymmetryTools "Pro Symmetry Tools"
 	(
@@ -45,12 +46,8 @@
 			button btnCopySel "Copy Selected" width:maxBWidth
 			button btnPaste "Paste" width:maxBWidth
 			button btnPasteOpposite "Paste Opposite" width:maxBWidth
-		)
-		
-		group "Edit Geometry Symmetrical"
-		(
-			
-		)
+		)		
+
 		/*----------  Advanced FindPairs Algorithm  -----------------		 
 		 
 		 - Find symmetrical pairs of vertices.
@@ -391,11 +388,130 @@
 		)
 		
 		
-	)
+	)--rollout roll_proSymmetryTools ---------
 	
-	--rf = newRolloutFloater "Pro Symmetry Tools" 120 420
-	--addrollout roll_proSymmetryTools rf
-	createDialog roll_proSymmetryTools DialogWidth 500
+		
+	rollout roll_EditGeometry "Edit Geometry Symmetrical" ----------------------------------
+	(
+		checkbox chkEnabledSym "Enabled Sym. Op." checked:true tooltip:"When disabled the Edits are not mirrored."
+		button btnDelete "Delete"
+		button btn2 "btn1"
+		button btn3 "btn1"
+		button btn4 "btn1"
+		button btn5 "btn1"
+		button btn6 "btn1"		
+		
+		-- VertsInfo is broken, there is a New Verts Order, fix it!
+		function DetectNewVertsOrder OldVerts NewVerts =
+		(
+			
+			local NewIndex = #()
+			local NotFound = #()
+			local found = false
+			NewIndex.count = OldVerts.count
+			-- detecting by position where are the old vertices
+			for o=1 to OldVerts.count do
+			(
+				found = false
+				for n=1 to NewVerts.count do
+				(
+					if (distance OldVerts[o] NewVerts[n]) <= Tolerance then
+					(
+						-- found my new me
+						NewIndex[o] = n
+						found = true
+					)
+				)
+				if not found then append NotFound o
+			)
+			
+			--	Fix VertsInfo
+			local newVertsInfo = #()
+			newVertsInfo.count = NewVerts.count
+			print oldVerts.count
+			print NewVerts.count			
+			for o = 1 to NewIndex.count do
+			(
+				--moving to new location
+				local ni = NewIndex[o]
+				if ni != undefined then
+				(
+					newVertsInfo[ni] = vertsInfo[o]
+					--Updating pairs				
+					local newPair = VertsInfo[o].pairedWith
+					if newPair!= undefined then
+					(
+						if newPair <= NewIndex.count then newPair = NewIndex[ newPair ] else newPair = undefined
+					)
+					newVertsInfo[ni].pairedWith = newPair
+					--Updating linkedTo???
+					-- newVertsInfo[o].linkedTo =  --linkedTo is a bitArray, its info gets obsolete now, update it IF NEEDED.
+				
+				)
+			)
+			--replace old with new
+			vertsInfo = newVertsInfo
+		)
+			
+		-- get the mirrored vertex selection; vertSel is bitArray, return bitArray
+		function mirrorVertSel  vertSel =
+		(
+			result = #{}
+			vertlist = vertSel as array
+			for i=1 to vertlist.count do
+			(
+				local pair = VertsInfo[ vertlist[i] ].pairedWith
+				if pair != undefined then
+				(
+					append result pair
+				)
+			)
+			result
+		)
+		
+		on btnDelete pressed do undo on
+		(
+			if ( (classof $ ) == Editable_Poly) then
+			(
+				--Vertices?
+				if SubObjectLevel == 1 then
+				(
+					local vertSel = polyOp.getVertSelection $
+					local oldVerts = #()
+					local newVerts = #()
+					
+					--saving old estate
+					oldVerts.count = polyOp.getNumVerts $
+					for i=1 to oldVerts.count do
+					(
+						oldVerts[i] = polyOp.getVert $ i
+					)
+					
+					-- destructive operation
+					if chkEnabledSym.checked then
+					(
+						local mirrSel = mirrorVertSel vertSel
+						vertSel = vertSel + mirrSel
+					)
+					polyOp.deleteVerts $ vertSel
+					
+					-- restoring the order verts info
+					newVerts.count = polyOp.getNumVerts $
+					for i=1 to newVerts.count do
+					(
+						newVerts[i] = polyOp.getVert $ i
+					)
+					DetectNewVertsOrder OldVerts NewVerts
+					
+				)--end-if subobjectlevel 
+			)
+		)
+	)--rollout roll_EditGeometry ---end --
+	
+	rf = newRolloutFloater "Pro Symmetry Tools"  DialogWidth DialogHeight
+	addrollout roll_proSymmetryTools rf
+	addrollout roll_EditGeometry rf
+	--createDialog roll_proSymmetryTools DialogWidth 500
 
 )
 
