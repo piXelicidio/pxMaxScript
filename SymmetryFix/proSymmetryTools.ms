@@ -4,7 +4,10 @@
 -- Iplement similar funcionality of 3ds Max symmetry tool and extends with useful advanced features..
 
 --TODO:
--- relative symmetrical vertex move; 
+-- collapse vertices, weld
+-- Symmetry attach! Powerful thingy (think about UV mapping)
+-- extrude face, edge
+
 
 --future macro
 (
@@ -23,7 +26,166 @@
 	local DialogWidth = 200
 	local DialogHeight = 600
 	local maxBWidth = DialogWidth - 30
+    
+    -- common functions			
+    
+    --get the mirrored vertecies, verts :array of vertices
+    -- resulting order and count is not guarateed, some verts may not be found
+    function mirrorVerts verts =
+    (
+        local result = #()
+        for i=1 to verts.count do
+        (
+            local pair = VertsInfo[ verts[i] ].pairedWith
+            if pair != undefined then append result pair                
+        )
+        result
+    )
+    
+    -- get the mirrored vertex selection; vertSel is bitArray, return bitArray
+    function mirrorVertSel  vertSel =
+    (
+        local result = #{}
+        local vertlist = vertSel as array
+        result = mirrorVerts vertlist
+        result as bitArray
+    )
+    
+    
+    
+   --get Face formed by Verts (array of verts indices), return Face Num or Undefined
+   -- if you provide not enough verts, result will return first face that include them all
+    function getFaceByVerts epoly Verts =
+    (
+        local faces = ( polyOp.getFacesUsingVert epoly Verts ) as array
+        local result = undefined
+        local VertsSet = Verts as bitarray
+        for i=1 to faces.count do
+        (
+            local faceVerts = (polyOp.getFaceVerts epoly faces[i]) as bitArray
+            --coincidences
+            local coincidences = faceVerts * (VertsSet)
+            --all
+            if  (coincidences as array).count == verts.count then
+            (
+                Result = Faces[i]
+                exit
+            )
+            
+        )
+       Result
+    )
+    
+    
+    -- get the mirrored face selection; faceSel is bitArray;; return bitArray
+    function mirrorFaceSel Epoly faceSel =
+    (
+        local result = #{}
+        local faceList = faceSel as array
+        for i=1 to faceList.count do
+        (
+            -- find pair face of faceList[i]
+            local faceVerts = polyOp.getFaceVerts EPoly faceList[i]            
+            -- get the mirrored vertices
+           faceVerts = mirrorVerts faceVerts
+           local mirroredFace = getFaceByVerts epoly faceVerts
+           if mirroredFace != undefined then append result mirroredFAce 
+        )
+        result
+    )   
 
+    -- VertsInfo is broken, there is a New Verts Order, fix it!
+    function DetectNewVertsOrder OldVerts NewVerts =
+    (
+        
+        local NewIndex = #()
+        local NotFound = #()
+        local found = false
+        NewIndex.count = OldVerts.count
+        -- detecting by position where are the old vertices
+        for o=1 to OldVerts.count do
+        (
+            found = false
+            for n=1 to NewVerts.count do
+            (
+                if (distance OldVerts[o] NewVerts[n]) <= Tolerance then
+                (
+                    -- found my new me
+                    NewIndex[o] = n
+                    found = true
+                )
+            )
+            if not found then append NotFound o
+        )
+        
+        --	Fix VertsInfo
+        local newVertsInfo = #()
+        newVertsInfo.count = NewVerts.count
+        print oldVerts.count
+        print NewVerts.count			
+        for o = 1 to NewIndex.count do
+        (
+            --moving to new location
+            local ni = NewIndex[o]
+            if ni != undefined then
+            (
+                newVertsInfo[ni] = vertsInfo[o]
+                --Updating pairs				
+                local newPair = VertsInfo[o].pairedWith
+                if newPair!= undefined then
+                (
+                    if newPair <= NewIndex.count then newPair = NewIndex[ newPair ] else newPair = undefined
+                )
+                newVertsInfo[ni].pairedWith = newPair
+                --Updating linkedTo???
+                -- newVertsInfo[o].linkedTo =  --linkedTo is a bitArray, its info gets obsolete now, update it IF NEEDED.
+            
+            )
+        )
+        --replace old with new
+        vertsInfo = newVertsInfo
+    )
+
+    
+    --get Edge formed by Verts (array of two indices), return Edge Num or Undefined
+    function getEdgeByVerts epoly Verts =
+    (
+        local edges1 = polyOp.getEdgesUsingVert epoly #(Verts[1])
+        local edges2 = polyOp.getEdgesUsingVert epoly #(Verts[2])
+        local Result = edges1 * edges2			
+        if Result.isEmpty then Result = undefined else
+        (
+            Result = Result as array
+            if Result.count == 1 then Result = Result[1] else Result = undefined
+        )
+        Result
+    )
+    
+    --check if edges are part of the same face, edges:Array ,return boolean,
+    function AreEdgesOnSameFace EPoly Edges =
+    (
+        --get all faces with relationship to the given edges
+        local bitEdges = Edges as bitarray
+        local faces = polyop.getFacesUsingEdge EPoly Edges 
+        faces = faces as array
+        local result = false
+        print faces
+        for i=1 to faces.count do
+        (
+            -- get each face edges
+            local faceEdges =  polyOp.getFaceEdges EPoly faces[i]
+            --check if one of the faces contains all the edges
+            faceEdges = faceEdges as bitarray
+            --check the intersection between sets
+            faceEdges = faceEdges * bitEdges				
+            -- if the intersection count is = to Edges count then is a match
+            Result = (faceEdges as array).count == Edges.count
+            if Result then exit
+        )
+        Result
+    )    
+
+    --rollouts
 	rollout roll_proSymmetryTools "Pro Symmetry Tools"
 	(
 		progressbar proBar value:100 height:8 color:[200,0,0]
@@ -401,119 +563,12 @@
 		button btn5 "btn1"
 		button btn6 "btn1"		
 		
-		-- VertsInfo is broken, there is a New Verts Order, fix it!
-		function DetectNewVertsOrder OldVerts NewVerts =
-		(
-			
-			local NewIndex = #()
-			local NotFound = #()
-			local found = false
-			NewIndex.count = OldVerts.count
-			-- detecting by position where are the old vertices
-			for o=1 to OldVerts.count do
-			(
-				found = false
-				for n=1 to NewVerts.count do
-				(
-					if (distance OldVerts[o] NewVerts[n]) <= Tolerance then
-					(
-						-- found my new me
-						NewIndex[o] = n
-						found = true
-					)
-				)
-				if not found then append NotFound o
-			)
-			
-			--	Fix VertsInfo
-			local newVertsInfo = #()
-			newVertsInfo.count = NewVerts.count
-			print oldVerts.count
-			print NewVerts.count			
-			for o = 1 to NewIndex.count do
-			(
-				--moving to new location
-				local ni = NewIndex[o]
-				if ni != undefined then
-				(
-					newVertsInfo[ni] = vertsInfo[o]
-					--Updating pairs				
-					local newPair = VertsInfo[o].pairedWith
-					if newPair!= undefined then
-					(
-						if newPair <= NewIndex.count then newPair = NewIndex[ newPair ] else newPair = undefined
-					)
-					newVertsInfo[ni].pairedWith = newPair
-					--Updating linkedTo???
-					-- newVertsInfo[o].linkedTo =  --linkedTo is a bitArray, its info gets obsolete now, update it IF NEEDED.
-				
-				)
-			)
-			--replace old with new
-			vertsInfo = newVertsInfo
-		)
-			
-		-- get the mirrored vertex selection; vertSel is bitArray, return bitArray
-		function mirrorVertSel  vertSel =
-		(
-			local result = #{}
-			vertlist = vertSel as array
-			for i=1 to vertlist.count do
-			(
-				local pair = VertsInfo[ vertlist[i] ].pairedWith
-				if pair != undefined then
-				(
-					append result pair
-				)
-			)
-			result
-		)
-		
-		--get Edge formed by Verts (array of two indices), return Edge Num or Undefined
-		function getEdgeByVerts epoly Verts =
-		(
-			local edges1 = polyOp.getEdgesUsingVert epoly #(Verts[1])
-			local edges2 = polyOp.getEdgesUsingVert epoly #(Verts[2])
-			local Result = edges1 * edges2			
-			if Result.isEmpty then Result = undefined else
-			(
-				Result = Result as array
-				if Result.count == 1 then Result = Result[1] else Result = undefined
-			)
-			Result
-		)
-		
-		--check if edges are part of the same face, edges:Array ,return boolean,
-		function AreEdgesOnSameFace EPoly Edges =
-		(
-			--get all faces with relationship to the given edges
-			local bitEdges = Edges as bitarray
-			local faces = polyop.getFacesUsingEdge EPoly Edges 
-			faces = faces as array
-			local result = false
-            print faces
-			for i=1 to faces.count do
-		 	(
-				-- get each face edges
-				local faceEdges =  polyOp.getFaceEdges EPoly faces[i]
-				--check if one of the faces contains all the edges
-				faceEdges = faceEdges as bitarray
-				--check the intersection between sets
-				faceEdges = faceEdges * bitEdges				
-                -- if the intersection count is = to Edges count then is a match
-				Result = (faceEdges as array).count == Edges.count
-                if Result then exit
-			)
-			Result
-		)
-		
 		on btnDelete pressed do undo on
 		(
 			if ( (classof $ ) == Editable_Poly) then
 			(
 				--Vertices?
-				if SubObjectLevel == 1 then
-				(
+				
 					local vertSel = polyOp.getVertSelection $
 					local oldVerts = #()
 					local newVerts = #()
@@ -526,22 +581,37 @@
 					)
 					
 					-- destructive operation
-					if chkEnabledSym.checked then
-					(
-						local mirrSel = mirrorVertSel vertSel
-						vertSel = vertSel + mirrSel
-					)
-					polyOp.deleteVerts $ vertSel
+                    if SubObjectLevel == 1 then
+                    (
+                        if chkEnabledSym.checked then
+                        (
+                            local mirrSel = mirrorVertSel vertSel
+                            vertSel = vertSel + mirrSel
+                        )
+                        polyOp.deleteVerts $ vertSel
+                   ) else if SubObjectLevel == 4 then
+                   (
+                       local faceSel = polyOp.getFaceSelection $
+                       if chkEnabledSym.checked then
+                       (
+                           local mirrSel = mirrorFaceSel $ faceSel
+                           faceSel = faceSel + mirrSel
+                       )
+                       polyOp.deleteFaces $ faceSel                       
+                   )
+                   
+                   
 					
 					-- restoring the order verts info
 					newVerts.count = polyOp.getNumVerts $
 					for i=1 to newVerts.count do
 					(
 						newVerts[i] = polyOp.getVert $ i
-					)
+					)                    
+                    
 					DetectNewVertsOrder OldVerts NewVerts
 					
-				)--end-if subobjectlevel 
+				
 			)
 		)--on btnDelete
 		
@@ -610,7 +680,7 @@
 							)						  
 							
 							--TODO: update/add the new vertices to VertsInfo data
-							-- because potato, we know the new vertices are added to the end, so expand array
+							-- because potato we know the new vertices are added to the end, so expand array
 							VertsInfo.count = polyOp.getNumVerts $
 							VertsInfo[ v1 ] = TVertInfo undefined undefined undefined undefined
 							VertsInfo[ v2 ] = TVertInfo undefined undefined undefined undefined
