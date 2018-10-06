@@ -188,11 +188,15 @@
     --rollouts
 	rollout roll_proSymmetryTools "Pro Symmetry Tools"
 	(
-		progressbar proBar value:100 height:8 color:[200,0,0]
-		pickbutton btnPickObject " Pick Object " toolTip:"Pick Editable Poly to base symmetry on" width:maxBWidth height:30
-		checkbox chkEdgeAnalysis "Edge Analysis" checked:true tooltip:"Analyze edge connections to find symmetry. Slow for high poly counts."  align:#left
-		radioButtons radioAxis "" labels:#("X" ) default:1 tooltip:"Axis"
-		spinner spnTolerance "Tolerance:" range:[0,100,0.005] type:#float scale:0.001 align:#left 
+        group "Symmetry Data"
+        (
+            progressbar proBar value:100 height:8 color:[200,0,0]
+            pickbutton btnPickObject " Pick Object " toolTip:"Pick Editable Poly to base symmetry on" width:maxBWidth height:30
+            checkbox chkEdgeAnalysis "Edge Analysis" checked:true tooltip:"Analyze edge connections to find symmetry. Slow for high poly counts."  align:#left
+            radioButtons radioAxis "" labels:#("X" ) default:1 tooltip:"Axis"
+            spinner spnTolerance "Tolerance:" range:[0,100,0.005] type:#float scale:0.001 align:#left 
+            button btnSwitchSides "Force Switch Sides" tooltip:"Tell selected vertices they are from the other side of the axis even if they are not."
+        )
 		
 		group "Make Symmetrical"
 		(
@@ -296,8 +300,9 @@
 			print ("Done. delay: "+(timeStamp()-t1) as string )
             
 			
-			-- Find pairs by links -------------------------- the cool start here -------------- Edge Connections Analysis
+			-- Find pairs by links -------------------------- the cool start here -------------- Edge Connections Analysis            
             local ResultList = result as array
+            -- ResultList cointatins the vertices that has not pairs yet.
 			print ("Finding pairs by edge connections. Verts count: "+(ResultList.count as string))
             t1 = timeStamp()
 			--proBar.value = 0
@@ -310,19 +315,19 @@
 			(
 				Local FoundNewPairs=0
 				
-				for i=1 to N do in coordsys local
+				for r=1 to ResultList.count do in coordsys local                    
 				(		
+					local i = ResultList[r]
 					
-					if VertsInfo[i].RightSide then
-					(
 						if VertsInfo[i].PairedWith==undefined then
 						(
 							Result[i] = true
 							local MyCandidate = 0
 							local MyCandidateNum = 0
 							
-							for j=1 to N-1 do
-							(
+							for rr=1 to ResultList.count do
+							(                                
+                                local j = ResultList[rr]  -- to avoid rename all J vars O.o
 								if i!=j then 
 								(							
 									local RSymLinks = #{}
@@ -330,7 +335,7 @@
 									local LSymLinks = #{}
 									local LUnpairedLinks = 0
 									--Remap the links using paired Vertice Numbers. 
-									--Right
+									--Side 1
 									for k in VertsInfo[i].LinkedTo do
 									(
 										if VertsInfo[k].PairedWith==undefined then
@@ -338,16 +343,11 @@
 											RUnpairedLinks +=  1
 										) else 
 										(
-											if VertsInfo[k].RightSide then 
-											(
-												RSymLinks = RSymLinks + #{ k }
-											) else
-											(
-												RSymLinks = RSymLinks + #{ VertsInfo[k].PairedWith }
-											)
+                                            -- collect just the links indices for this side
+											RSymLinks = RSymLinks + #{ k }											
 										)					
 									)
-									--left
+									--Side 2
 									for k in VertsInfo[j].LinkedTo do
 									(
 										if VertsInfo[k].PairedWith==undefined then
@@ -355,13 +355,8 @@
 											LUnpairedLinks += 1
 										) else 
 										(
-											if VertsInfo[k].RightSide then 
-											(
-												LSymLinks = LSymLinks + #{ k }
-											) else
-											(
-												LSymLinks = LSymLinks + #{ VertsInfo[k].PairedWith } 
-											)
+                                            -- for this side The pairs of the links
+											LSymLinks = LSymLinks + #{ VertsInfo[k].PairedWith } 											
 										)					
 									)
 									
@@ -404,9 +399,11 @@
 								--We can pair vert I with vert MyCandidate
 								VertsInfo[i].PairedWith = MyCandidate
 								VertsInfo[MyCandidate].PairedWith = i
+                                -- Revise the Side of the vertices.
+                                
 								FoundNewPairs += 1 
 								Result[i]=false
-								Result[MyCandidate]=false
+								Result[MyCandidate]=false                                
 								NewLinksCount += 1
 								--updating progressbar
 								proBar.value = (100 * NewLinkscount) / UnlinkedPairs	
@@ -414,8 +411,10 @@
 							)--if MyCandidateNum == 1
 							
 						)--if VertsInfo[i].PairedWith==undefined
-					)--if VertsInfo[i].RightSide
+					
 				)--For I end
+                
+                
 				--print ("Found New Pairs: " + (FoundNewPairs	as string))
 			)	while FoundNewPairs!=0
 				
@@ -561,6 +560,21 @@
 				)
 			)
 		)
+        
+        on btnSwitchSides pressed do 
+        (
+            if ((classof $)==Editable_poly) and (SubobjectLevel == 1) then
+            (
+                verts = (polyop.getVertSelection $) as array
+                for i=1 to verts.count do
+                (
+                    if verts[i] < VertsInfo.count then
+                    (
+                        VertsInfo[verts[i]].RightSide = not VertsInfo[verts[i]].RightSide
+                    )
+                )
+            )
+        )
 		
 		
 	)--rollout roll_proSymmetryTools ---------
