@@ -227,19 +227,25 @@
 		(
 			local N = polyop.getNumVerts EPolyObj 
 			local Result = #{} -- Result is a bitArray, will tell non paired (=true) vertices at the end 
+            local t1 = 0
 			Result.count = N	  --with N elements			
 			Result = - Result  -- inverting makes all elements true.
 			
 			local UnPairedTag = N+99
+            
+            local positiveVerts = #()
+            local negativeVerts = #()
 			
 			VertsInfo.count = N
 			
 			--initializing vertInfo
+            t1 = timeStamp()
 			for i=1 to N do in coordsys local
 			(
 				local v1 = polyop.getVert EPolyObj i
-				VertsInfo[i] = TVertInfo undefined undefined undefined v1
-				VertsInfo[i].RightSide = ( v1.x >= 0 )  -- RightSide = positive
+				VertsInfo[i] = TVertInfo undefined undefined undefined v1				
+                VertsInfo[i].RightSide = ( v1.x >= 0 )  -- RightSide = positive
+                if VertsInfo[i].RightSide then (  append PositiveVerts i )  else ( append negativeVerts i )
 				
 				--Vertices on the "center" Symmetry AXE paired with themselves. 
 				If 	abs(v1.x) <= Tolerance then 
@@ -259,40 +265,47 @@
 				--remove self
 				VertsInfo[i].Linkedto =  VertsInfo[i].Linkedto - #{i}
 			)
+         
+            print ("Initializing Verts Info. delay: "+(timeStamp()-t1) as string)
 			
 			
 			--Finding Pairs by position------------------------------- The standard easy way				
 			print "Finding symmetrical pairs..."
+            t1 = timeStamp()
 			proBar.color = [0,255,255]
-			for i=1 to N-1 do in coordsys local
+			for i=1 to positiveVerts.count do in coordsys local
 			(
-				local v1 = polyop.getVert EPolyObj i							
+				local v1 = VertsInfo[ positiveVerts[i] ].vPos
 				
-				for j=(i+1) to N do
+				for j=1 to negativeVerts.count do
 				(			
-					v2 = polyop.getVert EPolyObj j
+					local v2 = copy VertsInfo[ negativeVerts[j] ].vPos
 					v2.x = -v2.x
-					d = (distance v1 v2)
+					local d = (distance v1 v2)
 					
 					if d<=Tolerance then
 					(
-						VertsInfo[i].PairedWith = j
-						VertsInfo[j].PairedWith = i	
-						Result[i]=false
-						Result[j]=false
+						VertsInfo[ positiveVerts[i] ].PairedWith = negativeVerts[j]
+						VertsInfo[ negativeVerts[j] ].PairedWith = positiveVerts[i] 
+						Result[ positiveVerts[i] ]=false
+						Result[ negativeVerts[j] ]=false
 					)	
 				)
 				proBar.value = (i * 100) / N
 			)
-			print "Done."
+			print ("Done. delay: "+(timeStamp()-t1) as string )
+            
 			
 			-- Find pairs by links -------------------------- the cool start here -------------- Edge Connections Analysis
-			print "Finding pairs by edge connections..."
+            local ResultList = result as array
+			print ("Finding pairs by edge connections. Verts count: "+(ResultList.count as string))
+            t1 = timeStamp()
 			--proBar.value = 0
 			proBar.color = [255, 255, 0]
-			local NewLinksCount = 0
-			local UnlinkedPairs = ((Result as array ).count / 2) +1
-			if (chkEdgeAnalysis.checked==true) and (Result.count!= 0) then 
+			local NewLinksCount = 0            
+			local UnlinkedPairs = (ResultList.count / 2) +1            
+            
+			if (chkEdgeAnalysis.checked==true) and (ResultList.count != 0) then 
 			do
 			(
 				Local FoundNewPairs=0
@@ -406,9 +419,9 @@
 				--print ("Found New Pairs: " + (FoundNewPairs	as string))
 			)	while FoundNewPairs!=0
 				
-			print "Done."
-			print NewLinkscount
-			print UnlinkedPairs
+			print ("Done. delay: " +(timeStamp()-t1) as string)
+			print ( "New found: " + (NewLinkscount as string))
+			print ("Unpaired: " + (UnlinkedPairs as string))
 			proBar.value = 100;
 			proBar.color = [0,255,0]
 			
