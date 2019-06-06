@@ -42,9 +42,9 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		checkButton btnFill "Fill Area" pos:[210, bmpSize + 80] width:90 height:30 enabled:false
 		button btnUndo "Undo" pos:[210, bmpSize + 120] width:90 height:30 
 		
-		function updateColorBitmap = 
+		function updateColorBitmap diffMap = 
 		(
-			copy $.material.diffuseMap.bitmap tempBitmap
+			tempBitmap = copy diffMap.bitmap
 			bmpColorPal.bitmap = tempBitmap
 		)
 		
@@ -57,8 +57,14 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		
 		
 		function updateCurrColor =
-		(			
-			copy $.material.diffuseMap.bitmap tempBitmap	
+		(	    
+             if classof($.material)==Arch___Design__mi then
+            (              
+                tempBitmap = copy $.material.diffuse_Color_Map.bitmap
+            ) else
+            (                                
+                tempBitmap = $.material.diffuseMap.bitmap
+            )   
 						
 			local p = UVtoColor curr_UV 									
 			if p != undefined then
@@ -327,9 +333,19 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 					(
 						if theObj.material != undefined then
 						(
-							if theObj.material.diffuseMap != undefined then
+                            local diffMap = undefined
+                            if classof($.material)==Arch___Design__mi then
+                            (
+                                diffMap = $.material.diffuse_Color_Map
+                            ) else
+                            (                                
+                                diffMap = $.material.diffuseMap                                
+                            )     
+                            
+                            
+							if diffMap != undefined then
 							( 								
-								updateColorBitmap()
+								updateColorBitmap(diffMap)
 								updateCurrColor()
 								startPainting3D() 
 								isOk = true
