@@ -367,8 +367,53 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			if (LbxChannels.selection!=undefined)  then DeleteItem MorphList LbxChannels.selection
 			UpdateListbox()
 		)
-	)
+	)--endRollout
 	
-	rf = newRolloutFloater "pX Quick Morph Sliders" 406 420
-    addRollout roll_MorphSliders rf	
+    rollout roll_Tools "Tools" width:395 height:38
+    (
+        local objWithMorpher = undefined
+        local operations = #("replace", "add")
+        function morphFilter obj = (obj.modifiers[#morpher]!=undefined)
+        group "Assign Multiple Morph Targets" (
+            pickbutton pickMorpher "Pick Object with Morpher" pos:[7,25] width:139 height:29 filter:morphFilter
+            button btnAssignMorphTargets "<<-- Assign all selected as Morph Tergerts" pos:[156,25] width:230 height:29
+            radiobuttons radioAction "Operation" labels:operations default:1 columns:2
+            checkBox chkUsePostFix "Use only name text after last underscore" checked:true
+        )
+        
+        on pickMorpher picked obj  do 
+        (
+            if obj != undefined then 
+            (
+                pickMorpher.text = obj.name
+                objWithMorpher = obj
+            )
+        )
+        
+        on btnAssignMorphTargets pressed do 
+        (
+            if objWithMorpher != undefined then  
+            (
+                morpherMod  = objWithMorpher.modifiers[#morpher]
+                if morpherMod != undefined then
+                (                        
+                        local usePostfixName = chkUsePostFix.checked --use only last part of object name as marph target channel name
+                        for i=1 to selection.count do 
+                        (
+                            local obj =selection[i]
+                            local targetString = (FilterString obj.name "_")
+                            local postfix = targetString[ targetString.count ]
+                            WM3_MC_BuildFromNode morpherMod i obj 
+                            if usePostfixName then
+                            (
+                                WM3_MC_SetName morpherMod i postfix
+                            )
+                        )
+                )
+            )                
+        )
+    )
+	rf = newRolloutFloater "pX Quick Morph Sliders" 406 550
+    addRollout roll_MorphSliders rf
+    addRollout roll_Tools rf 
 )

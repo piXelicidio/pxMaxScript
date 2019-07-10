@@ -1,4 +1,4 @@
-macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
+﻿macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 (
 	local MorphList = #() --[i][1]= name [1][2] subAnim
 	local MixItemUp     = 0
@@ -42,7 +42,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 		HyperLink linkDenys "by Denys Almaral" pos:[294,361] width:100 height:17 color:(color 0 0 255) hovercolor:(color 0 100 255) address:"http://www.denysalmaral.com" 
  
  
-		HyperLink LinkHelp "(?) Help" pos:[344,12] width:43 height:16 color:(color 0 0 255) hovercolor:(color 0 100 255) address:"http://www.denysalmaral.com/2015/03/px-quick-morph-sliders-creation-tool.html"
+		HyperLink LinkHelp "(?) Help" pos:[344,12] width:43 height:16 color:(color 0 0 255) hovercolor:(color 0 100 255) address:"http://www.denysalmaral.com/2012/04/px-spritesrender-3ds-max-scripted.html"
 		
 		function FreezeTransform CurObj = 	
 		( 			
@@ -87,7 +87,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 
 		on btnCreate pressed do
 		(
-				-- Create Simple Sliders
+			
 				--settings
 				local replaceSliders = true
 				local skipWired = false								
@@ -240,8 +240,6 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 		)
 		on btnCreateMix pressed do
 		(
-			-- Create a Mixed morphs slider
-			
 			local replaceSliders = true
 			local skipWired = false				
 			local SlidersSDx = SpnSize.value + 1
@@ -289,7 +287,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 					
 					ncY.upper_limit = SliderSize
 					moName = moName + "_" + MorphList[MixItemUp][1]
-					paramWire.connect subaniY MorphList[MixItemUp][2] ("Y_Position*100/"+(SliderSize as string)+"*(if Y_Position>0 then 1 else 0)")
+					paramWire.connect subaniY MorphList[MixItemUp][2] ("Y_Position*100/"+(SliderSize as string))
 					paramWire.connect subaniY rect.baseObject[#width] ("Y_Position/2+0.1")	
 					sbase.length = SliderSize*2
 				)
@@ -305,7 +303,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 					
 					ncY.lower_limit = -SliderSize	
 					moName = moName + "_" + MorphList[MixItemDown][1]
-					paramWire.connect subaniY MorphList[MixItemDown][2] ("Y_Position*100/-"+(SliderSize as string)+"*(if Y_Position<0 then 1 else 0)")
+					paramWire.connect subaniY MorphList[MixItemDown][2] ("Y_Position*100/-"+(SliderSize as string))
 					paramWire.connect subaniY rect.baseObject[#width] ("Y_Position/-2+0.1")		
 					sbase.length = SliderSize*2	
 				)
@@ -321,7 +319,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 										
 					ncX.lower_limit = -SliderSize
 					moName = moName + "_" + MorphList[MixItemLeft][1]
-					paramWire.connect subaniX MorphList[MixItemLeft][2] ("X_Position*100/-"+(SliderSize as string)+"*(if X_Position<0 then 1 else 0)")
+					paramWire.connect subaniX MorphList[MixItemLeft][2] ("X_Position*100/-"+(SliderSize as string))
 					paramWire.connect subaniX rect.baseObject[#width] ("X_Position/-2+0.1")		
 					sbase.Width = SliderSize*2	
 				)
@@ -337,7 +335,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 					
 					ncX.upper_limit = SliderSize
 					moName = moName + "_" + MorphList[MixItemRight][1]
-					paramWire.connect subaniX MorphList[MixItemRight][2] ("X_Position*100/"+(SliderSize as string)+"*(if X_Position>0 then 1 else 0)")
+					paramWire.connect subaniX MorphList[MixItemRight][2] ("X_Position*100/"+(SliderSize as string))
 					paramWire.connect subaniX rect.baseObject[#width] ("X_Position/2+0.1")	
 					sbase.width = SliderSize*2
 				)
@@ -368,8 +366,53 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			if (LbxChannels.selection!=undefined)  then DeleteItem MorphList LbxChannels.selection
 			UpdateListbox()
 		)
-	)
+	)--endRollout
 	
-	rf = newRolloutFloater "pX Quick Morph Sliders" 406 420
-    addRollout roll_MorphSliders rf	
-) 
+    rollout roll_Tools "Tools" width:395 height:38
+    (
+        local objWithMorpher = undefined
+        local operations = #("replace", "add")
+        function morphFilter obj = (obj.modifiers[#morpher]!=undefined)
+        group "Assign Multiple Morph Targets" (
+            pickbutton pickMorpher "Pick Object with Morpher" pos:[7,25] width:139 height:29 filter:morphFilter
+            button btnAssignMorphTargets "<<-- Assign all selected as Morph Tergerts" pos:[156,25] width:230 height:29
+            radiobuttons radioAction "Operation" labels:operations default:1 columns:2
+            checkBox chkUsePostFix "Use only name text after last underscore" checked:true
+        )
+        
+        on pickMorpher picked obj  do 
+        (
+            if obj != undefined then 
+            (
+                pickMorpher.text = obj.name
+                objWithMorpher = obj
+            )
+        )
+        
+        on btnAssignMorphTargets pressed do 
+        (
+            if objWithMorpher != undefined then  
+            (
+                morpherMod  = objWithMorpher.modifiers[#morpher]
+                if morpherMod != undefined then
+                (                        
+                        local usePostfixName = chkUsePostFix.checked --use only last part of object name as marph target channel name
+                        for i=1 to selection.count do 
+                        (
+                            local obj =selection[i]
+                            local targetString = (FilterString obj.name "_")
+                            local postfix = targetString[ targetString.count ]
+                            WM3_MC_BuildFromNode morpherMod i obj 
+                            if usePostfixName then
+                            (
+                                WM3_MC_SetName morpherMod i postfix
+                            )
+                        )
+                )
+            )                
+        )
+    )
+	rf = newRolloutFloater "pX Quick Morph Sliders" 406 550
+    addRollout roll_MorphSliders rf
+    addRollout roll_Tools rf 
+)
