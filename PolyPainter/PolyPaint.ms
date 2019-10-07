@@ -3,6 +3,7 @@
 
 -- Updates
 
+-- 2019-10-07 ability to copy paste UV colors coords from Win clipboard 
 -- implmented Undo levels
 -- added Flood Fill algorithm
 -- Added Mirror functionality
@@ -34,13 +35,19 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		label lblInfo "Select object and press Start Painting Tool" pos:[10,10]
 		checkButton paint3D "Start Paint Tool" pos:[18, bmpSize + 10 ] width:126 height:55		
 		button btnFullRepaint "Full Repaint" pos:[28,bmpSize + 20 + 55]  width:100 height:40
-		checkbox chkSelectedOnly "Selected faces only" pos:[28, bmpSize + 30 + 90] checked:false
-		imgTag imgCurrColor bitmap:colorBitmap pos:[150, bmpSize + 10] width:50 height:50
-		label lbl3dPickColor "Alt = 3D color picker" pos:[210, bmpSize + 10] 
-		checkbox chkMirror "Mirror Paint" pos:[210,bmpSize + 30] checked:false
-		spinner spnSpread "Spread" range:[0,10,0] type:#integer pos:[240, bmpSize + 50] width:50
-		checkButton btnFill "Fill Area" pos:[210, bmpSize + 80] width:90 height:30 enabled:false
-		button btnUndo "Undo" pos:[210, bmpSize + 120] width:90 height:30 
+		checkbox chkSelectedOnly "Selected faces only" pos:[28, bmpSize + 30 + 90+20] checked:false
+		imgTag imgCurrColor bitmap:colorBitmap pos:[150, bmpSize + 10+20] width:50 height:50
+        
+        spinner spnU "U" range:[0,1,0] type:#float pos:[160, bmpSize + 10 ] width:60 scale:0.001
+        spinner spnV "V" range:[0,1,0] type:#float pos:[230, bmpSize + 10 ] width:60 scale:0.001
+        button btnUV_copy "C" pos:[295, bmpSize + 10] width:16 height:16 tooltip:"Copy"
+        button btnUV_paste "P" pos:[315, bmpSize + 10] width:16 height:16 tooltip:"Paste"
+        button btnUV_set "S" pos:[335, bmpSize + 10] width:16 height:16 tooltip:"Set"
+		label lbl3dPickColor "Alt = 3D color picker" pos:[210, bmpSize + 10+20] 
+		checkbox chkMirror "Mirror Paint" pos:[210,bmpSize + 30+20] checked:false
+		spinner spnSpread "Spread" range:[0,10,0] type:#integer pos:[240, bmpSize + 50+20] width:50
+		checkButton btnFill "Fill Area" pos:[210, bmpSize + 80+20] width:90 height:30 enabled:false
+		button btnUndo "Undo" pos:[210, bmpSize + 120+20] width:90 height:30 
 		
 		function updateColorBitmap diffMap = 
 		(
@@ -63,7 +70,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
                 tempBitmap = copy $.material.diffuse_Color_Map.bitmap
             ) else
             (                                
-                tempBitmap = $.material.diffuseMap.bitmap
+                tempBitmap = copy $.material.diffuseMap.bitmap
             )   
 						
 			local p = UVtoColor curr_UV 									
@@ -82,6 +89,10 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				setPixels tempBitmap [xx, yy-1] #(color 0 0 0)
 				bmpColorPal.bitmap = tempBitmap
 			)
+            
+            --set UV coords on spinners
+            spnU.value = curr_UV.x
+            spnV.value = curr_UV.y
 		)
 		
 			
@@ -445,7 +456,33 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				btnUndo.enabled = false
 			)
 		)
+        
+        on btnUV_copy pressed do
+        (
+           local ss = (stringStream "") 
+           print spnU.value to:ss
+           print spnV.value to:ss
+           setclipboardText (ss as string)
+        )
 		
+        on btnUV_paste pressed do
+        (
+            local s = getclipboardText()
+            if s!=undefined then
+            (
+                local ss = (stringStream s)
+                seek ss 0
+                spnU.value = (readValue ss)
+                spnV.value = (readValue ss)                
+            )
+        )
+        
+        on btnUV_set pressed do             
+        (
+            curr_UV.x =  spnU.value
+			curr_UV.y = spnV.value
+			updateCurrColor() 
+        )
 	)
 
 	--// has to be with CreateDialog in order to get the lButtonDown event with mouse position
