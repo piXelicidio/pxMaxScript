@@ -360,6 +360,10 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 								updateCurrColor()
 								startPainting3D() 
 								isOk = true
+                                
+                                --preparation
+                                theObj.modifiers[#unwrap_uvw].unwrap5.setShowMapSeams off
+                                
 								
 							) else messageBox  "Need material applied with diffuseMap bitmap"
 						) else messageBox "Need material applied with diffuseMap bitmap"
