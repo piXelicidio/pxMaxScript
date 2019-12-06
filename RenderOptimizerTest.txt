@@ -1,3 +1,0 @@
-ComplexObject 
-20 Clones FULLMESH - RenderTime 0:39
-20 Clones PlaneImage - RenderTime 0:05
