@@ -250,10 +250,12 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			local SlidersColCount =8
 			local prefix = edtPrefix.text
 			local moName=""
+            local sliderName = uniquename (prefix + "mix_slider_" )
 			
 			if ((MixItemUp!=0) or (MixItemDown!=0) or (MixItemLeft!=0) or (MixItemRight!=0)) then
 			(
 				sbase = rectangle()
+                sbase.name = uniquename (prefix + "mix_base")
 				sbase.width =SliderSize
 				sbase.length = SliderSize
 				sbase.wireColor = cpBase.color
@@ -280,6 +282,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 				if MixItemUp!=0 then
 				(
 					rect = rectangle()
+                    rect.name = uniquename (prefix + "mix_rec")
 					rect.parent = sbase					
 					rect.length = SliderSize 
 					rect.wireColor = cpBase.color
@@ -288,13 +291,14 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 					
 					ncY.upper_limit = SliderSize
 					moName = moName + "_" + MorphList[MixItemUp][1]
-					paramWire.connect subaniY MorphList[MixItemUp][2] ("Y_Position*100/"+(SliderSize as string))
+					paramWire.connect subaniY MorphList[MixItemUp][2] ("(abs(Y_Position)+Y_Position)*50/"+(SliderSize as string))
 					paramWire.connect subaniY rect.baseObject[#width] ("Y_Position/2+0.1")	
 					sbase.length = SliderSize*2
 				)
 				if MixItemDown!=0 then
 				(		
 					rect = rectangle()
+                    rect.name = uniquename (prefix + "mix_rec")
 					rect.parent = sbase					
 					rect.length = SliderSize 
 					rect.wireColor = cpBase.color
@@ -304,13 +308,14 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 					
 					ncY.lower_limit = -SliderSize	
 					moName = moName + "_" + MorphList[MixItemDown][1]
-					paramWire.connect subaniY MorphList[MixItemDown][2] ("Y_Position*100/-"+(SliderSize as string))
+					paramWire.connect subaniY MorphList[MixItemDown][2] ("(abs(-Y_Position)-Y_Position)*50/"+(SliderSize as string))
 					paramWire.connect subaniY rect.baseObject[#width] ("Y_Position/-2+0.1")		
 					sbase.length = SliderSize*2	
 				)
 				if MixItemLeft!=0 then
 				(
 					rect = rectangle()
+                    rect.name = uniquename (prefix + "mix_rec")
 					rect.parent = sbase					
 					rect.length = SliderSize 
 					rect.wireColor = cpBase.color
@@ -320,13 +325,14 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 										
 					ncX.lower_limit = -SliderSize
 					moName = moName + "_" + MorphList[MixItemLeft][1]
-					paramWire.connect subaniX MorphList[MixItemLeft][2] ("X_Position*100/-"+(SliderSize as string))
+					paramWire.connect subaniX MorphList[MixItemLeft][2] ("(abs(-X_Position)-X_Position)*50/"+(SliderSize as string))
 					paramWire.connect subaniX rect.baseObject[#width] ("X_Position/-2+0.1")		
 					sbase.Width = SliderSize*2	
 				)
 				if MixItemRight!=0 then
 				(
 					rect = rectangle()
+                    rect.name = uniquename (prefix + "mix_rec")
 					rect.parent = sbase					
 					rect.length = SliderSize 
 					rect.wireColor = cpBase.color
@@ -336,11 +342,12 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 					
 					ncX.upper_limit = SliderSize
 					moName = moName + "_" + MorphList[MixItemRight][1]
-					paramWire.connect subaniX MorphList[MixItemRight][2] ("X_Position*100/"+(SliderSize as string))
+					paramWire.connect subaniX MorphList[MixItemRight][2] ("(abs(X_Position)+X_Position)*50/"+(SliderSize as string))
 					paramWire.connect subaniX rect.baseObject[#width] ("X_Position/2+0.1")	
 					sbase.width = SliderSize*2
 				)
 				
+                s.name = sliderName
 				sbase.pos.x = 0
 				sbase.pos.y = 0
 				sbase.pos.z = -1-SliderSize				
