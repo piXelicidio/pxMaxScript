@@ -10,6 +10,11 @@
 -- Full repaint the whole object with selected color 
 -- 2018-08-25 v1.0 basic functionality 
 
+struct pp_settings  (window_pos)
+    
+global G_polypaint_settings = pp_settings window_pos:undefined
+
+
 macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
 (
 	local bary = [0,0,0]
@@ -397,7 +402,8 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		
 		on roll_polyPaint close do
 		(
-				endPainting3D()
+			endPainting3D()
+            G_polypaint_settings.window_pos = ( GetDialogPos roll_polyPaint )
 		)
 		
 		on btnFullRepaint pressed do
@@ -491,5 +497,9 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 
 	--// has to be with CreateDialog in order to get the lButtonDown event with mouse position
 	createdialog roll_PolyPaint bmpSize (bmpSize + 200 )
+    if G_polypaint_settings.window_pos != undefined then
+    (
+        SetDialogPos roll_PolyPaint G_polypaint_settings.window_pos
+    )
 	
 )

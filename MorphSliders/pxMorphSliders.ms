@@ -1,4 +1,9 @@
 --Morph sliders by Denys Almaral
+
+struct ms_settings  (window_posx, window_posy)
+    
+global morphsliders_settings = ms_settings window_posx:undefined window_posy:undefined
+
 macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 (
 	local MorphList = #() --[i][1]= name [1][2] subAnim
@@ -374,6 +379,13 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			if (LbxChannels.selection!=undefined)  then DeleteItem MorphList LbxChannels.selection
 			UpdateListbox()
 		)
+        
+        on roll_MorphSliders close do 
+        (
+            print "good bye"
+            morphsliders_settings.window_posx = morphsliders_floater.pos.x
+            morphsliders_settings.window_posy = morphsliders_floater.pos.y
+        )
 	)--endRollout
 	
     rollout roll_Tools "Tools" width:395 height:38
@@ -420,7 +432,13 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
             )                
         )
     )
-	rf = newRolloutFloater "pX Quick Morph Sliders" 406 550
-    addRollout roll_MorphSliders rf
-    addRollout roll_Tools rf 
+    if morphsliders_settings.window_posx == undefined then 
+    (
+	    global morphsliders_floater = newRolloutFloater "pX Quick Morph Sliders" 406 550
+    ) else
+    (
+        global morphsliders_floater = newRolloutFloater "pX Quick Morph Sliders" 406 550 morphsliders_settings.window_posy morphsliders_settings.window_posx
+    )
+    addRollout roll_MorphSliders morphsliders_floater
+    addRollout roll_Tools morphsliders_floater
 )
