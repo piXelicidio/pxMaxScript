@@ -10,13 +10,13 @@
 -- Full repaint the whole object with selected color 
 -- 2018-08-25 v1.0 basic functionality 
 
-struct pp_settings  (window_pos)
-    
-global G_polypaint_settings = pp_settings window_pos:undefined
-
 
 macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
 (
+    struct pp_settings  (window_pos)
+    global G_polypaint_settings = pp_settings window_pos:undefined
+
+    
 	local bary = [0,0,0]
 	local faceIndex = 1
 	local lastTriFace = -1
@@ -56,7 +56,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		
 		function updateColorBitmap diffMap = 
 		(
-			tempBitmap = copy diffMap.bitmap
+			copy diffMap.bitmap tempBitmap
 			bmpColorPal.bitmap = tempBitmap
 		)
 		
@@ -67,16 +67,35 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			(getPixels tempBitmap [ UV.x * w ,  (1-UV.y) * h ] 1 linear:true )[1]
 		)
 		
+        function findDiffuseMap obj =
+        (  
+            local mat = obj.material
+            local Result = undefined
+            if mat != undefined then 
+            (
+                if classof(mat)==blend then 
+                (
+                    mat = mat.map1
+                )
+                
+                if classof(mat)==Arch___Design__mi then
+                (
+                    diffMap = mat.diffuse_Color_Map
+                ) 
+                
+                if classof(mat)==standard then 
+                (                                
+                    diffMap = mat.diffuseMap                                
+                )   
+            )    
+            Result = diffMap
+        )
 		
+        -- updates current Color box on interface.
+        -- draw pixels over bitmap to show current color 
 		function updateCurrColor =
-		(	    
-             if classof($.material)==Arch___Design__mi then
-            (              
-                tempBitmap = copy $.material.diffuse_Color_Map.bitmap
-            ) else
-            (                                
-                tempBitmap = copy $.material.diffuseMap.bitmap
-            )   
+		(	            
+            copy (findDiffuseMap($)).bitmap tempBitmap
 						
 			local p = UVtoColor curr_UV 									
 			if p != undefined then
@@ -85,14 +104,18 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				colorBitmap = bitmap 50 50 color:p 
 				imgCurrColor.bitmap = colorBitmap
 				
-				-- draw pixel marker
+				-- draw pixel marker                
 				xx = curr_UV.x * tempBitmap.width
 				yy = (1-curr_UV.y) * tempBitmap.height
-				setPixels tempBitmap [xx+1, yy] #(color 255 255 255)
-				setPixels tempBitmap [xx-1, yy] #(color 255 255 255)
-				setPixels tempBitmap [xx, yy+1] #(color 0 0 0)
-				setPixels tempBitmap [xx, yy-1] #(color 0 0 0)
-				bmpColorPal.bitmap = tempBitmap
+                for i = 2 to 3 do 
+                (
+                    setPixels tempBitmap [xx+1*i, yy] #(color 255 255 255)
+                    setPixels tempBitmap [xx-1*i, yy] #(color 255 255 255)
+                    setPixels tempBitmap [xx, yy+1*i] #(color 0 0 0)
+                    setPixels tempBitmap [xx, yy-1*i] #(color 0 0 0)
+                )
+				bmpColorPal.bitmap = tempBitmap                
+                
 			)
             
             --set UV coords on spinners
@@ -349,14 +372,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 					(
 						if theObj.material != undefined then
 						(
-                            local diffMap = undefined
-                            if classof($.material)==Arch___Design__mi then
-                            (
-                                diffMap = $.material.diffuse_Color_Map
-                            ) else
-                            (                                
-                                diffMap = $.material.diffuseMap                                
-                            )     
+                            local diffMap = findDiffuseMap($)
                             
                             
 							if diffMap != undefined then
@@ -496,6 +512,15 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 	)
 
 	--// has to be with CreateDialog in order to get the lButtonDown event with mouse position
+    
+    --try to detect the bmpSize first
+    --local mp = roll_PolyPaint.findDiffuseMap($)
+   -- if mp!=undefined then
+   -- (
+    --   if  mp.bitmap.width > bmpSize then bmpSize = mp.bitmap.width
+    --   tempBitmap = bitmap bmpSize bmpSize color:(color 40 40 40)
+    --)
+    
 	createdialog roll_PolyPaint bmpSize (bmpSize + 200 )
     if G_polypaint_settings.window_pos != undefined then
     (
