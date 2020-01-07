@@ -13,9 +13,6 @@
 
 macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
 (
-    struct pp_settings  (window_pos)
-    global G_polypaint_settings = pp_settings window_pos:undefined
-
     
 	local bary = [0,0,0]
 	local faceIndex = 1
@@ -419,7 +416,11 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		on roll_polyPaint close do
 		(
 			endPainting3D()
-            G_polypaint_settings.window_pos = ( GetDialogPos roll_polyPaint )
+            if G_polypaint_window_pos == undefined then
+            (
+                global G_polypaint_window_pos = [0,0]
+            )
+            G_polypaint_window_pos = ( GetDialogPos roll_polyPaint )
 		)
 		
 		on btnFullRepaint pressed do
@@ -521,10 +522,10 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
     --   tempBitmap = bitmap bmpSize bmpSize color:(color 40 40 40)
     --)
     
-	createdialog roll_PolyPaint bmpSize (bmpSize + 200 )
-    if G_polypaint_settings.window_pos != undefined then
+	createdialog roll_PolyPaint bmpSize (bmpSize + 200 )    
+    if G_polypaint_window_pos  != undefined then
     (
-        SetDialogPos roll_PolyPaint G_polypaint_settings.window_pos
-    )
-	
+       print "Restoring window pos."
+       setDialogPos roll_PolyPaint G_polypaint_window_pos 
+    ) 	
 )
