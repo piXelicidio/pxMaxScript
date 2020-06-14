@@ -2,10 +2,10 @@
 function individual_export =
 (
     objs = $objects
-    ext = ".fbx"
+    ext = ".obj"
     for i=1 to objs.count do 
     (
-        local outputPath = "F:\_px\3dWork\ForTS\LowPolyStyle\WorldPeople\upload_cityFixedPoses\_free\fbx\separated20files\\"
+        local outputPath = "F:\_px\3dWork\ForTS\LowPolyStyle\props_indoor\_upload\kitchen\obj_sep\\"
         local filename = objs[i].name + ext        
         select objs[i]
         objs[i].position = [0,0,0]

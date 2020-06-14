@@ -1,7 +1,5 @@
 --Morph sliders by Denys Almaral
 
-
-macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 (
 	local MorphList = #() --[i][1]= name [1][2] subAnim
 	local MixItemUp     = 0
