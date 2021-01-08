@@ -3,12 +3,13 @@
 
 -- Updates
 
--- 2019-10-07 ability to copy paste UV colors coords from Win clipboard 
+-- 2021: Auto-isert Unwrap UVW modifier. APPLY button to collapse to Unwrap UVW position in stack.
+-- 2019: ability to copy paste UV colors coords from Win clipboard 
 -- implmented Undo levels
 -- added Flood Fill algorithm
 -- Added Mirror functionality
 -- Full repaint the whole object with selected color 
--- 2018-08-25 v1.0 basic functionality 
+-- 2018: v1.0 basic functionality 
 
 
 macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
@@ -36,9 +37,11 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		imgTag bmpColorPal bitmap:tempBitmap pos:[0,0] style:#bmp_stretch transparent:(color 68 68 68)
 		label lblInfo "Select object and press Start Painting Tool" pos:[10,10]
 		checkButton paint3D "Start Paint Tool" pos:[18, bmpSize + 10 ] width:126 height:55		
-		button btnFullRepaint "Full Repaint" pos:[28,bmpSize + 20 + 55]  width:100 height:40
-		checkbox chkSelectedOnly "Selected faces only" pos:[28, bmpSize + 30 + 90+20] checked:false
-		imgTag imgCurrColor bitmap:colorBitmap pos:[150, bmpSize + 10+20] width:50 height:50
+		checkbox chkAutoUV "Auto-insert Unwrap_UVW" pos:[28, bmpSize + 20 + 50] checked:true
+		button btnFullRepaint "Full Repaint" pos:[28,bmpSize + 20 + 75]  width:100 height:40
+		button btnApply "APPLY" pos:[28, bmpSize + 20 + 150] width:126 height:40
+		checkbox chkSelectedOnly "Selected faces only" pos:[28, bmpSize + 50 + 90] checked:false
+		imgTag imgCurrColor bitmap:colorBitmap pos:[150, bmpSize + 10+20] width:50 height:35
         
         spinner spnU "U" range:[0,1,0] type:#float pos:[160, bmpSize + 10 ] width:60 scale:0.001
         spinner spnV "V" range:[0,1,0] type:#float pos:[230, bmpSize + 10 ] width:60 scale:0.001
@@ -308,6 +311,26 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			lastTriFace = -1
 			
 			)
+			
+		function prepareObj obj = (			
+			if (obj.modifiers[#Unwrap_UVW] == undefined)  then
+			(				
+				if chkAutoUV.checked then
+				(
+					addModifier obj (Unwrap_UVW()) before:(obj.modifiers.count)
+				)
+			)
+			
+			if  (obj.modifiers[#Unwrap_UVW] != undefined) then
+			(
+				modPanel.setCurrentObject $.modifiers[#Unwrap_UVW]
+				obj.modifiers[#unwrap_uvw].unwrap5.setShowMapSeams off
+			) else
+			(
+				messageBox "Unwrap_UVW not found in stack"
+			)
+		)
+			
 		
 		function startPainting3D =
 		(
@@ -317,7 +340,8 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				paint3D.checked = false
 			) else
 			(
-				updateCurrColor()
+				prepareObj theObj
+				updateCurrColor()				
 				lblInfo.visible = false
 				paint3D.checked = true
 				thePI.pointGatherEnable = false
@@ -365,7 +389,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 					messageBox "Object not Selected" title:"Warning" beep:true					
 				) else
 				(
-					if ((isKindOf theObj Editable_poly) or (isKindOf theObj PolyMeshObject)) and (theObj.modifiers[#unwrap_UVW]!=undefined) then
+					if ((isKindOf theObj Editable_poly) or (isKindOf theObj PolyMeshObject))  then
 					(
 						if theObj.material != undefined then
 						(
@@ -377,10 +401,8 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 								updateColorBitmap(diffMap)
 								updateCurrColor()
 								startPainting3D() 
-								isOk = true
+								isOk = true                             
                                 
-                                --preparation
-                                theObj.modifiers[#unwrap_uvw].unwrap5.setShowMapSeams off
                                 
 								
 							) else messageBox  "Need material applied with diffuseMap bitmap"
@@ -396,6 +418,23 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				endPainting3D()				
 			)
 			btnFill.enabled = paint3D.checked
+		)
+		
+		on btnApply pressed do 
+		(
+			if (paint3d.checked == true) and (theObj !=  undefined) then
+			(
+				paint3d.checked = false
+				paint3d.changed false
+				local mods = theObj.modifiers
+				local m = mods[#Unwrap_UVW]
+				local idx = findItem mods m
+				print mods
+				print m
+				print idx
+				print "collapsing"
+				maxOps.CollapseNodeTo theObj idx off
+			)
 		)
 		
 		on bmpColorPal lbuttondown pos flags do
@@ -522,7 +561,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
     --   tempBitmap = bitmap bmpSize bmpSize color:(color 40 40 40)
     --)
     
-	createdialog roll_PolyPaint bmpSize (bmpSize + 200 )    
+	createdialog roll_PolyPaint bmpSize (bmpSize + 220 )    
     if G_polypaint_window_pos  != undefined then
     (
        print "Restoring window pos."
