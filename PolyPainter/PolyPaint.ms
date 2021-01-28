@@ -3,6 +3,7 @@
 
 -- Updates
 
+-- UI review
 -- 2021: Auto-isert Unwrap UVW modifier. APPLY button to collapse to Unwrap UVW position in stack.
 -- 2019: ability to copy paste UV colors coords from Win clipboard 
 -- implmented Undo levels
@@ -12,48 +13,82 @@
 -- 2018: v1.0 basic functionality 
 
 
-macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
+--macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
 (
     
 	local bary = [0,0,0]
 	local faceIndex = 1
 	local lastTriFace = -1
 	local theObj = undefined
-	local bmpSize = 360
 	local curr_UV = [0.5,0.5,0]
 	local currStrokeNum = 0
 	local thePI = thePainterInterface
-	local rmIntersect = RayMeshGridIntersect()
+	local rmIntersect = RayMeshGridIntersect()m
 	local faceMapUndo = #()
 	local undoLevels = #()
 	local undoLevelsMax = 5
-	
-	 
+	local bmpSize = 320
 	local tempBitmap = bitmap bmpSize bmpSize color:(color 40 40 40)
 	local colorBitmap = bitmap 50 50 
+		 
+
+	
+	local ini_file = (getDir #userMacros) + "\\pxpolypaint.ini"
+	local ini_section = "config"
+	
+	function set_ini key val = (
+		setINISetting ini_file ini_section key (val as string)
+	)
+	function get_ini key = (
+		getINISetting ini_file ini_section key
+	)
+	
+	function eval s = (
+		try execute s catch ""
+	)
+
 	
 	rollout roll_polyPaint "pX Poly Paint" 
 	(
-		imgTag bmpColorPal bitmap:tempBitmap pos:[0,0] style:#bmp_stretch transparent:(color 68 68 68)
-		label lblInfo "Select object and press Start Painting Tool" pos:[10,10]
-		checkButton paint3D "Start Paint Tool" pos:[18, bmpSize + 10 ] width:126 height:55		
-		checkbox chkAutoUV "Auto-insert Unwrap_UVW" pos:[28, bmpSize + 20 + 50] checked:true
-		button btnFullRepaint "Full Repaint" pos:[28,bmpSize + 20 + 75]  width:100 height:40
-		button btnApply "APPLY" pos:[28, bmpSize + 20 + 150] width:126 height:40
-		checkbox chkSelectedOnly "Selected faces only" pos:[28, bmpSize + 50 + 90] checked:false
-		imgTag imgCurrColor bitmap:colorBitmap pos:[150, bmpSize + 10+20] width:50 height:35
-        
-        spinner spnU "U" range:[0,1,0] type:#float pos:[160, bmpSize + 10 ] width:60 scale:0.001
-        spinner spnV "V" range:[0,1,0] type:#float pos:[230, bmpSize + 10 ] width:60 scale:0.001
-        button btnUV_copy "C" pos:[295, bmpSize + 10] width:16 height:16 tooltip:"Copy"
-        button btnUV_paste "P" pos:[315, bmpSize + 10] width:16 height:16 tooltip:"Paste"
-        button btnUV_set "S" pos:[335, bmpSize + 10] width:16 height:16 tooltip:"Set"
-		label lbl3dPickColor "Alt = 3D color picker" pos:[210, bmpSize + 10+20] 
-		checkbox chkMirror "Mirror Paint" pos:[210,bmpSize + 30+20] checked:false
-		spinner spnSpread "Spread" range:[0,10,0] type:#integer pos:[240, bmpSize + 50+20] width:50
-		checkButton btnFill "Fill Area" pos:[210, bmpSize + 80+20] width:90 height:30 enabled:false
-		button btnUndo "Undo" pos:[210, bmpSize + 120+20] width:90 height:30 
+
 		
+		imgTag bmpColorPal bitmap:tempBitmap pos:[0,0] style:#bmp_stretch transparent:(color 68 68 68)
+	
+		--label lblInfo "Select object and press Start Painting Tool" pos:[10,10]
+		-- (
+			checkButton paint3D ">>>      Start Paint Tool      <<<" width:(bmpSize-5) height:25 across:1 
+			checkbox chkAutoUV "Auto-insert Unwrap_UVW"  across:1 checked:true
+			
+			group "Paint" (
+				label lbl3dPickColor "Alt+Click = Color picker" across:2 
+				checkbox chkMirror "Mirror Paint" across:2
+				button btnFullRepaint "   Full Repaint   " across:2
+				checkbox chkSelectedOnly "Repaint selected faces only" across:2 
+				checkButton btnFill "Fill Tool" across:2  width:90 height:30 enabled:false				
+				spinner spnSpread "Spread" range:[0,10,0] type:#integer across:2
+				button btnUndo " UNDO (use this!)" 
+			)
+			group "Current Color" (
+				imgTag imgCurrColor bitmap:colorBitmap width:50 height:35 across:3 
+				spinner spnU "U" range:[0,1,0] type:#float across:3 
+				spinner spnV "V" range:[0,1,0] type:#float across:3 
+				label lblEmpty1 " " across:5
+				label lblEmpty2 " " across:5
+				button btnUV_copy "Copy" across:5 
+				button btnUV_paste "Paste" across:5
+				button btnUV_set "Set" across:5 
+			)			
+			
+			button btnApply "APPLY UV modifier"  height:25 width:(bmpSize-5)
+			
+			group "Utilities" (
+				button btnSwapMap "Remap Texture with -->" across:2 toolTip:"Replace texture keeping same colors as close as possible"				
+				mapbutton mapBtnSwapMap "<none>" across:2 tooltip:"Select bitmap texture to be replaced with"				
+				
+			)
+		--)
+				
+		--============================ FUNCTIONS ===============================------------------------
 		function updateColorBitmap diffMap = 
 		(
 			copy diffMap.bitmap tempBitmap
@@ -67,28 +102,39 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			(getPixels tempBitmap [ UV.x * w ,  (1-UV.y) * h ] 1 linear:true )[1]
 		)
 		
+		function findMatDiffuseMap mat = 
+		(
+			local diffMap = undefined
+			if mat != undefined then 
+            (
+                diffMap = case classof(mat) of
+				(
+					blend: mat.map1
+					Arch___Design__mi: mat.diffuse_Color_Map
+					standard: mat.diffuseMap
+					VRayMtl: mat.texmap_diffuse
+					default: undefined
+				)
+                
+            )    
+            (diffMap)
+		)
+		
+		function replaceDiffuseMap mat diffmap =
+		(
+			case classof(mat) of
+			(
+				blend: mat.map1 = diffmap
+				Arch___Design__mi: mat.diffuse_Color_Map = diffmap
+				standard: mat.diffuseMap = diffmap
+				VRayMtl: mat.texmap_diffuse = diffmap				
+			)
+		)
+		
         function findDiffuseMap obj =
         (  
             local mat = obj.material
-            local Result = undefined
-            if mat != undefined then 
-            (
-                if classof(mat)==blend then 
-                (
-                    mat = mat.map1
-                )
-                
-                if classof(mat)==Arch___Design__mi then
-                (
-                    diffMap = mat.diffuse_Color_Map
-                ) 
-                
-                if classof(mat)==standard then 
-                (                                
-                    diffMap = mat.diffuseMap                                
-                )   
-            )    
-            Result = diffMap
+            findMatDiffuseMap mat
         )
 		
         -- updates current Color box on interface.
@@ -155,16 +201,19 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			poly
 		)
 		
-		function setAllUVto poly UV =
+		function setAllUVto poly UV UndoOn:true =
 		(
 			local mapFace = polyop.getMapFace theObj 1 poly
 			
-			-- UNDO DATA			
-			local faceUV = #()
-			faceUV[1] = poly 			
-			--saving, only the first vertex			
-			faceUV[2] = polyop.getMapVert theObj 1 mapFace[1]			
-			append faceMapUndo faceUV
+			if UndoOn do 
+			(
+				-- UNDO DATA			
+				local faceUV = #()
+				faceUV[1] = poly 			
+				--saving, only the first vertex			
+				faceUV[2] = polyop.getMapVert theObj 1 mapFace[1]			
+				append faceMapUndo faceUV
+			)
 			
 			--modifiying
 			for i=1 to mapFace.count do
@@ -238,29 +287,29 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			do
 			(
 			
-			local edges = polyOp.getEdgesUsingFace theObj faces			
-			local newFaces = polyOp.getFacesUsingEdge theObj edges
-			local removeFaces = #{}
-			for i in newFaces do
-			(
-				local c = UVtoColor (getPlyxel i) --Check the current color of each face
-				if (not ( sameColor c bkColor)) or (sameColor c fillColor)  then -- remove if not == bkColor, or == to fillColor
-					( 
-						removeFaces = removeFaces + #{i} 
-					)
-				else (putPlyxel i UV) --else paint				   
-			)				
-			newFaces = newFaces - removeFaces
-			print ( "filling faces " + ((newFaces as array).count as string) )			
-			update theObj
-			redrawViews()
-			faces = newFaces
-			paintLimit = paintLimit + 1
+				local edges = polyOp.getEdgesUsingFace theObj faces			
+				local newFaces = polyOp.getFacesUsingEdge theObj edges
+				local removeFaces = #{}
+				for i in newFaces do
+				(
+					local c = UVtoColor (getPlyxel i) --Check the current color of each face
+					if (not ( sameColor c bkColor)) or (sameColor c fillColor)  then -- remove if not == bkColor, or == to fillColor
+						( 
+							removeFaces = removeFaces + #{i} 
+						)
+					else (putPlyxel i UV) --else paint				   
+				)				
+				newFaces = newFaces - removeFaces
+				print ( "filling faces " + ((newFaces as array).count as string) )			
+				update theObj
+				redrawViews()
+				faces = newFaces
+				paintLimit = paintLimit + 1
 			
 			) while ( ((faces as array).count > 0 ) and  (paintLimit < 1000 )  )
 		)
 		
-		-- The main thing accours here ------------ PAINT STROKE -------------- ******************************
+		-- The main thing happens here ------------ PAINT STROKE -------------- ******************************
 		function paintStroke = 
 		( 			
 			
@@ -296,23 +345,25 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		)
 		
 		function endStroke = 
-			( 
-				--thePI.undoAccept()
-				print ("faces undo data: " + faceMapUndo.count as string)
-				lastTriFace = -1		
-				if faceMapUndo.count>0 then btnUndo.enabled = true
-			)
-		function cancelStroke = ( 
+		( 
+			--thePI.undoAccept()
+			print ("faces undo data: " + faceMapUndo.count as string)
+			lastTriFace = -1		
+			if faceMapUndo.count>0 then btnUndo.enabled = true
+		)
+		function cancelStroke = 
+		( 
 				--thePI.undoCancel()
 				lastTriFace = -1
-			)
-		function systemEndPaintSession = ( 
+		)
+		function systemEndPaintSession = 
+		( 
 			paint3d.checked = false
 			lastTriFace = -1
+		)
 			
-			)
-			
-		function prepareObj obj = (			
+		function prepareObj obj = 
+		(			
 			if (obj.modifiers[#Unwrap_UVW] == undefined)  then
 			(				
 				if chkAutoUV.checked then
@@ -342,7 +393,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			(
 				prepareObj theObj
 				updateCurrColor()				
-				lblInfo.visible = false
+				--lblInfo.visible = false
 				paint3D.checked = true
 				thePI.pointGatherEnable = false
 				thePI.initializeNodes 0 # (theObj)
@@ -374,9 +425,56 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			thePI.endPaintSession()
 			if paint3D.checked then paint3D.checked = false
 		)
+		
+		function findClosestColor thisColor fromBitmap = 
+		(
+			thisColor = thisColor as point3
+			found = [0,0]
+			otherColor = (color 0 0 0)
+			min_dist = distance [0,0,0] [255,255,255]
+			for y = 0 to (fromBitmap.height-1) do
+			(
+				local pixels = getPixels fromBitmap [0, y] fromBitmap.width linear:true
+				for x = 0 to (pixels.count-1) do
+				(
+					local dist = distance (pixels[x+1] as point3) thisColor
+					if dist<min_dist then 
+					(
+						min_dist = dist
+						found = [x, y]
+						otherColor = pixels[x+1]
+					)
+				)
+			)
+			--return
+			( #( found, otherColor) )
+		)
+		
+		--- big deal, find closest similar colors from incoming map to remap all UVs
+		function remapTo newBitmap = 
+		(
+			if theObj != undefined then
+			(
+				progressStart "Finding similar pixels..."
+				for poly=1 to (polyOp.getNumFaces theObj) do
+				(					
+					local uv = (getPlyxel poly)
+					local c1 = UVtoColor uv					
+					local result = findClosestColor c1 newBitmap
+					local new_uv = [0,0]
+					new_uv.x = (result[1].x as float) / (newBitmap.width-1)
+					new_uv.y = 1 - ((result[1].y as float) / (newBitmap.height-1))
+					format "% - % : % - %\n" uv c1 new_uv result[2]
+					setAllUVto poly new_uv undoOn:false
+					progressUpdate (100*poly/(polyOp.getNumFaces theObj))
+				)
+				update theObj
+				progressEnd()
+			)
+		)
 	
 		
-		-- EVENTS HANDLERS ***************************************
+		------------================== UI EVENTS HANDLERS =====================--------------------------------
 		
 		on paint3D changed state do 
 		( 
@@ -448,18 +546,23 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				updateCurrColor()
 				
 				
-				
 			)			
 		)
 		
 		on roll_polyPaint close do
+		(	
+			local p = getDialogPos roll_PolyPaint
+			set_ini "dialogPos" (p as string)
+		)
+		
+		on roll_polyPaint open do
 		(
-			endPainting3D()
-            if G_polypaint_window_pos == undefined then
-            (
-                global G_polypaint_window_pos = [0,0]
-            )
-            G_polypaint_window_pos = ( GetDialogPos roll_polyPaint )
+			local s = get_ini "dialogPos"
+			p = eval s
+			if (classof p ) == point2 then
+			(
+				setDialogPos roll_PolyPaint p
+			)
 		)
 		
 		on btnFullRepaint pressed do
@@ -549,6 +652,40 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			curr_UV.y = spnV.value
 			updateCurrColor() 
         )
+		
+		on mapBtnSwapMap picked textmap do 
+		( 
+			if (classof mapBtnSwapMap.map) ==Bitmaptexture then 
+			(
+					mapBtnSwapMap.text = textmap.name + " ("+(fileNameFromPath textmap.filename)+")" 
+			) else
+			(
+				messageBox "Map needs to be Bitmaptexture class"				
+				mapBtnSwapMap.map = undefined
+				
+			)
+		)
+		
+		on btnSwapMap pressed do
+		(
+			if theObj != undefined then
+			(
+				local map = mapBtnSwapmap.map
+				if map != undefined then
+				(
+					if (classof map) ==Bitmaptexture then 
+					(
+						remapTo map.bitmap
+						replaceDiffuseMap theObj.material map
+						redrawViews()
+						updateColorBitmap map						
+					) else
+					(
+						messageBox "Map needs to be Bitmaptexture class"
+					)
+				)
+			)
+		)
 	)
 
 	--// has to be with CreateDialog in order to get the lButtonDown event with mouse position
@@ -561,10 +698,5 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
     --   tempBitmap = bitmap bmpSize bmpSize color:(color 40 40 40)
     --)
     
-	createdialog roll_PolyPaint bmpSize (bmpSize + 220 )    
-    if G_polypaint_window_pos  != undefined then
-    (
-       print "Restoring window pos."
-       setDialogPos roll_PolyPaint G_polypaint_window_pos 
-    ) 	
+	createdialog roll_PolyPaint bmpSize (bmpSize + 420 )        
 )
