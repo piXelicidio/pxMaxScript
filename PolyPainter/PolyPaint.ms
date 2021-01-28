@@ -84,6 +84,7 @@
 			group "Utilities" (
 				button btnSwapMap "Remap Texture with -->" across:2 toolTip:"Replace texture keeping same colors as close as possible"				
 				mapbutton mapBtnSwapMap "<none>" across:2 tooltip:"Select bitmap texture to be replaced with"				
+				checkbox chkOptimizeBitmap "Pre-Optimize Bitmap" checked:true tooltip:"Useful if new texture has many repeated pixel colors"
 				
 			)
 		--)
@@ -95,11 +96,11 @@
 			bmpColorPal.bitmap = tempBitmap
 		)
 		
-		function UVtoColor UV =
+		function UVtoColor UV gamma:true =
 		(
 			local w = tempBitmap.width
 			local h = tempBitmap.height
-			(getPixels tempBitmap [ UV.x * w ,  (1-UV.y) * h ] 1 linear:true )[1]
+			(getPixels tempBitmap [ UV.x * w ,  (1-UV.y) * h ] 1 linear:gamma )[1]
 		)
 		
 		function findMatDiffuseMap mat = 
@@ -278,8 +279,8 @@
 		function fillArea iniPoly UV =
 		(
 			local faces = #{iniPoly}
-			local bkColor = UVtoColor (getPlyxel iniPoly) --storing the background color
-			local fillColor = UVtoColor UV
+			local bkColor = UVtoColor (getPlyxel iniPoly)  --storing the background color
+			local fillColor = UVtoColor UV 
 			putPlyxel iniPoly UV -- setting the color of the first Plyxel
 			update theObj
 			
@@ -292,7 +293,7 @@
 				local removeFaces = #{}
 				for i in newFaces do
 				(
-					local c = UVtoColor (getPlyxel i) --Check the current color of each face
+					local c = UVtoColor (getPlyxel i)  --Check the current color of each face
 					if (not ( sameColor c bkColor)) or (sameColor c fillColor)  then -- remove if not == bkColor, or == to fillColor
 						( 
 							removeFaces = removeFaces + #{i} 
@@ -450,25 +451,131 @@
 			( #( found, otherColor) )
 		)
 		
+		--converts bitmap to 2D table
+		function getPixelTable fromBitmap =
+		(
+			pixelTable = #()
+			pixelTable.count = fromBitmap.height
+			for y = 0 to (fromBitmap.height-1) do
+			(
+				pixelTable[y+1] = getPixels fromBitmap [0, y] fromBitmap.width linear:true
+			)
+			--return
+			(pixelTable)
+		)
+		
+		--convert bitmap to RLE compressed data
+		function getPixelData fromBitmap =
+		(			
+			local c = color 0 0 0
+			local last_c = color 0 0 -1
+			local pixelData = #()
+			for y = 0 to (fromBitmap.height-1) do
+			(
+				local pixels = getPixels fromBitmap [0,y] fromBitmap.width linear:true
+				for x = 0 to (fromBitmap.width-1) do
+				(
+					c = pixels[x+1]
+					if c != last_c then 
+					(
+						append pixelData #(c, [x,y])
+					)
+					last_c = c
+				)
+			)
+			--return
+			(pixelData)
+		)
+		
+		--This one use what getPixelTable returns
+		function findClosestColorTable thisColor fromPixelTable = 
+		(
+			thisColor = thisColor as point3
+			local found = [0,0]
+			local otherColor = (color 0 0 0)
+			local min_dist = distance [0,0,0] [255,255,255]
+			local dist = 0.0
+			for y = 0 to (fromPixelTable.count-1) do
+			(
+				local pixels = fromPixelTable[y+1]
+				for x = 0 to (pixels.count-1) do
+				(
+					dist = distance (pixels[x+1] as point3) thisColor
+					if dist<min_dist then 
+					(
+						min_dist = dist
+						found = [x, y]
+						otherColor = pixels[x+1]
+						if dist < 0.01 then return #( found, otherColor)
+					)
+				)
+			)
+			--return
+			( #( found, otherColor) )
+		)
+		
+       function findClosestColorData thisColor fromPixelData = 
+		(
+			thisColor = thisColor as point3
+			local found = [0,0]
+			local otherColor = (color 0 0 0)
+			local min_dist = distance [0,0,0] [255,255,255]
+			local dist = 0.0
+			local pixelData
+			for pixelData in fromPixelData do
+			(					
+					dist = distance (pixelData[1] as point3) thisColor
+					if dist<min_dist then 
+					(
+						min_dist = dist
+						found = pixelData[2]
+						otherColor = pixelData[1]
+						if dist < 0.01 then return #( found, otherColor)
+					)
+				
+			)
+			--return
+			( #( found, otherColor) )
+		)
+		
+		
 		--- big deal, find closest similar colors from incoming map to remap all UVs
 		function remapTo newBitmap = 
 		(
 			if theObj != undefined then
 			(
 				progressStart "Finding similar pixels..."
+				local t1 = timeStamp()
+				--local pixelTable = getPixelTable newBitmap				
+				local pixelData 
+				local findFunc 
+				if chkOptimizeBitmap.checked then	
+				(
+					pixelData = getPixelData newBitmap
+					findFunc = findClosestColorData
+				) else 
+				( 
+					pixelData = getPixeltable newBitmap
+					findFunc = findClosestColorTable
+				)
+				format "Preparing table, elapsed time: %\n" (timeStamp()-t1)
+				t1 = timeStamp()
 				for poly=1 to (polyOp.getNumFaces theObj) do
 				(					
 					local uv = (getPlyxel poly)
-					local c1 = UVtoColor uv					
-					local result = findClosestColor c1 newBitmap
+					local c1 = UVtoColor uv
+					--local result = findClosestColor c1 newBitmap
+					--local result = findClosestColorTable c1 pixelTable
+					local result = findFunc c1 pixelData
 					local new_uv = [0,0]
-					new_uv.x = (result[1].x as float) / (newBitmap.width-1)
-					new_uv.y = 1 - ((result[1].y as float) / (newBitmap.height-1))
-					format "% - % : % - %\n" uv c1 new_uv result[2]
+					new_uv.x = (( result[1].x + 0.5 ) as float) / (newBitmap.width)
+					new_uv.y = 1.0 - ( (( result[1].y + 0.5 ) as float) / (newBitmap.height) )
+					--format "% - % : % - %\n" uv c1 new_uv result[2]
 					setAllUVto poly new_uv undoOn:false
 					progressUpdate (100*poly/(polyOp.getNumFaces theObj))
 				)
-				update theObj
+				format "Elapsed time: %\n" (timeStamp() - t1)
+				update theObj				
 				progressEnd()
 			)
 		)
@@ -657,7 +764,7 @@
 		( 
 			if (classof mapBtnSwapMap.map) ==Bitmaptexture then 
 			(
-					mapBtnSwapMap.text = textmap.name + " ("+(fileNameFromPath textmap.filename)+")" 
+					mapBtnSwapMap.text = textmap.name 
 			) else
 			(
 				messageBox "Map needs to be Bitmaptexture class"				
@@ -689,14 +796,7 @@
 	)
 
 	--// has to be with CreateDialog in order to get the lButtonDown event with mouse position
-    
-    --try to detect the bmpSize first
-    --local mp = roll_PolyPaint.findDiffuseMap($)
-   -- if mp!=undefined then
-   -- (
-    --   if  mp.bitmap.width > bmpSize then bmpSize = mp.bitmap.width
-    --   tempBitmap = bitmap bmpSize bmpSize color:(color 40 40 40)
-    --)
+
     
 	createdialog roll_PolyPaint bmpSize (bmpSize + 420 )        
 )
