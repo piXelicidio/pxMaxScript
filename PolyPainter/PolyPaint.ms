@@ -3,6 +3,7 @@
 
 -- Updates
 
+-- Remappping textures: Swap old with new, remapping UV, keeping same colors look.
 -- UI review
 -- 2021: Auto-isert Unwrap UVW modifier. APPLY button to collapse to Unwrap UVW position in stack.
 -- 2019: ability to copy paste UV colors coords from Win clipboard 
@@ -13,7 +14,7 @@
 -- 2018: v1.0 basic functionality 
 
 
---macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
+macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
 (
     
 	local bary = [0,0,0]
@@ -113,8 +114,7 @@
 		
 		function UVgetPixel UV diffMap gamma:false = (
 			local w = diffMap.bitmap.width
-			local h = diffMap.bitmap.height
-			print (getPixels diffMap.bitmap [ 5 ,  5 ] 1 linear:gamma )[1]			
+			local h = diffMap.bitmap.height				
 			(getPixels diffMap.bitmap [ UV.x * w ,  (1-UV.y) * h ] 1 linear:gamma )[1]
 		)
 		
@@ -651,10 +651,7 @@
 				paint3d.changed false
 				local mods = theObj.modifiers
 				local m = mods[#Unwrap_UVW]
-				local idx = findItem mods m
-				print mods
-				print m
-				print idx
+				local idx = findItem mods m				
 				print "collapsing"
 				maxOps.CollapseNodeTo theObj idx off
 			)
