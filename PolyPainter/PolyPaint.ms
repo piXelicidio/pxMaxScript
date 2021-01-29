@@ -55,7 +55,7 @@
 		imgTag bmpColorPal bitmap:tempBitmap pos:[0,0] style:#bmp_stretch transparent:(color 68 68 68)
 	
 		--label lblInfo "Select object and press Start Painting Tool" pos:[10,10]
-		-- (
+		
 			checkButton paint3D ">>>      Start Paint Tool      <<<" width:(bmpSize-5) height:25 across:1 
 			checkbox chkAutoUV "Auto-insert Unwrap_UVW"  across:1 checked:true
 			
@@ -64,7 +64,7 @@
 				checkbox chkMirror "Mirror Paint" across:2
 				button btnFullRepaint "   Full Repaint   " across:2
 				checkbox chkSelectedOnly "Repaint selected faces only" across:2 
-				checkButton btnFill "Fill Tool" across:2  width:90 height:30 enabled:false				
+				checkButton btnFill "Fill Tool" across:2  width:90 height:30 			
 				spinner spnSpread "Spread" range:[0,10,0] type:#integer across:2
 				button btnUndo " UNDO (use this!)" 
 			)
@@ -72,11 +72,10 @@
 				imgTag imgCurrColor bitmap:colorBitmap width:50 height:35 across:3 
 				spinner spnU "U" range:[0,1,0] type:#float across:3 
 				spinner spnV "V" range:[0,1,0] type:#float across:3 
-				label lblEmpty1 " " across:5
-				label lblEmpty2 " " across:5
-				button btnUV_copy "Copy" across:5 
-				button btnUV_paste "Paste" across:5
-				button btnUV_set "Set" across:5 
+				editText editRGBColor "RGB" text:"[0,0,0]" across:4 readonly:true				
+				button btnUV_copy "Copy" across:4 
+				button btnUV_paste "Paste" across:4
+				button btnUV_set "Set" across:4 
 			)			
 			
 			button btnApply "APPLY UV modifier"  height:25 width:(bmpSize-5)
@@ -87,20 +86,36 @@
 				checkbox chkOptimizeBitmap "Pre-Optimize Bitmap" checked:true tooltip:"Useful if new texture has many repeated pixel colors"
 				
 			)
-		--)
+			
+		local paint_enable = #( btnFullRepaint, btnFill, btnUndo, btnUV_set, btnSwapMap, btnApply)
+		
 				
 		--============================ FUNCTIONS ===============================------------------------
+		
+		function enable_tools bool = 
+		(
+			for ui in paint_enable do ui.enabled = bool				
+		)
+			
 		function updateColorBitmap diffMap = 
 		(
 			copy diffMap.bitmap tempBitmap
 			bmpColorPal.bitmap = tempBitmap
+			g_currBitmap = tempBitmap
 		)
 		
 		function UVtoColor UV gamma:true =
 		(
 			local w = tempBitmap.width
-			local h = tempBitmap.height
+			local h = tempBitmap.height			
 			(getPixels tempBitmap [ UV.x * w ,  (1-UV.y) * h ] 1 linear:gamma )[1]
+		)
+		
+		function UVgetPixel UV diffMap gamma:false = (
+			local w = diffMap.bitmap.width
+			local h = diffMap.bitmap.height
+			print (getPixels diffMap.bitmap [ 5 ,  5 ] 1 linear:gamma )[1]			
+			(getPixels diffMap.bitmap [ UV.x * w ,  (1-UV.y) * h ] 1 linear:gamma )[1]
 		)
 		
 		function findMatDiffuseMap mat = 
@@ -141,10 +156,11 @@
         -- updates current Color box on interface.
         -- draw pixels over bitmap to show current color 
 		function updateCurrColor =
-		(	            
-            copy (findDiffuseMap($)).bitmap tempBitmap
+		(	      
+			local diffMap = findMatDiffuseMap theObj.material
+            copy diffMap.bitmap tempBitmap
 						
-			local p = UVtoColor curr_UV 									
+			local p = UVtoColor curr_UV 								
 			if p != undefined then
 			(
 				free colorBitmap
@@ -168,6 +184,7 @@
             --set UV coords on spinners
             spnU.value = curr_UV.x
             spnV.value = curr_UV.y
+			editRGBColor.text = ((UVGetPixel curr_UV diffMap gamma:false) as point3) as string			
 		)
 		
 			
@@ -435,7 +452,7 @@
 			min_dist = distance [0,0,0] [255,255,255]
 			for y = 0 to (fromBitmap.height-1) do
 			(
-				local pixels = getPixels fromBitmap [0, y] fromBitmap.width linear:true
+				local pixels = getPixels fromBitmap [0, y] fromBitmap.width linear:false
 				for x = 0 to (pixels.count-1) do
 				(
 					local dist = distance (pixels[x+1] as point3) thisColor
@@ -458,7 +475,7 @@
 			pixelTable.count = fromBitmap.height
 			for y = 0 to (fromBitmap.height-1) do
 			(
-				pixelTable[y+1] = getPixels fromBitmap [0, y] fromBitmap.width linear:true
+				pixelTable[y+1] = getPixels fromBitmap [0, y] fromBitmap.width linear:false
 			)
 			--return
 			(pixelTable)
@@ -472,7 +489,7 @@
 			local pixelData = #()
 			for y = 0 to (fromBitmap.height-1) do
 			(
-				local pixels = getPixels fromBitmap [0,y] fromBitmap.width linear:true
+				local pixels = getPixels fromBitmap [0,y] fromBitmap.width linear:false
 				for x = 0 to (fromBitmap.width-1) do
 				(
 					c = pixels[x+1]
@@ -549,6 +566,7 @@
 				--local pixelTable = getPixelTable newBitmap				
 				local pixelData 
 				local findFunc 
+				local diffMap = findDiffuseMap theObj
 				if chkOptimizeBitmap.checked then	
 				(
 					pixelData = getPixelData newBitmap
@@ -563,7 +581,7 @@
 				for poly=1 to (polyOp.getNumFaces theObj) do
 				(					
 					local uv = (getPlyxel poly)
-					local c1 = UVtoColor uv
+					local c1 = UVgetPixel uv diffMap gamma:false
 					--local result = findClosestColor c1 newBitmap
 					--local result = findClosestColorTable c1 pixelTable
 					local result = findFunc c1 pixelData
@@ -622,7 +640,7 @@
 			(
 				endPainting3D()				
 			)
-			btnFill.enabled = paint3D.checked
+			enable_tools (paint3D.checked == true)
 		)
 		
 		on btnApply pressed do 
@@ -670,6 +688,7 @@
 			(
 				setDialogPos roll_PolyPaint p
 			)
+			enable_tools false
 		)
 		
 		on btnFullRepaint pressed do
