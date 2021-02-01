@@ -28,11 +28,12 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 	local faceMapUndo = #()
 	local undoLevels = #()
 	local undoLevelsMax = 5
+	local fill_tolerance = 1
 	local bmpSize = 320
 	local tempBitmap = bitmap bmpSize bmpSize color:(color 40 40 40)
 	local colorBitmap = bitmap 50 50 
-		 
-
+	local paintBtnCaption_start = ">>>      START Paint Tool      <<<"
+	local paintBtnCaption_stop = ">>>      END Paint Tool      <<<"
 	
 	local ini_file = (getDir #userMacros) + "\\pxpolypaint.ini"
 	local ini_section = "config"
@@ -57,8 +58,9 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 	
 		--label lblInfo "Select object and press Start Painting Tool" pos:[10,10]
 		
-			checkButton paint3D ">>>      Start Paint Tool      <<<" width:(bmpSize-5) height:25 across:1 
-			checkbox chkAutoUV "Auto-insert Unwrap_UVW"  across:1 checked:true
+			checkButton paint3D paintBtnCaption_start width:(bmpSize-5) height:25
+			checkbox chkAutoUV "Auto-insert UV (start)"  across:2 checked:true tooltip:"Adds Unwrap UV modifier over Edit_poly when  painting starts"
+			checkbox chkAutoUV_end "Auto-apply UV (end)"  across:2 checked:true tooltip:"Collaps Unwrap UV modifier over Edit_poly when painting ends"
 			
 			group "Paint" (
 				label lbl3dPickColor "Alt+Click = Color picker" across:2 
@@ -77,18 +79,17 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				button btnUV_copy "Copy" across:4 
 				button btnUV_paste "Paste" across:4
 				button btnUV_set "Set" across:4 
-			)			
+			)						
 			
-			button btnApply "APPLY UV modifier"  height:25 width:(bmpSize-5)
+			progressBar pbar "" value:0
 			
 			group "Utilities" (
 				button btnSwapMap "Remap Texture with -->" across:2 toolTip:"Replace texture keeping same colors as close as possible"				
 				mapbutton mapBtnSwapMap "<none>" across:2 tooltip:"Select bitmap texture to be replaced with"				
-				checkbox chkOptimizeBitmap "Pre-Optimize Bitmap" checked:true tooltip:"Useful if new texture has many repeated pixel colors"
-				
+				checkbox chkOptimizeBitmap "Pre-Optimize Bitmap" checked:true tooltip:"Useful if new texture has many repeated pixel colors"				
 			)
 			
-		local paint_enable = #( btnFullRepaint, btnFill, btnUndo, btnUV_set, btnSwapMap, btnApply)
+		local paint_enable = #( btnFullRepaint, btnFill, btnUndo, btnUV_set, btnSwapMap)
 		
 				
 		--============================ FUNCTIONS ===============================------------------------
@@ -289,7 +290,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		function SameColor c1 c2  =
 		(			
 			local d = distance (c1 as point3) (c2 as point3)
-			result = d < 5			
+			result = d < fill_tolerance			
 		)
 		
 		
@@ -560,8 +561,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		function remapTo newBitmap = 
 		(
 			if theObj != undefined then
-			(
-				progressStart "Finding similar pixels..."
+			(				
 				local t1 = timeStamp()
 				--local pixelTable = getPixelTable newBitmap				
 				local pixelData 
@@ -590,11 +590,11 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 					new_uv.y = 1.0 - ( (( result[1].y + 0.5 ) as float) / (newBitmap.height) )
 					--format "% - % : % - %\n" uv c1 new_uv result[2]
 					setAllUVto poly new_uv undoOn:false
-					progressUpdate (100*poly/(polyOp.getNumFaces theObj))
+					pbar.value =  (100*poly/(polyOp.getNumFaces theObj))
 				)
 				format "Elapsed time: %\n" (timeStamp() - t1)
 				update theObj				
-				progressEnd()
+				pbar.value = 0
 			)
 		)
 	
@@ -638,25 +638,20 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				paint3D.checked = isOk
 			) else
 			(
-				endPainting3D()				
+				endPainting3D()
+				if (theObj !=  undefined) and chkAutoUV_end.checked then
+				(				
+					local mods = theObj.modifiers
+					local m = mods[#Unwrap_UVW]
+					local idx = findItem mods m				
+					print "collapsing"
+					maxOps.CollapseNodeTo theObj idx off
+				)
 			)
 			enable_tools (paint3D.checked == true)
 		)
 		
-		on btnApply pressed do 
-		(
-			if (paint3d.checked == true) and (theObj !=  undefined) then
-			(
-				paint3d.checked = false
-				paint3d.changed false
-				local mods = theObj.modifiers
-				local m = mods[#Unwrap_UVW]
-				local idx = findItem mods m				
-				print "collapsing"
-				maxOps.CollapseNodeTo theObj idx off
-			)
-		)
-		
+
 		on bmpColorPal lbuttondown pos flags do
 		(
 			if (pos.y <= bmpSize) then
