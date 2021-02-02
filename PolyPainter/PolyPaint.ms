@@ -380,6 +380,34 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			paint3d.checked = false
 			lastTriFace = -1
 		)
+		
+		local mpanel_showEndResult = false
+		local mpanel_subObjectLevel = 0
+		local mpanel_currObject = undefined
+		
+		function save_modpanel_state =
+		(
+			max modify mode
+			mpanel_showEndResult = showEndResult
+			mpanel_subObjectLevel = subObjectLevel
+			mpanel_currObject = modPanel.getCurrentObject()
+			if mpanel_currObject == theObj.baseObject then
+			(
+				mpanel_currObject = "base"
+			)
+		)
+		
+		function restore_modpanel_state =
+		(		
+			--max modify mode			
+			if mpanel_currObject == "base" then
+			(
+				mpanel_currObject = theObj.baseObject
+			)
+			modPanel.setCurrentObject mpanel_currObject			
+			subObjectLevel = mpanel_subObjectLevel
+			showEndResult = mpanel_showEndResult
+		)
 			
 		function prepareObj obj = 
 		(			
@@ -393,6 +421,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			
 			if  (obj.modifiers[#Unwrap_UVW] != undefined) then
 			(
+				
 				modPanel.setCurrentObject $.modifiers[#Unwrap_UVW]
 				obj.modifiers[#unwrap_uvw].unwrap5.setShowMapSeams off
 			) else
@@ -621,13 +650,12 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
                             
 							if diffMap != undefined then
 							( 								
+								save_modpanel_state()
 								updateColorBitmap(diffMap)
 								updateCurrColor()
 								startPainting3D() 
-								isOk = true                             
+								isOk = true             
                                 
-                                
-								
 							) else messageBox  "Need material applied with diffuseMap bitmap"
 						) else messageBox "Need material applied with diffuseMap bitmap"
 					) else 
@@ -647,6 +675,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 					print "collapsing"
 					maxOps.CollapseNodeTo theObj idx off
 				)
+				restore_modpanel_state()
 			)
 			enable_tools (paint3D.checked == true)
 		)
