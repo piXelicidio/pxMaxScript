@@ -27,5 +27,8 @@ Rename paths by searching a string and replace it, I think, can remember when I 
 **SetBmpBlur.ms**
 Get all scene maps and set its blur value to 0.01
 
-**UniqueNamesForAll.ms
+**UniqueNamesForAll.ms**
 Fix duplicated object names.
+
+**StepCap.ms**
+Cap a hole! but one step at time. Repeat multiple times to fully cap. Reduce polygons creating some triangles.
