@@ -7,7 +7,27 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 	
 	--data inputs
 	local theObj = $
-	local selected = polyOp.getEdgeSelection theObj
+	local selected = undefined
+	
+	if theObj != undefined then
+	(
+		if (classof theObj) == Editable_poly then
+		(
+			selected = polyOp.getEdgeSelection theObj
+			if (selected as array).count < 3 then
+			(
+				selected = undefined
+			)
+		) else
+		(
+			print "StepCap: Need Editable_poly selected, with border hole selected."
+		)
+	) else
+	(
+		print "StepCap: Select Editable_poly, then select border hole."
+	)
+		
+	
 	local vert_seq = #()	
 	local verts_pos = #()
 	--calculated
@@ -17,6 +37,9 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 	--estimated
 	local num_steps = 1
 	local step_len = 1.0
+	
+	--
+	local normal_bias = false
 	
 	struct shared_pos (vert_list, pos, created_vert)
 	
@@ -39,7 +62,7 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 				(
 					swap curr_sequence[j] curr_sequence[ last - j + 1] 
 				)
-				print "-<-sequence reversed-<-"
+				
 				exit
 			)
 		)			
@@ -47,6 +70,10 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 	
 	function CheckLoop edgeSel = 
 	(
+		if edgeSel == undefined then
+		(
+			return undefined
+		)
 		local pairs = #()
 		for es in edgeSel do 
 		(
@@ -82,15 +109,14 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 				append sequence pairs[ found_where[1] ][2]
 				deleteItem pairs found_where[1]
 			) else
-			(
-				print "ERROR"
+			(				
 				if found > 1 then 
 				(
-					print "Not a loop. Many conections."
+					print "StepCap: Not a loop. Many conections."
 				) else
 				(
 					--found == 0
-					print "Connection not found"
+					print "StepCap: Connection not found"
 				)
 				return undefined
 			)
@@ -99,8 +125,7 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 		
 		if sequence[1] != sequence[ sequence.count ] then
 		(
-			print "ERROR"
-			print "The loop is not closed"
+			print "Step: The loop is not closed"
 			return undefined
 		)
 		
@@ -167,7 +192,7 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 			)
 			if found == 0 then
 			(
-				print "ERROR: something bad, vert not found"
+				print "StepCap: ERROR: something bad, vert not found"
 				break()
 			)
 			--return
@@ -191,6 +216,26 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 		)
 	)
 	
+	function normal_effect curr_dir vert_idx curr_step =
+	(
+		--Average normal of faces using this vertex
+		local fs = (polyop.getFacesUsingVert theObj vert_idx) as array
+		local ave_normal = [0,0,0]
+		for f in fs do 
+		(
+			ave_normal = ave_normal + (polyop.getFaceNormal theObj f)
+		)
+		ave_normal =  (ave_normal / fs.count) --no need for normalize yet
+		local temp = cross curr_dir ave_normal
+		local surface_dir = normalize (cross ave_normal temp)
+		local step_len = length curr_dir
+		curr_dir = normalize curr_dir
+		local final_dir = (surface_dir * (curr_step*1.0)) + curr_dir
+		final_dir = (normalize final_dir) * step_len
+		--return
+		(final_dir)
+	)
+	
 	function extrude_in verts verts_pos steps reduce:0 = 
 	(
 		--Toward center verts extrussion 
@@ -198,11 +243,15 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 		new_verts_pos = #()		
 		new_posis = #() -- #( shared_pos < vert_list = #(idx1, idx2...), pos = [x,y,z] >  ), ...
 		for i=1 to verts.count-1 do
-		(
-			local to_center =  (center - verts_pos[i]) 			
-			to_center = verts_pos[i] + ( to_center * (1.0/steps ))
-			append new_posis (shared_pos #(verts[i])  to_center )
-			--append new_verts (polyOp.createVert  theObj to_center)
+		(			
+			local to_center =  (center - verts_pos[i])  *  (1.0/steps )
+			if normal_bias then
+			(
+				to_center = normal_effect to_center verts[i] steps
+			)
+			
+			to_center = verts_pos[i] +  to_center
+			append new_posis (shared_pos #(verts[i])  to_center )			
 		)		
 		append new_posis new_posis[1]  --close loop
 		--print verts
@@ -268,7 +317,7 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 		) 
 		else		
 		(
-			print "ERROR: Edge not found, or too many"
+			print "StepCap ERROR: Edge not found, or too many"
 		)
 		
 	)
@@ -284,27 +333,25 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 		) 
 		else
 		(
-			/* --testing sequence creating polygon
-			deleteItem vert_seq vert_seq.count
-			polyop.createPolygon theObj vert_seq
-			update theObj */
 			verts_pos = all_vert_pos vert_seq
+			
 			--calc values for: center, average edge len, average distance to center
 			calc_stats() 
 			num_steps = ((ave_dist2center / ave_len ) as integer) + 1
 			if num_steps < 2 then num_steps = 2
-			print ("Estimated steps: "+ (num_steps as string))
+			print ("StepCap: Estimated steps: "+ (num_steps as string))
 			step_len = ave_dist2center / num_steps
+				
 			-- how many to reduce?
 			local Num_edges = vert_seq.count - 1
 			local to_reduce = (Num_edges-4) --leve 4 for the ending quad.
 			to_reduce = (to_reduce / ( (num_steps - 1) as float))
 			to_reduce = (to_reduce + 0.5 ) as integer
-			print ("Reducing polys "+ (to_reduce as string))
+			print ("StepCap: Reducing polys "+ (to_reduce as string))
 			vert_seq = extrude_in vert_seq verts_pos num_steps reduce:to_reduce
 			update theObj
 				
-			--tODO: think of this maybe as a progressive capper, step by step by the user
+			--progressive capper, step by step by the user, last loop created get selected
 			select_hole vert_seq
 		)
 	)
