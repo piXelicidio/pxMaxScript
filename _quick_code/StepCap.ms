@@ -1,7 +1,7 @@
 ﻿--pX Step Cap--
 --Cap a hole by step, reducing polycount using triangles.
 
---macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes by step"
+macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes by step"
 (
 	
 	
@@ -44,7 +44,8 @@
 	--
 	local normal_bias = false
 	
-	struct shared_pos (vert_list, pos, dist2next, created_vert)
+	-- STRUCTS
+	struct shared_pos (vert_list, pos, dist2next, created_vert)	
 	
 	---------------------------------------------------- FUNCTIONS ------------------------------------------------------
 	
@@ -181,15 +182,16 @@
 			new_posis[i].created_vert = idx
 		)
 		
-		function find_bro posis v = 
+		function find_bro posis v from_idx = 
 		(
-			local found = 0
-			for i = 1 to posis.count-1 do
+			local found = 0	
+			if from_idx<1 then from_idx = 1
+			for i = from_idx to posis.count-1 do
 			(
 				local j = findItem posis[i].vert_list v
 				if j != 0 then 
 				(
-					found = i
+					found = i					
 					exit
 				)
 			)
@@ -202,18 +204,24 @@
 			(found)
 		)
 		
+		--Finding the corresponding new vertices to complete a polygon (quad, or triangle)		
+		local last_idx = 1
+		local poly = #()
 		for i = 1 to verts.count-1 do
-		(
-			local poly = #()
+		(			
 			poly[1] = verts[i]
 			poly[2] = verts[i+1]
 			--firt my two or one brothers
-			poly[3] = new_posis[ find_bro new_posis poly[2] ].created_vert
-			poly[4] = new_posis[ find_bro new_posis poly[1] ].created_vert
+			local p3i = find_bro new_posis poly[2] last_idx
+			local p4i = find_bro new_posis poly[1] last_idx
+			--format "p3i % - p4i %\n" p3i p4i
+			if i < (verts.count-2) then last_idx = amin p3i p4i else last_idx = 1
+			poly[3] = new_posis[ p3i  ].created_vert
+			poly[4] = new_posis[ p4i ].created_vert
 			--if the last two are the same, remove last
 			if poly[3] == poly[4] then 
 			(
-				deleteItem poly 4
+				poly.count = 3
 			)
 			polyOp.createPolygon theObj poly
 		)
@@ -239,12 +247,12 @@
 		(final_dir)
 	)
 	
+	------------------------------- THE EXTRUDE-IN ALGORITHM -------------------------------------------------------	
+	-----------------------------------------------------------------------------------------------------------------------------
 	function extrude_in verts verts_pos steps reduce:0 = 
 	(
-		--Toward center verts extrussion 
-		new_verts = #()
-		new_verts_pos = #()		
-		new_posis = #() -- #( shared_pos < vert_list = #(idx1, idx2...), pos = [x,y,z] >  ), ...
+		--Toward center verts extrussion 		
+		local new_posis = #() -- #( shared_pos < vert_list = #(idx1, idx2...), pos = [x,y,z] >  ), ...
 		new_posis[verts.count] = undefined
 		for i=1 to verts.count-1 do
 		(			
@@ -266,8 +274,7 @@
 		new_posis[verts.count] = new_posis[1]  --close loop
 		new_posis[verts.count-1].dist2next = distance new_posis[verts.count-1].pos new_posis[1].pos
 		
-		format "StepCap: Elapsed time: %\n" (timeStamp() - t_start)
-		
+				
 		--verts reduccion
 		if reduce > verts.count - 2 then
 		(
@@ -277,10 +284,11 @@
 		(
 			local min_dist = new_posis[1].dist2next
 			local min_segm = 1
+			
 			for i=1 to new_posis.count-1 do
 			(
-				--local dist = distance new_posis[i].pos new_posis[i+1].pos
-				local dist = new_posis[i].dist2next
+				
+				local dist = new_posis[i].dist2next				
 				if dist<min_dist then
 				(
 					min_dist = dist
@@ -288,6 +296,7 @@
 				)
 			)			
 			--print ("min segment " + (min_segm as string) + " dist:" + (min_dist as string))
+			
 				
 			--collapsing smaller segment
 			join new_posis[min_segm].vert_list new_posis[min_segm + 1 ].vert_list --joining lists
@@ -314,14 +323,15 @@
 		)
 
 		
-		--print new_posis
+		--print new_posis		
 		build_strip verts new_posis
 		
 		--resulting vert sequence:
 		local result = #()
+		result[new_posis.count] = undefined
 		for i = 1 to new_posis.count do
 		(
-			append result new_posis[i].created_vert
+			result[i] = new_posis[i].created_vert
 		)
 		--return
 		(result)
@@ -380,7 +390,7 @@
 			------------------------------------------------------------------------------------------------	
 			update theObj
 				
-			--progressive capper, step by step by the user, last loop created get selected
+			--progressive capper, step by step by the user, last loop created get selected			
 			select_hole vert_seq
 				
 			--finished
