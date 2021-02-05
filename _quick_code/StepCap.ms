@@ -1,7 +1,7 @@
 ﻿--pX Step Cap--
 --Cap a hole by step, reducing polycount using triangles.
 
-macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes by step"
+--macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes by step"
 (
 	
 	
@@ -44,7 +44,7 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 	--
 	local normal_bias = false
 	
-	struct shared_pos (vert_list, pos, created_vert)
+	struct shared_pos (vert_list, pos, dist2next, created_vert)
 	
 	---------------------------------------------------- FUNCTIONS ------------------------------------------------------
 	
@@ -255,10 +255,16 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 			)
 			
 			to_center = verts_pos[i] +  to_center
-			new_posis[i] = (shared_pos #(verts[i])  to_center )			
-
+			new_posis[i] = (shared_pos #(verts[i])  to_center )	
+			
+			--precarculating segment lengths
+			if i>1 then
+			(
+				new_posis[i-1].dist2next = distance new_posis[i-1].pos new_posis[i].pos
+			)
 		)		
-		new_posis[verts.count] = new_posis[1]  --close loop		
+		new_posis[verts.count] = new_posis[1]  --close loop
+		new_posis[verts.count-1].dist2next = distance new_posis[verts.count-1].pos new_posis[1].pos
 		
 		format "StepCap: Elapsed time: %\n" (timeStamp() - t_start)
 		
@@ -269,11 +275,12 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 		)
 		while reduce>0 do
 		(
-			local min_dist = distance new_posis[1].pos new_posis[2].pos	
+			local min_dist = new_posis[1].dist2next
 			local min_segm = 1
 			for i=1 to new_posis.count-1 do
 			(
-				local dist = distance new_posis[i].pos new_posis[i+1].pos				
+				--local dist = distance new_posis[i].pos new_posis[i+1].pos
+				local dist = new_posis[i].dist2next
 				if dist<min_dist then
 				(
 					min_dist = dist
@@ -292,7 +299,17 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 				new_posis[1] = new_posis[ min_segm ]
 			)		
 			
-
+ 			--- update dist2next of affected vertices
+			for i = (min_segm - 1) to min_segm do
+			(
+				local i1 = i
+				local i2 = i + 1
+				if i == 0 then i1 = new_posis.count - 1
+				if i == new_posis.count then i2 = 2
+				
+				new_posis[i1].dist2next = distance new_posis[i1].pos new_posis[i2].pos
+			) 
+				
 			reduce = reduce - 1
 		)
 
