@@ -8,6 +8,9 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 	--data inputs
 	local theObj = $
 	local selected = undefined
+	local t_start = 0
+	
+	---------------------------------------- script starts preparation ------------------------------
 	
 	if theObj != undefined then
 	(
@@ -43,7 +46,7 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 	
 	struct shared_pos (vert_list, pos, created_vert)
 	
-	--clearListener()
+	---------------------------------------------------- FUNCTIONS ------------------------------------------------------
 	
 	function reverse_if_needed sample_edge &curr_sequence =
 	(
@@ -242,6 +245,7 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 		new_verts = #()
 		new_verts_pos = #()		
 		new_posis = #() -- #( shared_pos < vert_list = #(idx1, idx2...), pos = [x,y,z] >  ), ...
+		new_posis[verts.count] = undefined
 		for i=1 to verts.count-1 do
 		(			
 			local to_center =  (center - verts_pos[i])  *  (1.0/steps )
@@ -251,11 +255,12 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 			)
 			
 			to_center = verts_pos[i] +  to_center
-			append new_posis (shared_pos #(verts[i])  to_center )			
+			new_posis[i] = (shared_pos #(verts[i])  to_center )			
+
 		)		
-		append new_posis new_posis[1]  --close loop
-		--print verts
-		--print new_posis
+		new_posis[verts.count] = new_posis[1]  --close loop		
+		
+		format "StepCap: Elapsed time: %\n" (timeStamp() - t_start)
 		
 		--verts reduccion
 		if reduce > verts.count - 2 then
@@ -264,11 +269,11 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 		)
 		while reduce>0 do
 		(
-			local min_dist = distance new_posis[1].pos new_posis[2].pos
+			local min_dist = distance new_posis[1].pos new_posis[2].pos	
 			local min_segm = 1
 			for i=1 to new_posis.count-1 do
 			(
-				local dist = distance new_posis[i].pos new_posis[i+1].pos
+				local dist = distance new_posis[i].pos new_posis[i+1].pos				
 				if dist<min_dist then
 				(
 					min_dist = dist
@@ -279,7 +284,7 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 				
 			--collapsing smaller segment
 			join new_posis[min_segm].vert_list new_posis[min_segm + 1 ].vert_list --joining lists
-			new_posis[min_segm].pos = (new_posis[min_segm].pos + new_posis[min_segm + 1 ].pos) * 0.5 --averaging verts
+			new_posis[min_segm].pos = (new_posis[min_segm].pos + new_posis[min_segm + 1 ].pos) * 0.5 --averaging verts			
 			deleteItem new_posis (min_segm+1)
 				
 			if min_segm == new_posis.count then
@@ -287,7 +292,7 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 				new_posis[1] = new_posis[ min_segm ]
 			)		
 			
-				
+
 			reduce = reduce - 1
 		)
 
@@ -322,6 +327,11 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 		
 	)
 	
+	
+	
+	----------------------------------------- THE GOOD STUFF  ---------------------------
+	t_start = timeStamp()
+	
 	vert_seq = checkLoop selected
 	if vert_seq != undefined then
 	(
@@ -346,13 +356,18 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 			local Num_edges = vert_seq.count - 1
 			local to_reduce = (Num_edges-4) --leve 4 for the ending quad.
 			to_reduce = (to_reduce / ( (num_steps - 1) as float))
-			to_reduce = (to_reduce + 0.5 ) as integer
+			to_reduce = (to_reduce + 0.5 ) as integer			
 			print ("StepCap: Reducing polys "+ (to_reduce as string))
+			------------------------------------------------------------------------------------------------	
 			vert_seq = extrude_in vert_seq verts_pos num_steps reduce:to_reduce
+			------------------------------------------------------------------------------------------------	
 			update theObj
 				
 			--progressive capper, step by step by the user, last loop created get selected
 			select_hole vert_seq
+				
+			--finished
+			format "StepCap: Elapsed time: %\n" (timeStamp() - t_start)
 		)
 	)
 
