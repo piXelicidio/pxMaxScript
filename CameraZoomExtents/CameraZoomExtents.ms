@@ -217,7 +217,7 @@ macroScript camZoomExtents category:"pX Tools"
 	(
 		local objs = selection
 		if objs.count == 0 then objs = objects
-		if objs.count == 0 then return cam.pos --nothing happens
+		if objs.count == 0 then return [0,0,0] --nothing happens
 		local verts = sceneBoundingVerts Objs GeometryClass cam.transform
 		
 		--horizontal FOV
