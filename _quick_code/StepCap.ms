@@ -186,7 +186,7 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 		(
 			local found = 0	
 			if from_idx<1 then from_idx = 1
-			for i = from_idx to posis.count-1 do
+			for i = from_idx to posis.count do
 			(
 				local j = findItem posis[i].vert_list v
 				if j != 0 then 
