@@ -76,11 +76,12 @@ macroScript camZoomExtents category:"pX Tools"
 	(
 		local all_verts = #()
 		local count = 0
-		if mat == undefined then mat = matrix3 1
+		if mat == undefined then mat = matrix3 1		
 		for obj in objList do
-		(
+		(			
 			if (isKindOf obj aclass)  or (aclass == undefined) then
 			(
+				
 				bb = nodeGetBoundingBox obj mat			
 				count = count + 8
 				all_verts[count] = bb[1]
@@ -93,7 +94,7 @@ macroScript camZoomExtents category:"pX Tools"
 				all_verts[count-7] = [bb[1].x, bb[2].y, bb[2].z]			
 			)
 		)
-		--return
+		--return		
 		(all_verts)
 	)
 
@@ -213,12 +214,32 @@ macroScript camZoomExtents category:"pX Tools"
 		(resx)
 	)
 	
+	function isAnyGeomIn list =
+	(
+		local result = false
+		for o in list do
+		(
+			if isKindOf o geometryClass then 
+			(
+				result = true
+				exit
+			)
+		)
+		--return
+		(result)
+	)
+	
 	function zoomExtentCamera cam =
 	(
 		local objs = selection
-		if objs.count == 0 then objs = objects
-		if objs.count == 0 then return [0,0,0] --nothing happens
+		if not (isAnyGeomIn objs) then objs = objects
+		if not (isAnyGeomIn objs) then return [0,0,0] --nothing happens
 		local verts = sceneBoundingVerts Objs GeometryClass cam.transform
+		if verts.count == 0 then 
+		(
+			print "Warning: no geometry found"
+			return [0,0,0]
+		)		
 		
 		--horizontal FOV
 		local safeActionFrame = 0.9 --reduce 10% the FOV to give air to the borders. (Action safe zone)
@@ -232,7 +253,7 @@ macroScript camZoomExtents category:"pX Tools"
 		--to the one of these FOV sides (rays).
 
 		--HORIZONTAL---------------------------------------	
-		local verts2d = camH_to_xy verts
+		local verts2d = camH_to_xy verts		
 		local bpResult = best_point_for_FOV hFOV verts2d		
 		local ip_H = bpResult[1]
 		local HvertRight = bpResult[2]
