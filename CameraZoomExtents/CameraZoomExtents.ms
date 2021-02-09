@@ -1,8 +1,10 @@
+--denysalmaral.com
+-- Zoom Extents selected with active camera, or does default Zoom extents selected if the active viewport is not a camera.
+-- When Zoom extending with Camera, it only takes into account GeometryClass objects. Ignore anything else, like other cameras and lights.
+-- Keeps the FOV and rotation, only moves camera position in space to fit them all.
 
+macroScript camZoomExtents category:"pX Tools"
 (
-
-	
-
 	--INTERCEPT SEGMENTS translated from my old delphi code ;)
 	/* {
 	  Intercept 2 segments
@@ -11,6 +13,8 @@
 	 result poin3 
 	  return undefined if cannot intercept
 	} */
+	
+	-------------------------------------------------------------------FUNCTIONS-------------------------------------------
 	function intercept  a1 a2 b1 b2  =
 	( 
 		local m1 = 0.0
@@ -68,14 +72,14 @@
 		(Result)
 	)
 
-	function sceneBoundingVerts aclass mat =
+	function sceneBoundingVerts objList aclass mat =
 	(
 		local all_verts = #()
 		local count = 0
 		if mat == undefined then mat = matrix3 1
-		for obj in objects do
+		for obj in objList do
 		(
-			if (isKindOf obj aclass) then
+			if (isKindOf obj aclass)  or (aclass == undefined) then
 			(
 				bb = nodeGetBoundingBox obj mat			
 				count = count + 8
@@ -209,10 +213,16 @@
 		(resx)
 	)
 	
-	function zoomExtentCamera cam verts =
+	function zoomExtentCamera cam =
 	(
+		local objs = selection
+		if objs.count == 0 then objs = objects
+		if objs.count == 0 then return cam.pos --nothing happens
+		local verts = sceneBoundingVerts Objs GeometryClass cam.transform
+		
 		--horizontal FOV
-		local hFOV = cam.fov -- * pi / 180
+		local safeActionFrame = 0.9 --reduce 10% the FOV to give air to the borders. (Action safe zone)
+		local hFOV = (cam.fov*safeActionFrame) -- * pi / 180
 		--vertical FOV
 		local vFOV = hFOV *  (renderHeight as float / renderWidth)
 		
@@ -259,12 +269,23 @@
 			cpos.x = (balanced_center HvertLeft HvertRight ip_V.y)
 		)
 				
-		--return New camera position
-		(cpos * cam.transform)
+		--return camera translation needed
+		((cpos * cam.transform)-cam.pos)
 	)
-
-	local cam = $camera002
-	local verts = sceneBoundingVerts GeometryClass cam.transform
-	local reposition = zoomExtentCamera cam verts
-	cam.pos = reposition
+	
+	------------------------------------------------------------------------EXECUTION STARTS HERE ---------------------------------------------
+	if viewport.getType() == #view_camera then
+	(
+		local cam = getActiveCamera()
+		local cam_move = zoomExtentCamera cam
+		cam.pos = cam.pos + cam_move
+		if cam.target != undefined then
+		(
+			cam.target.pos = cam.target.pos + cam_move
+		)
+	) else
+	( -- do a standard Zoom Extents selected.
+		actionMan.executeAction 0 "310"  
+	)
+	
 )
