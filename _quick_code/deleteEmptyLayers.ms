@@ -7,13 +7,13 @@ function clean=
     --layer 0 is default
     for i = 1 to n-1 do 
     (
-        layers[i] = LayerManager.getLayer i        
+        layers[i] = (LayerManager.getLayer i).name
         --i can't delete here its complicated... list shrinks... etc. 
     )
     -- second pass, delete 
     for i = 1 to n - 1 do  
     (
-        LayerManager.deleteLayerByName layers[i].name        
+        LayerManager.deleteLayerByName layers[i]
     )        
 )
 clean()
