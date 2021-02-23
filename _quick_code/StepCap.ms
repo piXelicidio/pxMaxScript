@@ -14,7 +14,7 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 	
 	if theObj != undefined then
 	(
-		if (classof theObj) == Editable_poly then
+		if ((classof theObj) == Editable_poly) then
 		(
 			selected = polyOp.getEdgeSelection theObj
 			if (selected as array).count < 3 then

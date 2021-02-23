@@ -83,10 +83,11 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			
 			progressBar pbar "" value:0
 			
-			group "Utilities" (
-				button btnSwapMap "Remap Texture with -->" across:2 toolTip:"Replace texture keeping same colors as close as possible"				
+			group "Texture remapping & swapping" (
+				button btnSwapMap "Remap Texture with -->" across:2 toolTip:"Remap UV based on texture target, keeping same colors as close as possible"				
 				mapbutton mapBtnSwapMap "<none>" across:2 tooltip:"Select bitmap texture to be replaced with"				
-				checkbox chkOptimizeBitmap "Pre-Optimize Bitmap" checked:true tooltip:"Useful if new texture has many repeated pixel colors"				
+				checkbox chkOptimizeBitmap "Pre-Optimize Bitmap" checked:true tooltip:"Useful if new texture has many repeated pixel colors" across:2
+				checkbox chkNoReplace "Remap without replace" checked:false tooltip:"Do not replace with new bitmap when remapping"
 			)
 			
 		local paint_enable = #( btnFullRepaint, btnFill, btnUndo, btnUV_set, btnSwapMap)
@@ -116,6 +117,10 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		function UVgetPixel UV diffMap gamma:false = (
 			local w = diffMap.bitmap.width
 			local h = diffMap.bitmap.height				
+			if UV.x==1 or UV.y==1 then
+			(
+				print "ERROR: pixel coord out of bounds"
+			)
 			(getPixels diffMap.bitmap [ UV.x * w ,  (1-UV.y) * h ] 1 linear:gamma )[1]
 		)
 		
@@ -823,7 +828,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 					if (classof map) ==Bitmaptexture then 
 					(
 						remapTo map.bitmap
-						replaceDiffuseMap theObj.material map
+						if not chkNoReplace.checked then 	replaceDiffuseMap theObj.material map
 						redrawViews()
 						updateColorBitmap map						
 					) else
