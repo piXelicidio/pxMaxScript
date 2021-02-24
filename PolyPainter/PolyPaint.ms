@@ -1,7 +1,7 @@
 -- Poly  Paint, a tool to paint polygos with a flat color from texture, setting all vertices of a UV face to a single point in texture, giving always a flat color
 -- By Denys Almaral - 2018
 
--- Updates
+-- Updates:
 
 -- Paint-edit Multiple objects at the same time. 
 -- Remappping textures: Swap old with new, remapping UV, keeping same colors look.
@@ -14,7 +14,8 @@
 -- Full repaint the whole object with selected color 
 -- 2018: v1.0 basic functionality 
 
---- TODO
+--- TODO:
+
 -- Experiment:  migrate all to direct polyOp functions, remove unwrap_UVW modifier calls and needs.
 -- What to do when multiple selected objects have different textures? Limitation or feature?
 
