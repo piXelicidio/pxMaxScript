@@ -27,6 +27,7 @@
 	local theObj = undefined
 	local lastObj = undefined
 	local theObjects = #()
+	local mod_states = #()
 	local masterObj = undefined
 	local mapChannel = 1
 	local curr_UV = [0.5,0.5,0]
@@ -550,6 +551,7 @@
 		
 		function prepareObj obj = 
 		(
+			modPanel.setCurrentObject  obj.baseObject			
 			prepare_for_polyops obj
 		)
 			
@@ -751,6 +753,21 @@
 				pbar.value = 0
 			)
 		)
+		
+		--return array with Enabled/Disabled modifiers states.
+		--while disabling all
+		function saveMod_states obj disableThem:true =
+		(
+			local states = #()
+			states.count = obj.modifiers.count
+			for i=1 to states.count do
+			(
+				states[i] = obj.modifiers[i].enabled
+				obj.modifiers[i].enabled = false
+			)
+			--return
+			(states)
+		)
 	
 		
 		------------================== UI EVENTS HANDLERS =====================--------------------------------
@@ -762,6 +779,7 @@
 				local isOk = 0
 				local objList = #()
 				theObjects = #() --reseting
+				mod_states = #()
 				
 				if ($==undefined) then 
 				(
@@ -796,6 +814,7 @@
 									)
 									prepareObj theObj
 									append theObjects theObj
+									append mod_states (saveMod_states theObj) 
 									isOk = isOk + 1
 									
 								) else messageBox  "Need material applied with diffuseMap bitmap"
@@ -826,6 +845,15 @@
 						local idx = findItem mods m				
 						print "collapsing"
 						maxOps.CollapseNodeTo Obj idx off
+					)
+				)
+				--restoring stacks and modify panel
+				for i=1 to theObjects.count do
+				(
+					local states = mod_states[i]
+					for j = 1 to states.count do
+					(
+						theObjects[i].modifiers[j].enabled = states[j]
 					)
 				)
 				if theObjects.count==1 then restore_modpanel_state()
