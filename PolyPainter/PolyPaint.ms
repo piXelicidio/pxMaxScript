@@ -14,13 +14,14 @@
 -- 2018: v1.0 basic functionality 
 
 
-macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
+--macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
 (
-    
-	local bary = [0,0,0]
-	local faceIndex = 1
+
 	local lastTriFace = -1
 	local theObj = undefined
+	local lastObj = undefined
+	local theObjects = #()
+	local masterObj = undefined
 	local curr_UV = [0.5,0.5,0]
 	local currStrokeNum = 0
 	local thePI = thePainterInterface
@@ -163,7 +164,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
         -- draw pixels over bitmap to show current color 
 		function updateCurrColor =
 		(	      
-			local diffMap = findMatDiffuseMap theObj.material
+			local diffMap = findMatDiffuseMap masterObj.material
             copy diffMap.bitmap tempBitmap
 						
 			local p = UVtoColor curr_UV 								
@@ -214,6 +215,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		fn getPolyFaceByTri node tri =
 		(
 			-- convert a mesh Face Index to a editable_poly poly index
+			-- magic alert!
 			local index = 1
 			local poly = 0
 			local getFaceDeg = polyop.getFaceDeg
@@ -225,25 +227,49 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			poly
 		)
 		
+		function unwrap_getMapFace obj poly = 
+		(			
+			local result = #()
+			result.count = obj.Unwrap_UVW.numberPointsInFace poly		
+			for i=1 to result.count do
+			(				
+				result[i] = obj.Unwrap_UVW.getVertexIndexFromFace poly i				
+			)
+			--return
+			(result)
+		)
+		
 		function setAllUVto poly UV UndoOn:true =
-		(
-			local mapFace = polyop.getMapFace theObj 1 poly
+		(			
+			if theObj != lastObj then
+			(
+				--changed target node
+				modPanel.setCurrentObject theObj.modifiers[#Unwrap_UVW]
+			)
+			local mapFace = unwrap_getMapFace theObj poly					
+			
 			
 			if UndoOn do 
 			(
 				-- UNDO DATA			
 				local faceUV = #()
 				faceUV[1] = poly 			
-				--saving, only the first vertex			
-				faceUV[2] = polyop.getMapVert theObj 1 mapFace[1]			
+				--saving, only the first vertex					
+				faceUV[2] = theObj.Unwrap_UVW.getVertexPosition 0 mapFace[1]
+				faceUV[3] = theObj
+				
 				append faceMapUndo faceUV
 			)
 			
 			--modifiying
-			for i=1 to mapFace.count do
+			for i=1 to mapFace.Count do
 			(
+				--with unwrap_modifier
 				theObj.Unwrap_UVW.setFaceVertex [ UV.x, UV.y,0] poly i false
+				--directly to Editpoly
+				--polyop.setMapVert theObj 1 mapFace[i] [UV.x, UV.y, 0]
 			)	
+			lastObj = theObj
 		)
 		
 		function putPlyxel poly UV =
@@ -324,7 +350,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 					else (putPlyxel i UV) --else paint				   
 				)				
 				newFaces = newFaces - removeFaces
-				print ( "filling faces " + ((newFaces as array).count as string) )			
+				--print ( "filling faces " + ((newFaces as array).count as string) )			
 				update theObj
 				redrawViews()
 				faces = newFaces
@@ -335,37 +361,44 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		
 		-- The main thing happens here ------------ PAINT STROKE -------------- ******************************
 		function paintStroke = 
-		( 			
+		( 	
+			local bary = [0,0,0]
+			local faceIndex = 1			
+			local hitObj = thePI.getHitNode 0
 			
-			thePI.getHitFaceData &bary &faceIndex theObj 0	
-			
-			if (faceIndex != lastTriFace) and (bary != [0,0,0]) then
-			--do not repeat stuff if we are still in the same face
-			-- bary != [0,0,0] dirty trick to detect ourside of node strokes
-			(				
-				local PolyIndex = (getPolyfaceByTri theObj faceIndex)												
-				--print bary	
-				local shift=false , ctrl=false, alt=false, pressure=0
-				thePI.getHitPressureData  &shift &ctrl &alt &pressure 0
+			if hitObj != undefined then
+			(	
+				theObj = hitObj
+				thePI.getHitFaceData &bary &faceIndex theObj 0	
 				
-				if alt then -- PICKING COLOR 
-				(
-				   curr_UV = getPlyxel polyIndex
-				   updateCurrColor()
-				) else if btnFill.checked then
-				(
-					fillArea polyIndex curr_UV					
-				) else -- DRAWING COLOR
+				if (faceIndex != lastTriFace) and (bary != [0,0,0]) then
+				--do not repeat stuff if we are still in the same face
+				-- bary != [0,0,0] dirty trick to detect ourside of node strokes
 				(				
+					local PolyIndex = (getPolyfaceByTri theObj faceIndex)												
+					--print bary	
+					local shift=false , ctrl=false, alt=false, pressure=0
+					thePI.getHitPressureData  &shift &ctrl &alt &pressure 0
 					
-						putPlyxel polyIndex curr_UV
-				    
-					if thePI.mirrorEnable == true then mirrorPaint()
-					update theObj	
+					if alt then -- PICKING COLOR 
+					(
+					   curr_UV = getPlyxel polyIndex
+					   updateCurrColor()
+					) else if btnFill.checked then
+					(
+						fillArea polyIndex curr_UV					
+					) else -- DRAWING COLOR
+					(				
+						
+							putPlyxel polyIndex curr_UV
+						
+						if thePI.mirrorEnable == true then mirrorPaint()
+						update theObj	
+					)
+					thePI.clearStroke()				
 				)
-				thePI.clearStroke()				
+				lastTriFace = faceIndex				
 			)
-			lastTriFace = faceIndex				
 		)
 		
 		function endStroke = 
@@ -403,11 +436,12 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		)
 		
 		function restore_modpanel_state =
-		(		
+		(
+			
 			--max modify mode			
 			if mpanel_currObject == "base" then
 			(
-				mpanel_currObject = theObj.baseObject
+				mpanel_currObject = masterObj.baseObject
 			)
 			modPanel.setCurrentObject mpanel_currObject			
 			subObjectLevel = mpanel_subObjectLevel
@@ -427,7 +461,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			if  (obj.modifiers[#Unwrap_UVW] != undefined) then
 			(
 				
-				modPanel.setCurrentObject $.modifiers[#Unwrap_UVW]
+				modPanel.setCurrentObject obj.modifiers[#Unwrap_UVW]
 				obj.modifiers[#unwrap_uvw].unwrap5.setShowMapSeams off
 			) else
 			(
@@ -443,13 +477,12 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				thePI.endPaintSession()
 				paint3D.checked = false
 			) else
-			(
-				prepareObj theObj
+			(				
 				updateCurrColor()				
 				--lblInfo.visible = false
 				paint3D.checked = true
 				thePI.pointGatherEnable = false
-				thePI.initializeNodes 0 # (theObj)
+				thePI.initializeNodes 0 theObjects
 				thePI.offMeshHitType =2
 				thePI.minSize = 0.1
 		        thePI.maxSize = 2
@@ -639,48 +672,76 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		( 
 			if paint3D.checked == true then
 			(
-				local isOk = false
-				theObj = $
-				if (theObj==undefined) then 
+				local isOk = 0
+				local objList = #()
+				theObjects = #() --reseting
+				
+				if ($==undefined) then 
 				(
 					messageBox "Object not Selected" title:"Warning" beep:true					
 				) else
 				(
-					if ((isKindOf theObj Editable_poly) or (isKindOf theObj PolyMeshObject))  then
+					if (classof $) == objectSet then
 					(
-						if theObj.material != undefined then
+						objList = $ as array
+					) else
+					(
+						objList = #($)
+					)
+					for Obj in objList do
+					(
+						theObj = obj
+						if ((isKindOf theObj Editable_poly) or (isKindOf theObj PolyMeshObject)) or ((classof theObj.baseObject) == Editable_poly) then
 						(
-                            local diffMap = findDiffuseMap($)
-                            
-                            
-							if diffMap != undefined then
-							( 								
-								save_modpanel_state()
-								updateColorBitmap(diffMap)
-								updateCurrColor()
-								startPainting3D() 
-								isOk = true             
-                                
-							) else messageBox  "Need material applied with diffuseMap bitmap"
-						) else messageBox "Need material applied with diffuseMap bitmap"
-					) else 
-					( 
-						messageBox "Object need to be  Editable Poly object with Unwrap UVW applied." title:"Warning" beep:true						
+							--TODO: Maybe .baseObject is better than PolyMeshObject test
+							if theObj.material != undefined then
+							(
+								local diffMap = findDiffuseMap(theObj)								
+								
+								if diffMap != undefined then
+								( 						
+									if isOk == 0 then
+									(
+										masterObj = theObj
+										save_modpanel_state()
+										updateColorBitmap(diffMap)
+										updateCurrColor()
+									)
+									prepareObj theObj
+									append theObjects theObj
+									isOk = isOk + 1
+									
+								) else messageBox  "Need material applied with diffuseMap bitmap"
+							) else messageBox "Need material applied with diffuseMap bitmap"
+						) else 
+						( 
+							messageBox "Object need to be  Editable Poly object with Unwrap UVW applied." title:"Warning" beep:true						
+						)
 					)
 				)
-				paint3D.checked = isOk
+				
+				if isOk > 0 then
+				(
+					paint3D.checked = true
+					theObj = masterObj
+					startPainting3D()
+				) else paint3D.checked = false
+				
 			) else
 			(
 				endPainting3D()
-				if (theObj !=  undefined) and chkAutoUV_end.checked then
-				(				
-					local mods = theObj.modifiers
-					local m = mods[#Unwrap_UVW]
-					local idx = findItem mods m				
-					print "collapsing"
-					maxOps.CollapseNodeTo theObj idx off
+				if chkAutoUV_end.checked then
+				(	
+					for obj in theObjects do
+					(
+						local mods = Obj.modifiers
+						local m = mods[#Unwrap_UVW]
+						local idx = findItem mods m				
+						print "collapsing"
+						maxOps.CollapseNodeTo Obj idx off
+					)
 				)
-				restore_modpanel_state()
+				if theObjects.count==1 then restore_modpanel_state()
 			)
 			enable_tools (paint3D.checked == true)
 		)
