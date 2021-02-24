@@ -3,6 +3,7 @@
 
 -- Updates
 
+-- Paint-edit Multiple objects at the same time. 
 -- Remappping textures: Swap old with new, remapping UV, keeping same colors look.
 -- UI review
 -- 2021: Auto-isert Unwrap UVW modifier. APPLY button to collapse to Unwrap UVW position in stack.
@@ -13,8 +14,12 @@
 -- Full repaint the whole object with selected color 
 -- 2018: v1.0 basic functionality 
 
+--- TODO
+-- Experiment:  migrate all to direct polyOp functions, remove unwrap_UVW modifier calls and needs.
+-- What to do when multiple selected objects have different textures? Limitation or feature?
 
---macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
+
+macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
 (
 
 	local lastTriFace = -1
@@ -118,9 +123,11 @@
 		function UVgetPixel UV diffMap gamma:false = (
 			local w = diffMap.bitmap.width
 			local h = diffMap.bitmap.height				
-			if UV.x==1 or UV.y==1 then
+			if UV.x>=1 or UV.y>=1 or UV.x<=0 or UV.y<=0 then
 			(
 				print "ERROR: pixel coord out of bounds"
+				UV.x = 0.5
+				UV.y = 0.5
 			)
 			(getPixels diffMap.bitmap [ UV.x * w ,  (1-UV.y) * h ] 1 linear:gamma )[1]
 		)
@@ -295,9 +302,12 @@
 		
 		function getPlyxel poly =
 		(			
-			local face = polyop.getMapFace theObj 1 poly
-			local vert = polyop.getMapVert theObj 1 face[1]
-			vert
+			--local face = polyop.getMapFace theObj 1 poly
+			local face = unwrap_getMapFace theObj poly			
+			--local vert = polyop.getMapVert theObj 1 face[1]
+			local vert = theObj.Unwrap_UVW.getVertexPosition 0 Face[1]
+			--return
+			(vert)
 		)
 		
 		function mirrorPaint =
