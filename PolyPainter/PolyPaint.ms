@@ -20,7 +20,7 @@
 -- What to do when multiple selected objects have different textures? Limitation or feature?
 
 
---macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
+macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
 (
 
 	local lastTriFace = -1
