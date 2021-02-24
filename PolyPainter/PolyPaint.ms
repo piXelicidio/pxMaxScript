@@ -3,6 +3,7 @@
 
 -- Updates:
 
+-- Migrated from Unwrap UVW functions to direct polyOp functions. Faster smooth calls.
 -- Paint-edit Multiple objects at the same time. 
 -- Remappping textures: Swap old with new, remapping UV, keeping same colors look.
 -- UI review
@@ -16,11 +17,10 @@
 
 --- TODO:
 
--- Experiment:  migrate all to direct polyOp functions, remove unwrap_UVW modifier calls and needs.
 -- What to do when multiple selected objects have different textures? Limitation or feature?
 
 
-macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
+--macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
 (
 
 	local lastTriFace = -1
@@ -28,6 +28,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 	local lastObj = undefined
 	local theObjects = #()
 	local masterObj = undefined
+	local mapChannel = 1
 	local curr_UV = [0.5,0.5,0]
 	local currStrokeNum = 0
 	local thePI = thePainterInterface
@@ -66,8 +67,8 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		--label lblInfo "Select object and press Start Painting Tool" pos:[10,10]
 		
 			checkButton paint3D paintBtnCaption_start width:(bmpSize-5) height:25
-			checkbox chkAutoUV "Auto-insert UV (start)"  across:2 checked:true tooltip:"Adds Unwrap UV modifier over Edit_poly when  painting starts"
-			checkbox chkAutoUV_end "Auto-apply UV (end)"  across:2 checked:true tooltip:"Collaps Unwrap UV modifier over Edit_poly when painting ends"
+			--checkbox chkAutoUV "Auto-insert UV (start)"  across:2 checked:true tooltip:"Adds Unwrap UV modifier over Edit_poly when  painting starts"
+			--checkbox chkAutoUV_end "Auto-apply UV (end)"  across:2 checked:true tooltip:"Collaps Unwrap UV modifier over Edit_poly when painting ends"
 			
 			group "Paint" (
 				label lbl3dPickColor "Alt+Click = Color picker" across:2 
@@ -280,12 +281,34 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			lastObj = theObj
 		)
 		
-		function putPlyxel poly UV =
+		function setFaceUV faceIdx UV undoOn:true Obj:undefined =
+		(	
+			if Obj == undefined then
+			(
+				Obj = theObj
+			) 
+			if UndoOn do 
+			(
+				-- UNDO DATA			
+				local faceUV = #()
+				faceUV[1] = faceIdx			
+				--saving, only the first vertex					
+				faceUV[2] = polyop.getMapVert Obj mapChannel faceIdx
+				faceUV[3] = Obj
+				
+				append faceMapUndo faceUV
+			)
+			
+			--modifiying
+			polyop.setMapVert Obj mapChannel faceIdx [UV.x, UV.y, 0]			
+		)
+		
+		function putPlyxel faceIdx UV =
 		(
-			if spnSpread.value == 0 then setAllUVto poly UV 
+			if spnSpread.value == 0 then setFaceUV faceIdx UV 
 				else
 			(
-				local faces = #{poly}
+				local faces = #{faceIdx}
 				local verts = #{}
 				for j = 1 to spnSpread.value do
 				(
@@ -294,14 +317,14 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				)
 				for i in faces do
 				(
-					setAllUVto i UV
+					setFaceUV i UV
 				)
 				
 			)
 			
 		)
 		
-		function getPlyxel poly =
+		function unwrap_getPlyxel poly =
 		(			
 			--local face = polyop.getMapFace theObj 1 poly
 			local face = unwrap_getMapFace theObj poly			
@@ -310,6 +333,13 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			--return
 			(vert)
 		)
+		
+		function getPlyxel faceIdx =
+		(				
+			--return
+			(polyop.getMapVert theObj mapChannel faceIdx)
+		)
+		
 		
 		function mirrorPaint =
 		(
@@ -458,8 +488,8 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			subObjectLevel = mpanel_subObjectLevel
 			showEndResult = mpanel_showEndResult
 		)
-			
-		function prepareObj obj = 
+		
+		function prepareObj_for_unwrap obj = 
 		(			
 			if (obj.modifiers[#Unwrap_UVW] == undefined)  then
 			(				
@@ -479,6 +509,51 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				messageBox "Unwrap_UVW not found in stack"
 			)
 		)
+		
+		function prepare_for_polyops obj = 
+		(
+			local meshFaces = polyop.getNumFaces obj
+			local mapFaces = polyop.getNumMapFaces obj mapChannel
+			if mapFaces != meshFaces then
+			(
+				--in case faces difer
+				polyop.setNumMapFaces obj mapChannel meshFaces keep:true
+				mapFaces = meshFaces
+			)
+			local mapVerts = polyOp.getNumMapVerts obj mapChannel
+			
+			-- rebuild map verts for our convenience, one unique vert for each face, each face vert point to that vert
+			-- keep one old vert
+			local vertsCopy = #()
+			vertsCopy.count = mapFaces
+			local mapFaceSizes = #()
+			for i = 1 to mapFaces do 
+			(
+				local mapFace = polyop.getMapFace obj mapChannel i
+				mapFaceSizes[i] = mapFace.count
+				vertsCopy[i] = polyop.getMapVert obj mapChannel mapFace[1]
+			)
+			polyop.setNumMapVerts obj mapChannel mapFaces keep:true
+			for i = 1 to mapFaces do
+			(
+				polyop.setMapVert obj mapChannel i vertsCopy[i]
+				local newFace = #()
+				newFace.count = mapFaceSizes[i]
+				for j = 1 to newFace.count do
+				(
+					newFace[j] = i
+				)
+				polyop.setMapFace obj mapChannel i newFace
+			)
+			update obj
+		)
+		
+		function prepareObj obj = 
+		(
+			prepare_for_polyops obj
+		)
+			
+		
 			
 		
 		function startPainting3D =
@@ -667,7 +742,8 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 					new_uv.x = (( result[1].x + 0.5 ) as float) / (newBitmap.width)
 					new_uv.y = 1.0 - ( (( result[1].y + 0.5 ) as float) / (newBitmap.height) )
 					--format "% - % : % - %\n" uv c1 new_uv result[2]
-					setAllUVto poly new_uv undoOn:false
+					--setAllUVto poly new_uv undoOn:false
+					setFaceUV poly new_uv undoOn:false
 					pbar.value =  (100*poly/(polyOp.getNumFaces theObj))
 				)
 				format "Elapsed time: %\n" (timeStamp() - t1)
@@ -726,7 +802,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 							) else messageBox "Need material applied with diffuseMap bitmap"
 						) else 
 						( 
-							messageBox "Object need to be  Editable Poly object with Unwrap UVW applied." title:"Warning" beep:true						
+							messageBox "Object need to be  Editable Poly object." title:"Warning" beep:true						
 						)
 					)
 				)
@@ -741,7 +817,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			) else
 			(
 				endPainting3D()
-				if chkAutoUV_end.checked then
+				if false then --chkAutoUV_end.checked then
 				(	
 					for obj in theObjects do
 					(
@@ -795,7 +871,9 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			(
 				if chkSelectedOnly.checked then
 				(
-					sp = theObj.unwrap_UVW.getSelectedPolygons()
+					-- TODO: make this work without unwrap and get selected faces from polyop
+					--local sp = theObj.unwrap_UVW.getSelectedPolygons()
+					local sp = polyop.getFaceSelection theObj
 					for i in sp do 
 					(
 						putPlyxel i curr_UV
@@ -836,12 +914,13 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				local faceIdx = faceUV[1]
 				local UVpoint = faceUV[2]
 				--local faceMap = polyop.getMapFace theObj 1 faceUV[1] --get the vertex indices; may have changed				
-				if obj != prevObj then modPanel.setCurrentObject obj.modifiers[#Unwrap_UVW]
+/* 				if obj != prevObj then modPanel.setCurrentObject obj.modifiers[#Unwrap_UVW]
 				local faceMap = unwrap_getMapFace obj faceIdx
 				for j=1 to faceMap.count do
 				(					
 					obj.Unwrap_UVW.setFaceVertex UVpoint faceIdx j false				
-				)
+				) */
+				polyop.setMapVert obj mapChannel faceIdx UVpoint
 				prevObj = obj
 			)
 			for obj in theObjects do update obj
