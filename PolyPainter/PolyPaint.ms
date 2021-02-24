@@ -551,7 +551,7 @@
 		
 		function prepareObj obj = 
 		(
-			modPanel.setCurrentObject  obj.baseObject			
+			--modPanel.setCurrentObject  obj.baseObject			
 			prepare_for_polyops obj
 		)
 			
@@ -811,10 +811,10 @@
 										save_modpanel_state()
 										updateColorBitmap(diffMap)
 										updateCurrColor()
-									)
-									prepareObj theObj
+									)									
 									append theObjects theObj
 									append mod_states (saveMod_states theObj) 
+									prepareObj theObj
 									isOk = isOk + 1
 									
 								) else messageBox  "Need material applied with diffuseMap bitmap"
