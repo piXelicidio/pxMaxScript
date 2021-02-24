@@ -815,17 +815,25 @@
 		)
 		
 		on btnUndo pressed do
-		(
+		(		
+			local obj = undefined
+			local prevObj = undefined
 			for i=faceMapUndo.count to 1 by -1 do
 			(
-				local faceUV = faceMapUndo[i]
-				local faceMap = polyop.getMapFace theObj 1 faceUV[1] --get the vertex indices; may have changed				
+				local faceUV = faceMapUndo[i]				
+				obj = faceUV[3]
+				local faceIdx = faceUV[1]
+				local UVpoint = faceUV[2]
+				--local faceMap = polyop.getMapFace theObj 1 faceUV[1] --get the vertex indices; may have changed				
+				if obj != prevObj then modPanel.setCurrentObject obj.modifiers[#Unwrap_UVW]
+				local faceMap = unwrap_getMapFace obj faceIdx
 				for j=1 to faceMap.count do
 				(					
-					theObj.Unwrap_UVW.setFaceVertex faceUV[2] faceUV[1] j false				
+					obj.Unwrap_UVW.setFaceVertex UVpoint faceIdx j false				
 				)
+				prevObj = obj
 			)
-			update theObj
+			for obj in theObjects do update obj
 			redrawViews() 
 			--more undo levels?
 			if undoLevels.count > 0 then
