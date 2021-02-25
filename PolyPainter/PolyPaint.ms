@@ -24,6 +24,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 (
 
 	local lastTriFace = -1
+	local lastPolyIndex = -1
 	local theObj = undefined
 	local lastObj = undefined
 	local theObjects = #()
@@ -401,6 +402,58 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			) while ( ((faces as array).count > 0 ) and  (paintLimit < 1000 )  )
 		)
 		
+		function paintLoop face1 face2 UV =
+		(
+			--TODO: paint direction to the other side too
+			local paintLimit = 0
+			local paintedFaces = #{}
+			setFaceUV face1 UV
+			setFaceUV face2 UV
+			paintedFaces[face1] = true
+			paintedFaces[face2] = true
+			do 
+			(				
+				local verts1 = polyop.getFaceVerts theObj face1
+				local verts2 = polyop.getFaceVerts theObj face2
+				local sharedVerts = (verts1 as bitArray) * (verts2 as bitArray)				
+				local face3 = undefined
+				if (sharedVerts as array).count == 2 then
+				(
+					--ok:
+					local OppositeVerts  = (verts2 as bitArray) - sharedVerts					
+					if (OppositeVerts as array).count == 2 then
+					(
+						--ok ok:
+						nearFaces = polyOp.getFacesUsingVert theObj (OppositeVerts as array)
+						local found = -1
+						for f in nearFaces do
+						(
+							--not face2
+							if (f != face2) and (not paintedFaces[f]) then
+							(
+								--has the two verts?
+								local verts = polyop.getFaceVerts theObj f
+								if ((OppositeVerts * (verts as bitArray)) as array ).count == 2 then
+								(
+									--OKey!									
+									face3 = f								
+								)
+							)
+						)
+					)
+				)
+				if face3 != undefined then
+				(					
+					setFaceUV face3 UV
+					paintedFaces[face3]=true
+					--looping step
+					face1 = face2
+					face2 = face3
+				)
+				paintLimit += 1 --paranoical stop
+			) while (face3 != undefined) and (paintLimit < 1000)
+		)
+		
 		-- The main thing happens here ------------ PAINT STROKE -------------- ******************************
 		function paintStroke = 
 		( 	
@@ -426,10 +479,21 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 					(
 					   curr_UV = getPlyxel polyIndex
 					   updateCurrColor()
-					) else if btnFill.checked then
+					) 
+					else if btnFill.checked then
 					(
 						fillArea polyIndex curr_UV					
-					) else -- DRAWING COLOR
+					) 
+					else if shift then
+					(
+						--detect face change to paint loop						
+						if (polyIndex != lastPolyIndex) and (lastPolyIndex != -1 ) then
+						(
+							paintLoop lastPolyIndex polyIndex curr_UV
+							update theObj
+						)
+					)
+					else -- DRAWING COLOR
 					(				
 						
 							putPlyxel polyIndex curr_UV
@@ -437,7 +501,8 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 						if thePI.mirrorEnable == true then mirrorPaint()
 						update theObj	
 					)
-					thePI.clearStroke()				
+					thePI.clearStroke()
+					lastPolyIndex = PolyIndex
 				)
 				lastTriFace = faceIndex				
 			)
@@ -445,9 +510,8 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		
 		function endStroke = 
 		( 
-			--thePI.undoAccept()
-			print ("faces undo data: " + faceMapUndo.count as string)
 			lastTriFace = -1		
+			lastPolyIndex = -1
 			if faceMapUndo.count>0 then btnUndo.enabled = true
 		)
 		function cancelStroke = 
