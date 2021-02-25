@@ -18,6 +18,7 @@
 --- TODO:
 
 -- What to do when multiple selected objects have different textures? Limitation or feature?
+-- Need more UI room?, experiment with all inside subRollouts. Test inter-Rollout communications.
 
 
 macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
@@ -60,6 +61,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 	)
 
 	
+	-------------------------------------------------------------------- roll_polyPaint ------------------------------------ 
 	rollout roll_polyPaint "pX Poly Paint" 
 	(
 
@@ -70,14 +72,13 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		
 			checkButton paint3D paintBtnCaption_start width:(bmpSize-5) height:25
 			--checkbox chkAutoUV "Auto-insert UV (start)"  across:2 checked:true tooltip:"Adds Unwrap UV modifier over Edit_poly when  painting starts"
-			--checkbox chkAutoUV_end "Auto-apply UV (end)"  across:2 checked:true tooltip:"Collaps Unwrap UV modifier over Edit_poly when painting ends"
-			
+			--checkbox chkAutoUV_end "Auto-apply UV (end)"  across:2 checked:true tooltip:"Collaps Unwrap UV modifier over Edit_poly when painting ends"			
 			group "Paint" (
-				label lbl3dPickColor "Alt+Click = Color picker" across:2 
+				label lbl_none "" across:2 
 				checkbox chkMirror "Mirror Paint" across:2
-				button btnFullRepaint "   Full Repaint   " across:2
+				button btnFullRepaint "Full Repaint" across:2 width:90
 				checkbox chkSelectedOnly "Repaint selected faces only" across:2 
-				checkButton btnFill "Fill Tool" across:2  width:90 height:30 			
+				checkButton btnFill "Fill Tool" across:2  width:90 
 				spinner spnSpread "Spread" range:[0,10,0] type:#integer across:2
 				button btnUndo " UNDO (use this!)" 
 			)
@@ -98,6 +99,13 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				mapbutton mapBtnSwapMap "<none>" across:2 tooltip:"Select bitmap texture to be replaced with"				
 				checkbox chkOptimizeBitmap "Pre-Optimize Bitmap" checked:true tooltip:"Useful if new texture has many repeated pixel colors" across:2
 				checkbox chkNoReplace "Remap without replace" checked:false tooltip:"Do not replace with new bitmap when remapping"
+			)
+			
+			group "Help"
+			(
+				label l1 "Alt + Click = Pick color from mesh"
+				label l2 "Shift + Click drag across edge = Paint loop"				
+				hyperLink l3 "pX Poly Paint by Denys Almaral" address:@"https://denysalmaral.com/2018/09/free-polygon-painting-script-and-lowpoly-owl.html" align:#center
 			)
 			
 		local paint_enable = #( btnFullRepaint, btnFill, btnUndo, btnUV_set, btnSwapMap)
@@ -402,11 +410,11 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			) while ( ((faces as array).count > 0 ) and  (paintLimit < 1000 )  )
 		)
 		
-		function paintLoop face1 face2 UV =
+		function paintLoop_forward face1 face2 UV alreadyPainted:#{} =
 		(
 			--TODO: paint direction to the other side too
 			local paintLimit = 0
-			local paintedFaces = #{}
+			local paintedFaces = alreadyPainted			
 			setFaceUV face1 UV
 			setFaceUV face2 UV
 			paintedFaces[face1] = true
@@ -451,7 +459,15 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 					face2 = face3
 				)
 				paintLimit += 1 --paranoical stop
-			) while (face3 != undefined) and (paintLimit < 1000)
+			) while (face3 != undefined) and (paintLimit < 1000)			
+			--return
+			(paintedFaces)
+		)
+		
+		function paintLoop face1 face2 UV = 
+		(
+			local painted = paintLoop_forward face1 face2 UV
+			paintLoop_forward face2 face1 UV alreadyPainted:painted
 		)
 		
 		-- The main thing happens here ------------ PAINT STROKE -------------- ******************************
@@ -1091,8 +1107,13 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		)
 	)
 
+
+	
 	--// has to be with CreateDialog in order to get the lButtonDown event with mouse position
 
     
 	createdialog roll_PolyPaint bmpSize (bmpSize + 420 )        
+	
+	
+	--roll_help.height = 100
 )
