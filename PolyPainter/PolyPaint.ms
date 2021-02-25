@@ -3,6 +3,7 @@
 
 -- Updates:
 
+-- now work without disabling Skin modifier! or any modifier that doesn't change Face count.
 -- Migrated from Unwrap UVW functions to direct polyOp functions. Faster smooth calls.
 -- Paint-edit Multiple objects at the same time. 
 -- Remappping textures: Swap old with new, remapping UV, keeping same colors look.
@@ -74,8 +75,8 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			--checkbox chkAutoUV "Auto-insert UV (start)"  across:2 checked:true tooltip:"Adds Unwrap UV modifier over Edit_poly when  painting starts"
 			--checkbox chkAutoUV_end "Auto-apply UV (end)"  across:2 checked:true tooltip:"Collaps Unwrap UV modifier over Edit_poly when painting ends"			
 			group "Paint" (
-				label lbl_none "" across:2 
-				checkbox chkMirror "Mirror Paint" across:2
+				checkbox chk_AutoStart "Auto-Start ^" across:2 checked:true
+				checkbox chkMirror "Mirror Paint" across:2 checked:false
 				button btnFullRepaint "Full Repaint" across:2 width:90
 				checkbox chkSelectedOnly "Repaint selected faces only" across:2 
 				checkButton btnFill "Fill Tool" across:2  width:90 
@@ -843,7 +844,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			for i=1 to states.count do
 			(
 				states[i] = obj.modifiers[i].enabled
-				obj.modifiers[i].enabled = false
+				if disableThem then obj.modifiers[i].enabled = false
 			)
 			--return
 			(states)
@@ -876,7 +877,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 					for Obj in objList do
 					(
 						theObj = obj
-						if ((isKindOf theObj Editable_poly) or (isKindOf theObj PolyMeshObject)) or ((classof theObj.baseObject) == Editable_poly) then
+						if ((classof theObj.baseObject) == Editable_poly) then
 						(
 							--TODO: Maybe .baseObject is better than PolyMeshObject test
 							if theObj.material != undefined then
@@ -893,7 +894,8 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 										updateCurrColor()
 									)									
 									append theObjects theObj
-									append mod_states (saveMod_states theObj) 
+									local disable_mods = ( (polyop.getNumFaces theObj) != (polyOp.getNumFaces theObj.baseObject) )
+									append mod_states (saveMod_states theObj disableThem:disable_mods) 
 									prepareObj theObj
 									isOk = isOk + 1
 									
@@ -931,9 +933,12 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				for i=1 to theObjects.count do
 				(
 					local states = mod_states[i]
-					for j = 1 to states.count do
+					if states != undefined then
 					(
-						theObjects[i].modifiers[j].enabled = states[j]
+						for j = 1 to states.count do
+						(
+							theObjects[i].modifiers[j].enabled = states[j]
+						)
 					)
 				)
 				if theObjects.count==1 then restore_modpanel_state()
@@ -956,21 +961,45 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			)			
 		)
 		
-		on roll_polyPaint close do
-		(	
+		on roll_polyPaint close do			
+		(				
+			
+			paint3D.checked = false
+			paint3D.changed false
+			
+			--ini settings
 			local p = getDialogPos roll_PolyPaint
 			set_ini "dialogPos" (p as string)
+			set_ini "curr_uv" (curr_UV as string)
 		)
 		
 		on roll_polyPaint open do
 		(
+			-- loading ini settings
 			local s = get_ini "dialogPos"
-			p = eval s
+			local p = eval s
 			if (classof p ) == point2 then
 			(
 				setDialogPos roll_PolyPaint p
 			)
+			s = get_ini "curr_uv"
+			p = eval s
+			if (classof p) == point3 then
+			(
+				curr_UV = p
+				--updateCurrColor()
+			)
+			
+			--
 			enable_tools false
+			
+			-- auto start painting?
+			if chk_AutoStart.checked then
+			(
+				print "auto starting..."
+				paint3D.checked = true
+				paint3D.changed true
+			)
 		)
 		
 		on btnFullRepaint pressed do
