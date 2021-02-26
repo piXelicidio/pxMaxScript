@@ -23,55 +23,27 @@
 
 
 macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
-(
-
-	local lastTriFace = -1
-	local lastPolyIndex = -1
-	local theObj = undefined
-	local lastObj = undefined
-	local theObjects = #()
-	local mod_states = #()
-	local masterObj = undefined
-	local mapChannel = 1
-	local curr_UV = [0.5,0.5,0]
-	local currStrokeNum = 0
-	local thePI = thePainterInterface
-	local rmIntersect = RayMeshGridIntersect()m
-	local faceMapUndo = #()
-	local undoLevels = #()
-	local undoLevelsMax = 5
-	local fill_tolerance = 1
-	local bmpSize = 320
-	local tempBitmap = bitmap bmpSize bmpSize color:(color 40 40 40)
-	local colorBitmap = bitmap 50 50 
-	local paintBtnCaption_start = ">>>      START Paint Tool      <<<"
-	local paintBtnCaption_stop = ">>>      END Paint Tool      <<<"
-	
-	local ini_file = (getDir #userMacros) + "\\pxpolypaint.ini"
-	local ini_section = "config"
-	
-	function set_ini key val = (
-		setINISetting ini_file ini_section key (val as string)
+(	
+	global g_PolyPaint	
+	if g_PolyPaint.open!=undefined then
+	(
+		if g_PolyPaint.open then
+		(
+			destroyDialog g_PolyPaint
+			return()
+		)		
 	)
-	function get_ini key = (
-		getINISetting ini_file ini_section key
-	)
-	
-	function eval s = (
-		try execute s catch ""
-	)
-
 	
 	-------------------------------------------------------------------- roll_polyPaint ------------------------------------ 
 	rollout roll_polyPaint "pX Poly Paint" 
 	(
 
 		
-		imgTag bmpColorPal bitmap:tempBitmap pos:[0,0] style:#bmp_stretch transparent:(color 68 68 68)
+		imgTag bmpColorPal bitmap:undefined pos:[0,0] style:#bmp_stretch transparent:(color 68 68 68) width:320 height:320
 	
 		--label lblInfo "Select object and press Start Painting Tool" pos:[10,10]
 		
-			checkButton paint3D paintBtnCaption_start width:(bmpSize-5) height:25
+			checkButton paint3D ">>>      START Paint Tool      <<<" width:(315) height:25
 			--checkbox chkAutoUV "Auto-insert UV (start)"  across:2 checked:true tooltip:"Adds Unwrap UV modifier over Edit_poly when  painting starts"
 			--checkbox chkAutoUV_end "Auto-apply UV (end)"  across:2 checked:true tooltip:"Collaps Unwrap UV modifier over Edit_poly when painting ends"			
 			group "Paint" (
@@ -84,7 +56,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				button btnUndo " UNDO (use this!)" 
 			)
 			group "Current Color" (
-				imgTag imgCurrColor bitmap:colorBitmap width:50 height:35 across:3 
+				imgTag imgCurrColor  width:50 height:35 across:3 
 				spinner spnU "U" range:[0,1,0] type:#float across:3 
 				spinner spnV "V" range:[0,1,0] type:#float across:3 
 				editText editRGBColor "RGB" text:"[0,0,0]" across:4 readonly:true				
@@ -110,7 +82,42 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			)
 			
 		local paint_enable = #( btnFullRepaint, btnFill, btnUndo, btnUV_set, btnSwapMap)
+		local lastTriFace = -1
+		local lastPolyIndex = -1
+		local theObj = undefined
+		local lastObj = undefined
+		local theObjects = #()
+		local mod_states = #()
+		local masterObj = undefined
+		local mapChannel = 1
+		local curr_UV = [0.5,0.5,0]
+		local currStrokeNum = 0
+		local thePI = thePainterInterface
+		local rmIntersect = RayMeshGridIntersect()
+		local faceMapUndo = #()
+		local undoLevels = #()
+		local undoLevelsMax = 5
+		local fill_tolerance = 1
+		local bmpSize = 320
+		local tempBitmap = bitmap bmpSize bmpSize color:(color 40 40 40)
+		local colorBitmap = bitmap 50 50 	
 		
+		
+		local ini_file = (getDir #userMacros) + "\\pxpolypaint.ini"
+		local ini_section = "config"	
+
+		
+		function set_ini key val = (
+			setINISetting ini_file ini_section key (val as string)
+		)
+		function get_ini key = (
+			getINISetting ini_file ini_section key
+		)
+		
+		function eval s = (
+			try execute s catch ""
+		)
+
 				
 		--============================ FUNCTIONS ===============================------------------------
 		
@@ -854,8 +861,8 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		------------================== UI EVENTS HANDLERS =====================--------------------------------
 		
 		on paint3D changed state do 
-		( 
-			if paint3D.checked == true then
+		( 			
+			if state == true then
 			(
 				local isOk = 0
 				local objList = #()
@@ -931,7 +938,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				)
 				--restoring stacks and modify panel
 				for i=1 to theObjects.count do
-				(
+				(						
 					local states = mod_states[i]
 					if states != undefined then
 					(
@@ -963,7 +970,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		
 		on roll_polyPaint close do			
 		(				
-			
+			print "Good bye!"
 			paint3D.checked = false
 			paint3D.changed false
 			
@@ -1139,10 +1146,8 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 
 	
 	--// has to be with CreateDialog in order to get the lButtonDown event with mouse position
+	createdialog roll_PolyPaint roll_PolyPaint.bmpSize (roll_PolyPaint.bmpSize + 420 )        
+	g_polyPaint = roll_PolyPaint
 
-    
-	createdialog roll_PolyPaint bmpSize (bmpSize + 420 )        
-	
-	
 	--roll_help.height = 100
 )
