@@ -3,6 +3,7 @@
 
 -- Updates:
 
+-- replace color tool.
 -- now work without disabling Skin modifier! or any modifier that doesn't change Face count.
 -- Migrated from Unwrap UVW functions to direct polyOp functions. Faster smooth calls.
 -- Paint-edit Multiple objects at the same time. 
@@ -53,7 +54,8 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				checkbox chkSelectedOnly "Repaint selected faces only" across:2 
 				checkButton btnFill "Fill Tool" across:2  width:90 
 				spinner spnSpread "Spread" range:[0,10,0] type:#integer across:2
-				button btnUndo " UNDO (use this!)" 
+				checkButton btnReplace "Replace Tool" across:2
+				button btnUndo ">> UNDO (use this!) <<" across:2
 			)
 			group "Current Color" (
 				imgTag imgCurrColor  width:50 height:35 across:3 
@@ -81,7 +83,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				hyperLink l3 "pX Poly Paint by Denys Almaral" address:@"https://denysalmaral.com/2018/09/free-polygon-painting-script-and-lowpoly-owl.html" align:#center
 			)
 			
-		local paint_enable = #( btnFullRepaint, btnFill, btnUndo, btnUV_set, btnSwapMap)
+		local paint_enable = #( btnFullRepaint, btnFill, btnReplace, btnUndo, btnUV_set, btnSwapMap)
 		local lastTriFace = -1
 		local lastPolyIndex = -1
 		local theObj = undefined
@@ -418,6 +420,22 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			) while ( ((faces as array).count > 0 ) and  (paintLimit < 1000 )  )
 		)
 		
+		function replaceColor iniPoly UV =
+		(
+			local bkUV = getPlyxel iniPoly
+			local bkColor = UVtoColor bkUV --storing the picked color
+			for i=1 to polyOp.getNumFaces theObj do
+			(
+				local c = UVtoColor (getPlyxel i)
+				if (sameColor c bkColor) then
+				(
+					putPlyxel i UV
+				)
+			)
+			update theObj
+			redrawViews()
+		)
+		
 		function paintLoop_forward face1 face2 UV alreadyPainted:#{} =
 		(
 			--TODO: paint direction to the other side too
@@ -508,6 +526,10 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 					(
 						fillArea polyIndex curr_UV					
 					) 
+					else if btnReplace.checked then
+					(
+						replaceColor polyIndex curr_UV
+					)
 					else if shift then
 					(
 						--detect face change to paint loop						
@@ -1107,6 +1129,22 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			curr_UV.y = spnV.value
 			updateCurrColor() 
         )
+		
+		on btnFill changed state do 
+		(
+			if state then
+			(
+				btnReplace.checked = false
+			)
+		)
+		
+		on btnReplace changed state do
+		(
+			if state then
+			(
+				btnFill.checked = false
+			)
+		)
 		
 		on mapBtnSwapMap picked textmap do 
 		( 
