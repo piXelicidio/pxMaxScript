@@ -1,4 +1,4 @@
 macroScript SelectFilterBones category:"pX Tools" 
 (
-	SetSelectFilter 9
+	SetSelectFilter 8
 )
