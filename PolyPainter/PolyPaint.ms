@@ -26,7 +26,7 @@
 macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
 (	
 	global g_PolyPaint	
-	if g_PolyPaint.open!=undefined then
+	if g_PolyPaint != undefined then
 	(
 		if g_PolyPaint.open then
 		(
