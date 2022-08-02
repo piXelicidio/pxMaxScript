@@ -86,6 +86,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			
 		local paint_enable = #( btnFullRepaint, btnFill, btnReplace, btnUndo, btnUV_set, btnSwapMap)
 		local lastTriFace = -1
+		local Ctrl_Alt_undo = false
 		local lastPolyIndex = -1
 		local theObj = undefined
 		local lastObj = undefined
@@ -507,12 +508,49 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			paintLoop_forward face2 face1 UV alreadyPainted:painted
 		)
 		
+		function do_undo =
+		(
+			local obj = undefined
+			local prevObj = undefined
+			print "doing undo thing..."
+			print faceMapUndo.count
+			for i=faceMapUndo.count to 1 by -1 do
+			(				
+				local faceUV = faceMapUndo[i]				
+				obj = faceUV[3]
+				local faceIdx = faceUV[1]
+				local UVpoint = faceUV[2]
+				--local faceMap = polyop.getMapFace theObj 1 faceUV[1] --get the vertex indices; may have changed				
+/* 				if obj != prevObj then modPanel.setCurrentObject obj.modifiers[#Unwrap_UVW]
+				local faceMap = unwrap_getMapFace obj faceIdx
+				for j=1 to faceMap.count do
+				(					
+					obj.Unwrap_UVW.setFaceVertex UVpoint faceIdx j false				
+				) */
+				polyop.setMapVert obj mapChannel faceIdx UVpoint
+				prevObj = obj
+			)
+			for obj in theObjects do update obj
+			redrawViews() 
+			--more undo levels?
+			if undoLevels.count > 0 then
+			(
+				faceMapUndo = undoLevels[ undoLevels.count ] 
+				deleteItem undoLevels undoLevels.count
+			) else  
+			(
+				faceMapUndo = #()
+				btnUndo.enabled = false
+			)
+		)
+		
 		--EVENT from painter interface
 		function startStroke = 
 		( 
 			--thePI.undoStart() 
+			print "start stroke" --deleteme
 			clearUndo()
-			currStrokeNum = currStrokeNum + 1
+			currStrokeNum = currStrokeNum + 1			
 		)
 		
 		-- The main thing happens here ------------ PAINT STROKE -------------- ******************************		
@@ -537,7 +575,11 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 					local shift=false , ctrl=false, alt=false, pressure=0
 					thePI.getHitPressureData  &shift &ctrl &alt &pressure 0
 					
-					if alt then -- PICKING COLOR 
+					if alt and ctrl then
+					(
+						Ctrl_Alt_Undo = true
+					)
+					else if alt then -- PICKING COLOR 
 					(
 					   curr_UV = getPlyxel polyIndex
 					   updateCurrColor()
@@ -574,11 +616,26 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			)
 		)
 		
+
+		
 		function endStroke = 
 		( 
 			lastTriFace = -1		
 			lastPolyIndex = -1
 			if faceMapUndo.count>0 then btnUndo.enabled = true
+				
+			---do undo if Ctrl+Alt+click:
+			if Ctrl_Alt_Undo then
+			(				
+				print "Ctrl Alt Click = UNDO"
+				if undoLevels.count > 0 then
+				(
+					faceMapUndo = undoLevels[ undoLevels.count ] 
+					deleteItem undoLevels undoLevels.count
+				)
+				do_undo()
+				Ctrl_Alt_Undo = false				
+			)
 		)
 		function cancelStroke = 
 		( 
@@ -1087,40 +1144,12 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 					rmIntersect.addNode( theObj )
 					rmIntersect.buildGrid()
 				)
-		)
+		)		
+		
 		
 		on btnUndo pressed do
 		(		
-			local obj = undefined
-			local prevObj = undefined
-			for i=faceMapUndo.count to 1 by -1 do
-			(
-				local faceUV = faceMapUndo[i]				
-				obj = faceUV[3]
-				local faceIdx = faceUV[1]
-				local UVpoint = faceUV[2]
-				--local faceMap = polyop.getMapFace theObj 1 faceUV[1] --get the vertex indices; may have changed				
-/* 				if obj != prevObj then modPanel.setCurrentObject obj.modifiers[#Unwrap_UVW]
-				local faceMap = unwrap_getMapFace obj faceIdx
-				for j=1 to faceMap.count do
-				(					
-					obj.Unwrap_UVW.setFaceVertex UVpoint faceIdx j false				
-				) */
-				polyop.setMapVert obj mapChannel faceIdx UVpoint
-				prevObj = obj
-			)
-			for obj in theObjects do update obj
-			redrawViews() 
-			--more undo levels?
-			if undoLevels.count > 0 then
-			(
-				faceMapUndo = undoLevels[ undoLevels.count ] 
-				deleteItem undoLevels undoLevels.count
-			) else  
-			(
-				faceMapUndo = #()
-				btnUndo.enabled = false
-			)
+			do_undo()
 		)
         
         on btnUV_copy pressed do
