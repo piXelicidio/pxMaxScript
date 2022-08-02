@@ -56,6 +56,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				spinner spnSpread "Spread" range:[0,10,0] type:#integer across:2
 				checkButton btnReplace "Replace Tool" across:2
 				button btnUndo ">> UNDO (use this!) <<" across:2
+				timer timerFill "" interval:1000 active:false
 			)
 			group "Current Color" (
 				imgTag imgCurrColor  width:50 height:35 across:3 
@@ -244,7 +245,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		fn getPolyFaceByTri node tri =
 		(
 			-- convert a mesh Face Index to a editable_poly poly index
-			-- magic alert!
+			-- MAGIC ALERT!
 			local index = 1
 			local poly = 0
 			local getFaceDeg = polyop.getFaceDeg
@@ -319,7 +320,10 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				append faceMapUndo faceUV
 			)
 			
-			--modifiying
+			--modifiying, 
+			--This works because the mapping was prepared with "prepare_for_polyops" function
+			-- Map Face Indexes and Map Vert Indixes are paired 1 to 1.  NumMapFaces = NumMapVerts.
+			-- Each face vert point to a single map vert.
 			polyop.setMapVert Obj mapChannel faceIdx [UV.x, UV.y, 0]			
 		)
 		
@@ -381,8 +385,13 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 
 		function SameColor c1 c2  =
 		(			
-			local d = distance (c1 as point3) (c2 as point3)
-			result = d < fill_tolerance			
+			local result = (c1 != undefined) and (c2 != undefined)
+			if result then 
+			(
+				local d = distance (c1 as point3) (c2 as point3)
+				result = d < fill_tolerance			
+			)
+			result		
 		)
 		
 		
@@ -1135,6 +1144,12 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 			if state then
 			(
 				btnReplace.checked = false
+				thePainterInterface.drawNormal = true
+				thePainterInterface.drawRing = false
+			) else
+			(
+				thePainterInterface.drawRing = true
+				thePainterInterface.drawNormal = true
 			)
 		)
 		
@@ -1142,8 +1157,13 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 		(
 			if state then
 			(
-				btnFill.checked = false
-			)
+				btnFill.checked = false				
+			) 
+		)
+		
+		on timerFill tick do
+		(
+			setSysCur #select
 		)
 		
 		on mapBtnSwapMap picked textmap do 

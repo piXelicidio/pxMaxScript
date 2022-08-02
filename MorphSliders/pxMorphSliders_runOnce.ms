@@ -1,5 +1,7 @@
 --Morph sliders by Denys Almaral
 
+
+macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 (
 	local MorphList = #() --[i][1]= name [1][2] subAnim
 	local MixItemUp     = 0
@@ -84,7 +86,9 @@
 				if ((classof MorphList[i][2].controller)==Float_Wire)  then append NewItems (moName+" (wired)") else append NewItems moName 
 			)
 			lbxChannels.items = NewItems
-		)					
+		)
+
+		--on lbxChannels 
 
 		on btnCreate pressed do
 		(
@@ -193,9 +197,12 @@
 			idx = lbxChannels.selection
 			if idx!=undefined then
 			(	
-				lblUp.text = MorphList[idx][1]
-				MixItemUp = idx
-				if lbxChannels.selection<lbxChannels.items.count then lbxChannels.selection = idx+1
+				if idx!=0 then
+				(
+					lblUp.text = MorphList[idx][1]
+					MixItemUp = idx
+					if lbxChannels.selection<lbxChannels.items.count then lbxChannels.selection = idx+1
+				)
 			)
 		)
 		on btnSetDown pressed do
@@ -203,9 +210,12 @@
 			idx = lbxChannels.selection
 			if idx!=undefined then
 			(	
+				if idx!=0 then
+				(
 				lblDown.text = MorphList[idx][1]
 				MixItemDown = idx
 				if lbxChannels.selection<lbxChannels.items.count then lbxChannels.selection = idx+1
+				)
 			)
 		)
 		on btnSetLeft pressed do
@@ -213,9 +223,12 @@
 			idx = lbxChannels.selection
 			if idx!=undefined then
 			(	
+				if idx!=0 then
+				(
 				lblLeft.text = MorphList[idx][1]
 				MixItemLeft = idx
 				if lbxChannels.selection<lbxChannels.items.count then lbxChannels.selection = idx+1
+				)
 			)
 		)
 		on btnSetRight pressed do
@@ -223,9 +236,12 @@
 			idx = lbxChannels.selection
 			if idx!=undefined then
 			(	
+				if idx!=0 then
+				(
 				lblRight.text = MorphList[idx][1]
 				MixItemRight = idx
 				if lbxChannels.selection<lbxChannels.items.count then lbxChannels.selection = idx+1
+				)
 			)
 		)
 		on btnRemoveAll pressed do
@@ -378,15 +394,7 @@
         on roll_MorphSliders close do 
         (
             print "good bye"
-			if G_msliders_window_pos == undefined then
-			(
-				global G_msliders_window_pos = [0,0]
-			)
-            G_msliders_window_pos.x = morphsliders_floater.pos.x
-            G_msliders_window_pos.y = morphsliders_floater.pos.y
-			print morphsliders_floater.pos.x
-			print morphsliders_floater.pos.y
-			print "don't reach here"
+		
         )
 	)--endRollout
 	
@@ -434,13 +442,9 @@
             )                
         )
     )
-    if G_msliders_window_pos == undefined then 
-    (
-	    global morphsliders_floater = newRolloutFloater "pX Quick Morph Sliders" 406 550
-    ) else
-    (
-        global morphsliders_floater = newRolloutFloater "pX Quick Morph Sliders" 406 550 G_msliders_window_pos.x G_msliders_window_pos.y
-    )
+
+	global morphsliders_floater = newRolloutFloater "pX Quick Morph Sliders" 406 550
+
     addRollout roll_MorphSliders morphsliders_floater
     addRollout roll_Tools morphsliders_floater
 )
