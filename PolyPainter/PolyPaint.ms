@@ -240,15 +240,9 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			append undoLevels faceMapUndo
 			if undoLevels.count > undoLevelsMax then deleteItem undoLevels 1
 			faceMapUndo = #()		
-			print ("undo levels" + (undoLevels.count as string) )
+			--print ("undo levels" + (undoLevels.count as string) )
 		)
 		
-		function startStroke = 
-		( 
-			--thePI.undoStart() 
-			clearUndo()
-			currStrokeNum = currStrokeNum + 1
-		)
 		
 		fn getPolyFaceByTri node tri =
 		(
@@ -513,9 +507,18 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			paintLoop_forward face2 face1 UV alreadyPainted:painted
 		)
 		
-		-- The main thing happens here ------------ PAINT STROKE -------------- ******************************
+		--EVENT from painter interface
+		function startStroke = 
+		( 
+			--thePI.undoStart() 
+			clearUndo()
+			currStrokeNum = currStrokeNum + 1
+		)
+		
+		-- The main thing happens here ------------ PAINT STROKE -------------- ******************************		
 		function paintStroke = 
 		( 	
+			--paintStroke: EVENT from painter interface
 			local bary = [0,0,0]
 			local faceIndex = 1			
 			local hitObj = thePI.getHitNode 0
@@ -539,7 +542,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 					   curr_UV = getPlyxel polyIndex
 					   updateCurrColor()
 					) 
-					else if btnFill.checked then
+					else if (btnFill.checked or ctrl) then
 					(
 						fillArea polyIndex curr_UV					
 					) 
