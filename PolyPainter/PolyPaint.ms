@@ -80,8 +80,10 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			group "Help"
 			(
 				label l1 "Alt + Click = Pick color from mesh"
-				label l2 "Shift + Click drag across edge = Paint loop"				
-				hyperLink l3 "pX Poly Paint by Denys Almaral" address:@"https://denysalmaral.com/2018/09/free-polygon-painting-script-and-lowpoly-owl.html" align:#center
+				label l2 "Shift + Click drag across edge = Paint loop"
+				label l3 "Ctrl + Click = Fill Tool"
+				label l4 "Ctrl + Alt + Click = Undo last"
+				hyperLink hl_web "pX Poly Paint by Denys Almaral" address:@"https://denysalmaral.com/2018/09/free-polygon-painting-script-and-lowpoly-owl.html" align:#center
 			)
 			
 		local paint_enable = #( btnFullRepaint, btnFill, btnReplace, btnUndo, btnUV_set, btnSwapMap)
@@ -1244,7 +1246,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 
 	
 	--// has to be with CreateDialog in order to get the lButtonDown event with mouse position
-	createdialog roll_PolyPaint roll_PolyPaint.bmpSize (roll_PolyPaint.bmpSize + 420 )        
+	createdialog roll_PolyPaint roll_PolyPaint.bmpSize (roll_PolyPaint.bmpSize + 460 )        
 	g_polyPaint = roll_PolyPaint
 
 	--roll_help.height = 100
