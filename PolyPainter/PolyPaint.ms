@@ -23,7 +23,7 @@
 -- Need more UI room?, experiment with all inside subRollouts. Test inter-Rollout communications.
 
 
-macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly UV Painter"
+macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Poly Paint"
 (	
 	global g_PolyPaint	
 	if g_PolyPaint != undefined then
@@ -166,6 +166,10 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 					Arch___Design__mi: mat.diffuse_Color_Map
 					standard: mat.diffuseMap
 					VRayMtl: mat.texmap_diffuse
+					PhysicalMaterial: mat.base_color_map
+					PBRMetalRough: mat.base_color_map
+					PBRSpecGloss: mat.base_color_map
+					ai_standard_surface: mat.base_color_shader
 					default: undefined
 				)
                 
@@ -180,7 +184,11 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"Poly 
 				blend: mat.map1 = diffmap
 				Arch___Design__mi: mat.diffuse_Color_Map = diffmap
 				standard: mat.diffuseMap = diffmap
-				VRayMtl: mat.texmap_diffuse = diffmap				
+				VRayMtl: mat.texmap_diffuse = diffmap
+				PhysicalMaterial: mat.base_color_map = diffmap
+				PBRMetalRough: mat.base_color_map = diffmap
+				PBRSpecGloss: mat.base_color_map = diffmap
+				ai_standard_surface: mat.base_color_shader = diffmap
 			)
 		)
 		
