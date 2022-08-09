@@ -552,7 +552,8 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			--thePI.undoStart() 
 			print "start stroke" --deleteme
 			clearUndo()
-			currStrokeNum = currStrokeNum + 1			
+			currStrokeNum = currStrokeNum + 1	
+			--viewport.SetShowEdgeFaces true	
 		)
 		
 		-- The main thing happens here ------------ PAINT STROKE -------------- ******************************		
@@ -624,6 +625,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 		( 
 			lastTriFace = -1		
 			lastPolyIndex = -1
+			print "stroke ended!"
 			if faceMapUndo.count>0 then btnUndo.enabled = true
 				
 			---do undo if Ctrl+Alt+click:
@@ -638,12 +640,19 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 				do_undo()
 				Ctrl_Alt_Undo = false				
 			)
+			--viewport.SetShowEdgeFaces false
 		)
+		
 		function cancelStroke = 
 		( 
-				--thePI.undoCancel()
-				lastTriFace = -1
+			--thePI.undoCancel()
+			if faceMapUndo.count>0 then btnUndo.enabled = true
+			print "cancel stroke?? please!"
+			lastTriFace = -1
+			lastPolyIndex = -1			
+			do_undo()
 		)
+		
 		function systemEndPaintSession = 
 		( 
 			paint3d.checked = false

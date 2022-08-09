@@ -376,7 +376,7 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 			calc_stats() 
 			num_steps = ((ave_dist2center / ave_len ) as integer) + 1
 			if num_steps < 2 then num_steps = 2
-			print ("StepCap: Estimated steps: "+ (num_steps as string))
+			--print ("StepCap: Estimated steps: "+ (num_steps as string))
 			step_len = ave_dist2center / num_steps
 				
 			-- how many to reduce?
@@ -384,7 +384,7 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 			local to_reduce = (Num_edges-4) --leve 4 for the ending quad.
 			to_reduce = (to_reduce / ( (num_steps - 1) as float))
 			to_reduce = (to_reduce + 0.5 ) as integer			
-			print ("StepCap: Reducing polys "+ (to_reduce as string))
+			--print ("StepCap: Reducing polys "+ (to_reduce as string))
 			------------------------------------------------------------------------------------------------	
 			vert_seq = extrude_in vert_seq verts_pos num_steps reduce:to_reduce
 			------------------------------------------------------------------------------------------------	
@@ -396,6 +396,7 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 			--finished
 			format "StepCap: Elapsed time: %\n" (timeStamp() - t_start)
 		)
+		redrawViews()
 	)
 
 )
