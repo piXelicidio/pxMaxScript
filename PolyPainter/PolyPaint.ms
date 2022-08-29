@@ -72,8 +72,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			
 			group "Texture remapping & swapping" (
 				button btnSwapMap "Remap Texture with -->" across:2 toolTip:"Remap UV based on texture target, keeping same colors as close as possible"				
-				mapbutton mapBtnSwapMap "<none>" across:2 tooltip:"Select bitmap texture to be replaced with"				
-				checkbox chkOptimizeBitmap "Pre-Optimize Bitmap" checked:true tooltip:"Useful if new texture has many repeated pixel colors" across:2
+				mapbutton mapBtnSwapMap "<none>" across:2 tooltip:"Select bitmap texture to be replaced with"								
 				checkbox chkNoReplace "Remap without replace" checked:false tooltip:"Do not replace with new bitmap when remapping"
 			)
 			
@@ -549,8 +548,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 		--EVENT from painter interface
 		function startStroke = 
 		( 
-			--thePI.undoStart() 
-			print "start stroke" --deleteme
+			--thePI.undoStart() 			
 			clearUndo()
 			currStrokeNum = currStrokeNum + 1	
 			--viewport.SetShowEdgeFaces true	
@@ -624,8 +622,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 		function endStroke = 
 		( 
 			lastTriFace = -1		
-			lastPolyIndex = -1
-			print "stroke ended!"
+			lastPolyIndex = -1			
 			if faceMapUndo.count>0 then btnUndo.enabled = true
 				
 			---do undo if Ctrl+Alt+click:
@@ -822,7 +819,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			( #( found, otherColor) )
 		)
 		
-		--converts bitmap to 2D table
+		--converts bitmap to 2D table -- DEPRECATED
 		function getPixelTable fromBitmap =
 		(
 			pixelTable = #()
@@ -858,7 +855,39 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			(pixelData)
 		)
 		
-		--This one use what getPixelTable returns
+		
+		-- Find looking down and right diagonal pixels with the same color than
+		-- pos [x,y], then return the one in the middle. 
+		function improvePixelPos OldPos fromBitmap =
+		(
+			local c = (getPixels fromBitmap OldPos 1 linear:false)[1]
+			local sameColor = true
+			local count = 0
+			local pos = [OldPos.x, OldPos.y]
+			local maxCount = fromBitmap.width - pos.x - 1
+			local heightLimit = fromBitmap.height - pos.y - 1
+			if heightLimit < maxCount then maxCount = heightLimit
+			if maxCount > 20 then maxCount = 20
+			if maxCount > 2 then 
+			(
+				while sameColor do
+				(
+					count = count + 1
+					--print count 
+					c2 = (getPixels fromBitmap (pos+[count, count]) 1 linear:false)[1]
+					sameColor = (c == c2) and (count < maxCount)
+				)
+				if count>2 then 
+				(
+					pos.x = floor (pos.x + count / 2.0)
+					pos.y = floor (pos.y + count / 2.0)
+				)
+			)
+			--return
+			(pos)
+		)
+		
+		--This one use what getPixelTable returns -- DEPRECATED
 		function findClosestColorTable thisColor fromPixelTable = 
 		(
 			thisColor = thisColor as point3
@@ -899,8 +928,8 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 					if dist<min_dist then 
 					(
 						min_dist = dist
-						found = pixelData[2]
-						otherColor = pixelData[1]
+						found = pixelData[2] --position [x,y]
+						otherColor = pixelData[1] --color rgb
 						if dist < 0.01 then return #( found, otherColor)
 					)
 				
@@ -920,29 +949,22 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 				local pixelData 
 				local findFunc 
 				local diffMap = findDiffuseMap theObj
-				if chkOptimizeBitmap.checked then	
-				(
-					pixelData = getPixelData newBitmap
-					findFunc = findClosestColorData
-				) else 
-				( 
-					pixelData = getPixeltable newBitmap
-					findFunc = findClosestColorTable
-				)
+				
+				pixelData = getPixelData newBitmap
+				findFunc = findClosestColorData
+				
 				format "Preparing table, elapsed time: %\n" (timeStamp()-t1)
 				t1 = timeStamp()
 				for poly=1 to (polyOp.getNumFaces theObj) do
 				(					
 					local uv = (getPlyxel poly)
-					local c1 = UVgetPixel uv diffMap gamma:false
-					--local result = findClosestColor c1 newBitmap
-					--local result = findClosestColorTable c1 pixelTable
+					local c1 = UVgetPixel uv diffMap gamma:false					
 					local result = findFunc c1 pixelData
+					local better = improvePixelPos result[1] newBitmap
+					result[1] = better 
 					local new_uv = [0,0]
 					new_uv.x = (( result[1].x + 0.5 ) as float) / (newBitmap.width)
-					new_uv.y = 1.0 - ( (( result[1].y + 0.5 ) as float) / (newBitmap.height) )
-					--format "% - % : % - %\n" uv c1 new_uv result[2]
-					--setAllUVto poly new_uv undoOn:false
+					new_uv.y = 1.0 - ( (( result[1].y + 0.5 ) as float) / (newBitmap.height) )					
 					setFaceUV poly new_uv undoOn:false
 					pbar.value =  (100*poly/(polyOp.getNumFaces theObj))
 				)
