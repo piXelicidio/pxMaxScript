@@ -1,8 +1,9 @@
 -- Poly  Paint, a tool to paint polygos with a flat color from texture, setting all vertices of a UV face to a single point in texture, giving always a flat color
--- By Denys Almaral - 2018
+-- By Denys Almaral - 2022
 
 -- Updates:
 
+-- replace painting using another scene file.
 -- replace color tool.
 -- now work without disabling Skin modifier! or any modifier that doesn't change Face count.
 -- Migrated from Unwrap UVW functions to direct polyOp functions. Faster smooth calls.
@@ -19,6 +20,8 @@
 
 --- TODO:
 
+-- undo all modifications done in current session.
+-- Smart Fills: detect curvature Ambient Occluson, light/shadows.
 -- What to do when multiple selected objects have different textures? Limitation or feature?
 -- Need more UI room?, experiment with all inside subRollouts. Test inter-Rollout communications.
 
@@ -36,17 +39,17 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 	)
 	
 	-------------------------------------------------------------------- roll_polyPaint ------------------------------------ 
-	rollout roll_polyPaint "pX Poly Paint" 
+	rollout roll_polyPaint "Painter" 
 	(
 
+		local bmpSize = 320
 		
-		imgTag bmpColorPal bitmap:undefined pos:[0,0] style:#bmp_stretch transparent:(color 68 68 68) width:320 height:320
+		imgTag bmpColorPal bitmap:undefined pos:[0,0] style:#bmp_stretch transparent:(color 68 68 68) width:bmpSize height:bmpSize
 	
 		--label lblInfo "Select object and press Start Painting Tool" pos:[10,10]
 		
-			checkButton paint3D ">>>      START Paint Tool      <<<" width:(315) height:25
-			--checkbox chkAutoUV "Auto-insert UV (start)"  across:2 checked:true tooltip:"Adds Unwrap UV modifier over Edit_poly when  painting starts"
-			--checkbox chkAutoUV_end "Auto-apply UV (end)"  across:2 checked:true tooltip:"Collaps Unwrap UV modifier over Edit_poly when painting ends"			
+			checkButton paint3D ">>>      START Paint Tool      <<<" width:(bmpSize - 5) height:25
+			
 			group "Paint" (
 				checkbox chk_AutoStart "Auto-Start ^" across:2 checked:true
 				checkbox chkMirror "Mirror Paint" across:2 checked:false
@@ -71,19 +74,12 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			progressBar pbar "" value:0
 			
 			group "Texture remapping & swapping" (
-				button btnSwapMap "Remap Texture with -->" across:2 toolTip:"Remap UV based on texture target, keeping same colors as close as possible"				
-				mapbutton mapBtnSwapMap "<none>" across:2 tooltip:"Select bitmap texture to be replaced with"								
-				checkbox chkNoReplace "Remap without replace" checked:false tooltip:"Do not replace with new bitmap when remapping"
-			)
-			
-			group "Help"
-			(
-				label l1 "Alt + Click = Pick color from mesh"
-				label l2 "Shift + Click drag across edge = Paint loop"
-				label l3 "Ctrl + Click = Fill Tool"
-				label l4 "Ctrl + Alt + Click = Undo last"
-				hyperLink hl_web "pX Poly Paint by Denys Almaral" address:@"https://denysalmaral.com/2018/09/free-polygon-painting-script-and-lowpoly-owl.html" align:#center
-			)
+				button btnSwapMap "Remap with -->" across:3 toolTip:"Remap UV based on texture target, keeping same colors as close as possible"				
+				mapbutton mapBtnSwapMap "<none>" across:3 tooltip:"Select bitmap texture to be replaced with"								
+				checkbox chkNoReplace "Without replace" across:3 checked:false tooltip:"Do not replace with new bitmap when remapping"
+				button btnReplaceFromFile "Replace from other file..." tooltip:"Get the paint from same object in different file and replace"
+			)			
+
 			
 		local paint_enable = #( btnFullRepaint, btnFill, btnReplace, btnUndo, btnUV_set, btnSwapMap)
 		local lastTriFace = -1
@@ -103,7 +99,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 		local undoLevels = #()
 		local undoLevelsMax = 5
 		local fill_tolerance = 1
-		local bmpSize = 320
+		
 		local tempBitmap = bitmap bmpSize bmpSize color:(color 40 40 40)
 		local colorBitmap = bitmap 50 50 	
 		
@@ -685,6 +681,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			showEndResult = mpanel_showEndResult
 		)
 		
+		--DEPRECATED 
 		function prepareObj_for_unwrap obj = 
 		(			
 			if (obj.modifiers[#Unwrap_UVW] == undefined)  then
@@ -706,6 +703,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			)
 		)
 		
+		--better than Unwrap_UVW
 		function prepare_for_polyops obj = 
 		(
 			local meshFaces = polyop.getNumFaces obj
@@ -1272,12 +1270,106 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 				)
 			)
 		)
+		
+		on btnReplaceFromFile pressed do
+		(
+			if $selection.count != 1 then 
+			(
+				messageBox "ERROR: An object need to be selected."
+			) else 
+			(
+				local objName = $.name
+				print objName
+				if queryBox "Current scene NEEDS to be SAVED. Proceed?" then
+				(					
+					otherFile = getOpenFileName caption:("Open a scene with "+objName+" object...") types:"Max(*.max)|*.max"
+					if otherFile != undefined then 
+					(
+						
+						print otherFile 
+						--saving current scene
+						currMaxFileName = maxFilePath + maxFileName
+						if Paint3D.checked == true then Paint3D.changed false
+						
+						saveMaxFile currMaxFileName quiet:true						
+						loadMaxFile otherFile quiet:true
+						local obj = getNodeByName objName
+						if obj == undefined then
+						(
+							fn poly_filter obj = (classof obj.baseObject)==Editable_Poly
+							obj = SelectByName title:(objName+" not found, select manually") single:true
+						)
+						if obj == undefined then 
+						(
+							messageBox ("Object name no found: "+objName)							
+						) else 
+						(
+							select obj
+							Paint3D.changed true
+							-- get the paint data here
+							local uvData = undefined
+							
+							print "numfaces from"
+							uvData = #()
+							uvData.count = polyOp.getNumMapFaces obj mapChannel
+							print uvData.count
+							for i=1 to uvData.count do
+							(
+								uvData[i] = polyOp.getMapVert obj mapChannel i
+							)
+						
+							
+							Paint3D.changed false
+							--back to original file							
+							loadMaxFile currMaxFileName quiet:true
+							obj = getNodeByName objName
+							select obj
+							Paint3D.changed true
+							if $selection.count == 1 then 							(
+								
+								-- set copied the paint data here
+								if (theObj != undefined) and (uvData != undefined) then 
+								(
+									print "numfaces to"									
+									local maxData = uvData.count
+									local currFaces = polyOp.getNumMapFaces obj mapChannel
+									if currFaces != uvData.count then print "WARNING: Dest Faces Count != Source Faces Count"
+									if currFaces < maxData then maxData = currFaces										
+									print currFaces
+									for i=1 to maxData do
+									(
+										polyOp.setMapVert obj mapChannel i uvData[i]
+									)
+									update theObj
+									redrawViews()
+								)
+							)
+						)
+					)
+				)
+			)
+		)
+	)
+	
+	rollout roll_help "Help" 
+	(
+			
+		label l1 "Alt + Click = Pick color from mesh" align:#left
+		label l2 "Shift + Click drag across edge = Paint loop" align:#left
+		label l3 "Ctrl + Click = Fill Tool" align:#left
+		label l4 "Ctrl + Alt + Click = Undo last" align:#left
+		hyperLink hl_web "pX Poly Paint by Denys Almaral" align:#right address:@"https://denysalmaral.com/2018/09/free-polygon-painting-script-and-lowpoly-owl.html" align:#center
 	)
 
 
 	
 	--// has to be with CreateDialog in order to get the lButtonDown event with mouse position
-	createdialog roll_PolyPaint roll_PolyPaint.bmpSize (roll_PolyPaint.bmpSize + 460 )        
+	--createdialog roll_PolyPaint roll_PolyPaint.bmpSize (roll_PolyPaint.bmpSize + 460 )        
+	
+	g_polypaint_rf = newRolloutFloater "pX Poly Paint" (roll_PolyPaint.bmpSize + 10) (roll_PolyPaint.bmpSize + 460 )
+	addRollout roll_PolyPaint g_polypaint_rf
+	addRollout roll_help g_polyPaint_rf rolledup:true
+	
 	g_polyPaint = roll_PolyPaint
 
 	--roll_help.height = 100
