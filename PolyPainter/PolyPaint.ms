@@ -33,8 +33,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 	(
 		if g_PolyPaint.open then
 		(
-			destroyDialog g_PolyPaint
-			return()
+			destroyDialog g_PolyPaint			
 		)		
 	)
 	
@@ -99,6 +98,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 		local undoLevels = #()
 		local undoLevelsMax = 5
 		local fill_tolerance = 1
+		local triToPolyTable = #()
 		
 		local tempBitmap = bitmap bmpSize bmpSize color:(color 40 40 40)
 		local colorBitmap = bitmap 50 50 	
@@ -242,19 +242,54 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 		)
 		
 		
-		fn getPolyFaceByTri node tri =
+		--DEPRECATED
+		fn __getPolyFaceByTri__ EPolyObj tri =
 		(
 			-- convert a mesh Face Index to a editable_poly poly index
+			-- need clarification: 
+			-- will go each face guess its number of tirangles and make the sum.
+			-- triangles are in order as polygons. there is a correspondance
 			-- MAGIC ALERT!
-			local index = 1
-			local poly = 0
-			local getFaceDeg = polyop.getFaceDeg
-			for k = 1 to polyop.getNumFaces node while poly == 0 do
+			local triIndex = 1
+			local polyIndex = 0			
+			for k = 1 to polyop.getNumFaces EPolyObj while polyIndex == 0 do
 			(
-				index += getFaceDeg node k - 2
-				if (tri < index) do poly = k
+				--TODO: avoid this iterations, make a cached table				
+				--current face tirangles is equal to the number of vertices - 2.
+				local numTriangles = (polyop.getFaceDeg EPolyObj k) - 2
+				if numTriangles == undefined then numTriangles = 0
+				triIndex = triIndex +  numTriangles
+				if (tri < triIndex) then polyIndex = k
+				--
+				--debug-- print ((index as string) + " | " + (k as string) + " | " + polyIndex as string)
 			)
-			poly
+			--return:
+			(polyIndex)
+		)
+		
+		function getPolyFaceByTri EPolyObj tri = triToPolyTable[tri]
+		
+		function BuildTriToPolyTable EPolyObj =
+		(
+			--
+			local list = #()
+			local triIndex = 1
+			local numTriangles = undefined
+			for k = 1 to polyop.getNumFaces EPolyObj do
+			(
+				-- Triangles are ordered in correspondence to polygons.
+				-- We just need to count....
+				numTriangles = (polyop.getFaceDeg EPolyObj K) - 2
+				if numTriangles == undefined then numTriangles = 0
+				for i=1 to numTriangles do
+				(
+					list[triIndex] = k
+					triIndex = triIndex + 1
+				)
+			)
+			--return
+			(list)
+			-- triToPolyTable[triangleN] = polygonN.
 		)
 		
 		function unwrap_getMapFace obj poly = 
@@ -707,6 +742,10 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 		function prepare_for_polyops obj = 
 		(
 			local meshFaces = polyop.getNumFaces obj
+			if not (polyop.getMapSupport obj mapChannel) then
+			(
+				polyop.setMapSupport obj mapChannel true
+			)
 			local mapFaces = polyop.getNumMapFaces obj mapChannel
 			if mapFaces != meshFaces then
 			(
@@ -725,7 +764,11 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			(
 				local mapFace = polyop.getMapFace obj mapChannel i
 				mapFaceSizes[i] = mapFace.count
-				vertsCopy[i] = polyop.getMapVert obj mapChannel mapFace[1]
+				if mapFace[1] > mapVerts then 
+					(vertsCopy[i] = polyop.getMapVert obj mapChannel 1)
+				else 
+					(vertsCopy[i] = polyop.getMapVert obj mapChannel mapFace[1])
+				
 			)
 			polyop.setNumMapVerts obj mapChannel mapFaces keep:true
 			for i = 1 to mapFaces do
@@ -739,6 +782,10 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 				)
 				polyop.setMapFace obj mapChannel i newFace
 			)
+			
+			--cache triangle to polygon conversion 
+			triToPolyTable = BuildTriToPolyTable obj
+			
 			update obj
 		)
 		
