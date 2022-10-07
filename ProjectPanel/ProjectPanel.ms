@@ -10,7 +10,7 @@
 	rollout ProjectPanel "Project Folder"
 	(
 		label lblProject @"c:\" align:#right
-		button btnOpenExplorer "Open In Explorer"		
+		button btnOpenExplorer "Open In Explorer"
 		
 		--functions
 		function UpdateContextTo newPath =
@@ -67,14 +67,7 @@
 		local WHparam = "width:" + (btnWidth as string) + " height:" + (btnHeight as string)		
 		
 		bs.begin()		
-		--LOCALS
-		bs.addLocal "buttonPressed" init:undefined
-		bs.addLocal "buttons" init:#()
-		bs.addLocal "checkboxes" init:#()
-		bs.addLocal "btnAdd_pressed" init:undefined
-		bs.addLocal "btnRemove_pressed" init:undefined
-		bs.addLocal "btnUp_pressed" init:undefined
-		bs.addLocal "btnEdit_pressed" init:undefined
+
 		--CONTROLS
 		for i=1 to maxButtons do
 		(
@@ -84,7 +77,7 @@
 			local btnPOSparam = " pos:[5," + POSparam
 			local chkPOSparam = " pos:["+((btnWidth + 10) as string )+"," + POSparam
 			bs.addControl #button (btnName as name) ("script"+(i as string)) paramStr:(WHparam + btnPOSparam)
-			bs.addControl #checkbox (chkName as string) "" paramStr:chkPOSparam	
+			bs.addControl #checkbox (chkName as name) "" paramStr:(chkPOSparam)
 			
 		)
 		
@@ -97,6 +90,15 @@
 		bs.addControl #button #btnRemove "-" paramStr:("width:"+fw+" pos:"+footPOS2)		
 		bs.addControl #button #btnUp "^" paramStr:("width:"+fw+" pos:"+footPOS3)		
 		bs.addControl #button #btnEdit "Edit" paramStr:("width:"+fw+" pos:"+footPOS4)
+		
+		--LOCALS
+		bs.addLocal "buttonPressed" init:undefined
+		bs.addLocal "buttons" init:#()
+		bs.addLocal "checkboxes" init:#()
+		bs.addLocal "btnAdd_pressed" init:undefined
+		bs.addLocal "btnRemove_pressed" init:undefined
+		bs.addLocal "btnUp_pressed" init:undefined
+		bs.addLocal "btnEdit_pressed" init:undefined
 		
 		--EVENTS
 		for i = 1 to maxButtons do
@@ -124,8 +126,8 @@
 		bs.end()		
 		--return:
 		(bs)
-	)
-	
+	)	
+
 	--DYNAMIC SCRIPTS ROLLOUT EVENTS 
 	function OnScriptButtonPressed x =
 	(		
@@ -155,6 +157,8 @@
 		print "edit"
 	)
 	
+	
+	
 	PPFloater = newRolloutFloater "Project Panel" PanelWidth 400
 	addRollout ProjectPanel PPFloater
 	--addRollout ScriptList PPFLoater 
@@ -168,6 +172,65 @@
 	DymScriptList.btnUp_pressed = OnBtnUp_pressed
 	DymScriptList.btnEdit_pressed = OnBtnEdit_pressed
 	print DymScriptList.buttons[4].caption
+	
+	--better generic cntrl list:
+	function RollMatrix_AddControls rci maxRows controlTypes widths height = 
+	(
+		--rci = rolloutCreator Instance
+		--array of controls locals 
+		local ctrlStr = #()
+		for i=1 to controlTypes.count do
+		(
+			ctrlStr[i] = controlTypes[i] as string
+			rci.addLocal ctrlStr[i] init:#()
+		)
+		for i=1 to maxRows do
+		(	
+			local ii = i as string
+			local H = "height:"+(height as string)
+			local pos = [0,0]
+			pos.y = (i-1) * height 			
+			pos.x = 5
+			for j=1 to controlTypes.count do
+			(				
+				local W = " width:" +(widths[j] as string ) 				
+				local posStr = " pos:"+(pos as string)
+				rci.addControl controlTypes[j] (ctrlStr[j] + ii) "" paramStr:(H + W + posStr) 
+				pos.x = pos.x + widths[j] + 2
+			)
+		)
+	)
+	
+	function RollMatrix_AddFooterButtons rci names captions width height posy:0 =
+	(
+		--rci = rolloutCreator Instance
+		for i=1 to names.count do
+		(
+			local W = " width:" + (width as string)
+			local H = " height:" + (height as string)
+			local p = [5 + (i-1)*width, posy]
+			local posStr = " pos:" + (p as string)
+			rci.addControl #button ("btn"+names[i]) Captions[i] paramStr:(H + W + posStr)
+		)
+	)
+	
+	function BuildTestRoll =
+	(
+		local rc = rolloutCreator "rollMatrix" "Rollout Matrix"
+		rc.begin()
+		local matrixControlTypes = #(#button, #checkButton)
+		local footerButtonNames = #("Add", "Remove", "Up", "Edit")
+		local footerButtonCaptions = #("+","-","^","Edit")
+		RollMatrix_AddControls rc 5 matrixControlTypes #(120,15) 20
+		RollMatrix_AddFooterButtons rc footerButtonNames footerButtonCaptions 40 20 posy:(20*5+10)
+		print rc.str
+		rc.end()
+		--return 
+		(rc)
+	)
+	
+	local testRoll = BuildTestRoll()
+	addRollout testRoll.def PPFloater
 	
 	cui.registerDialogBar PPFloater
 	
