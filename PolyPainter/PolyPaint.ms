@@ -1409,9 +1409,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 	)
 
 
-	
-	--// has to be with CreateDialog in order to get the lButtonDown event with mouse position
-	--createdialog roll_PolyPaint roll_PolyPaint.bmpSize (roll_PolyPaint.bmpSize + 460 )        
+	--TODO: save last dialog position somewhere..global var..
 	
 	g_polypaint_rf = newRolloutFloater "pX Poly Paint" (roll_PolyPaint.bmpSize + 10) (roll_PolyPaint.bmpSize + 460 )
 	addRollout roll_PolyPaint g_polypaint_rf

@@ -1,0 +1,40 @@
+
+	function RollMatrix_AddControls rci maxRows controlTypes widths height = 
+	(
+		--rci = rolloutCreator Instance
+		--array of controls locals 
+		local ctrlStr = #()
+		for i=1 to controlTypes.count do
+		(
+			ctrlStr[i] = controlTypes[i] as string
+			rci.addLocal (ctrlStr[i]+"s") init:#()
+		)
+		for i=1 to maxRows do
+		(	
+			local ii = i as string
+			local H = "height:"+(height as string)
+			local pos = [0,0]
+			pos.y = (i-1) * height 			
+			pos.x = 5
+			for j=1 to controlTypes.count do
+			(				
+				local W = " width:" +(widths[j] as string ) 				
+				local posStr = " pos:"+(pos as string)
+				rci.addControl controlTypes[j] (ctrlStr[j] + ii) "" paramStr:(H + W + posStr) 
+				pos.x = pos.x + widths[j] + 2
+			)
+		)
+	)
+	
+	function RollMatrix_AddFooterButtons rci names captions width height posy:0 =
+	(
+		--rci = rolloutCreator Instance
+		for i=1 to names.count do
+		(
+			local W = " width:" + (width as string)
+			local H = " height:" + (height as string)
+			local p = [5 + (i-1)*width, posy]
+			local posStr = " pos:" + (p as string)
+			rci.addControl #button ("btn"+names[i]) Captions[i] paramStr:(H + W + posStr)
+		)
+	)
