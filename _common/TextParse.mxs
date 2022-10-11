@@ -1,0 +1,212 @@
+struct TextParse 
+(	
+	macro_tag = "_SELF_INCLUDE_MACRO_",
+	
+	--Find the start quote, parse a literal string processing escape codes, 
+	--Return evaluated string or undefined
+	function parseLiteralStr str startPos:1 = 
+	(
+		--Try to parse a literal string, evaluated if contains escape codes
+	--return array #(Result, LiteralEnd)
+	--ResultString: if fails return undefined
+	--LiteralEnd: the position where the strings ends on the original str	
+		local s = trimLeft (substring str startPos -1)
+		local isRaw = false
+		local quote = "\""
+		local scapeChar = "\\"
+		local literalEnd = str.count - s.count --if parsed successfully, where it ends?
+		if s[1]=="@" then 
+		(
+			s = substring s 2 -1
+			literalEnd = literalEnd + 1
+			isRaw = true
+		)
+		local result = undefined
+		if s[1]==quote then
+		(
+			s = substring s 2 -1
+			literalEnd = literalEnd + 1
+			local scapeCharsMaybe = (matchPattern s pattern:"*\*")
+			if scapeCharsMaybe and not isRaw then 
+			(
+				--ignore all scapes codes until find a closing quote
+				local found = false
+				local idx = 0
+				while not found do
+				(
+					idx = idx + 1
+					if s[idx] == scapeChar then idx = idx + 2 --skiping 
+					found = s[idx] == quote 
+				)
+				if found then 
+				(
+					s = substring s 1 (idx-1)
+					literalEnd = literalEnd + idx + 1
+					--try evaluate string, process escape codes
+					local ss = StringStream (quote + s + quote )
+					local eval = undefined
+					try (eval = readvalue ss) catch()
+					if eval !=undefined do
+					(
+						result = #(eval, literalEnd)
+					)
+				) else () --not found, then is bad string
+			) else
+			(
+				local nextQuote = findString s quote
+				if nextQuote != undefined then 
+				(				
+					literalEnd = literalEnd + nextQuote + 1
+					result = #(substring s 1 (nextQuote-1), literalEnd)
+				)
+			)
+			
+		)
+		--return
+		(result)
+	),
+	
+	--Read contents of text file and add all the lines to stringStream.
+	--indentStr: prefix all lines with.
+	function pasteFile filename aStream indentStr:"" =
+	(
+		local result = false
+		local f = OpenFile filename mode:"r"
+		if f!=undefined then
+		(
+			while not (eof f) do
+			(
+				local s = readline f
+				append aStream (indentStr + s + "\n")
+				--print s
+			)
+			result = true
+			close f
+		) else 
+		(
+			print ("WARNING: Can't open file to include:"+filename)
+		)
+		--return
+		(result)
+	),
+
+	--Create/overwrite a file, Write all text from a stringStream to the  file
+	function WriteAllText aStream filename =
+	(
+		local result = false
+		seek aStream 0	
+		local f = openFile filename mode: "wt"
+		if f!=undefined then
+		(
+			while not (eof aStream) do
+			(
+				local sline = readLine aStream
+				format "%\n" sline to:f
+			)
+			result = true
+			close f
+		)
+		--return
+		(result)
+	),
+	
+	--Returns all text in stringStream object
+	function ReadAllText filename =
+	(
+		local ss = stringStream ""
+		local f = openFile filename mode:"r"
+		if f!=undefined then 
+		(
+			while not (eof f) do
+			(
+				local sline = readLine f
+				format "%\n" sline to:ss
+			)
+			seek ss 0
+			close f
+		) else 
+		(
+			ss = undefined
+		)
+		--return:
+		(ss)
+	),
+
+	function ApplyInclude fname =
+	(
+		
+		print ""
+		--global fs = openFile fname mode: "r"
+		global fs = ReadAllText fname
+		local wdir = getFilenamePath fname
+		sysInfo.currentdir = wdir
+		local sout = "" as stringStream
+		local includeStr = "include"	
+		if fs!=undefined then
+		( 
+			local multiLineComment = false
+			while not (eof fs) do 
+			(
+				local sline = readLine fs
+				thereInclude = MatchPattern sline pattern:("*"+includeStr+"*")
+				thereLineComment = MatchPattern sline pattern:"*--*"
+				--thereMultiCommentStart = MatchPattern sline pattern:"/*"
+				--thereMultiCommentEnd = MatchPattern sline pattern:"*/"
+				--thereQuotes = MatchPattern sline pattern:"\""
+				
+				local fileToInclude = undefined
+				
+				if thereInclude then 
+				(
+					local pos = findString sline "include"				
+					local posLC = pos + 1
+					if thereLineComment then posLC = findString sline "--"
+					
+					if pos < posLC then 
+					(					
+						fileToInclude = parseLiteralStr sLine startPos:(pos+includeStr.count)					
+					)
+				)
+				
+				if fileToInclude != undefined then
+				(
+					if (getFilenameFile fileToInclude[1]) == macro_tag then
+					(
+						--special self include macro IGNORE and delete line
+						fileToInclude = undefined
+						sline = ""
+					)
+				)
+				
+				if fileToInclude != undefined then 
+				(				
+					local indent = substring sline 1 (pos-1)
+					local remains = substring sline fileToInclude[2] -1
+					local done = pasteFile fileToInclude[1] sout indentStr:indent
+					if done then 
+					(
+						if remains!="" then
+						(
+							append sout (remains+"\n")
+						)
+					)
+					else
+					(
+						append sout (sline+"\n")
+					)
+					
+				) else
+				(
+					append sout (sline+"\n")
+				)
+			)
+			--close fs
+		) else 
+		(
+			Print ("File not found: "+ fname)
+		)
+		--return
+		(sout)
+
+	)
+)

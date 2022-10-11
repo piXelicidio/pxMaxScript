@@ -1,0 +1,41 @@
+--This script whenk ls
+
+include @"F:\_px\3D\MaxScripts\_common\TextParse.mxs"
+
+-- if the filename ends in '_DEV'(development), remove it
+-- if not add '_DIST' (distribution)
+function genOutFileName fnameIn =
+(
+	local p = getFilenamePath fnameIn
+	local ext = getFilenameType fnameIn
+	local n = getFilenameFile fnameIn
+	
+	local tag = substring n (n.count-3) -1
+	if tag == "_DEV" then 
+	( 
+		n = substring n 1 (n.count-4)
+	) else 
+	( 
+		n = n + "_DIST"
+	)
+	
+	--return
+	(p + n + ext)
+	
+)
+
+--Apply all include instructions in source file
+function DoIncludes devFilename =
+(	
+	local t1 = timeStamp()
+	textp = TextParse()
+	textp.macro_tag = "_SELF_INCLUDE_MACRO_"
+	local srcOut = (textp.ApplyInclude devFilename) 	
+	--format (srcOut as string)
+	textp.WriteAllText srcOut (genOutFileName devFilename) 
+	local t2 = timeStamp()
+	format "Elapsed %s \n" ((t2-t1)/1000.0)
+)
+
+--format  "ThisScript: %\n" (getThisScriptFilename())
+DoIncludes (getThisScriptFilename())
