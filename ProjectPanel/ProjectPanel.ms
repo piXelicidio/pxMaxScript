@@ -1,6 +1,7 @@
 -- Project Panel: Context awere panel with project tools and shortcuts.
 
 --macroscript ProjectPanel category:"pX Tools" 
+
 (
 	local currProject = ""
 	local PPfloater = undefined
@@ -56,24 +57,16 @@
 	--addRollout ScriptList PPFLoater 	
 	
 	include @"F:\_px\3D\MaxScripts\_common\RollBuilder.mxs"
+	rb = RollBuilder()
 	
-	function BuildTestRoll =
-	(
-		local rc = rolloutCreator "rollMatrix" "Rollout Matrix"
-		rc.begin()
-		local matrixControlTypes = #(#button, #checkButton)
-		local footerButtonNames = #("Add", "Remove", "Up", "Edit")
-		local footerButtonCaptions = #("+","-","^","Edit")
-		RollMatrix_AddControls rc 5 matrixControlTypes #(120,15) 20
-		RollMatrix_AddFooterButtons rc footerButtonNames footerButtonCaptions 40 20 posy:(20*5+10)
-		print rc.str
-		rc.end()
-		--return 
-		(rc)
-	)
+	ActionRoll = rb.CreateActionListRoll "_ActionRoll_" "Scripts" PanelWidth 20 maxRows:10 rolloutFloater:PPFloater 
 	
-	local testRoll = BuildTestRoll()
-	addRollout testRoll.def PPFloater
+	
+		function btn_event idx =
+		(
+			print ("Pressed btn "+( idx as string))
+		)
+		ActionRoll.rollDef.action_event = btn_event
 	
 	cui.registerDialogBar PPFloater
 	

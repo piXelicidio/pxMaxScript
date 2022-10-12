@@ -1,32 +1,71 @@
 
-	function RollMatrix_AddControls rci maxRows controlTypes widths height = 
+--Helper function to use with rolloutCreator class,
+--parameter rci: an instance to a rolloutCreator
+struct RollBuilder 
+(
+	function AddControlMatrix rci maxRows controlTypes controlNames widths height = 
 	(
 		--rci = rolloutCreator Instance
 		--array of controls locals 
 		local ctrlStr = #()
 		for i=1 to controlTypes.count do
 		(
-			ctrlStr[i] = controlTypes[i] as string
-			rci.addLocal (ctrlStr[i]+"s") init:#()
+			ctrlStr[i] = controlTypes[i] as string		
 		)
-		for i=1 to maxRows do
-		(	
-			local ii = i as string
-			local H = "height:"+(height as string)
-			local pos = [0,0]
-			pos.y = (i-1) * height 			
-			pos.x = 5
-			for j=1 to controlTypes.count do
+		local controlNamesSep = #()	--names separated with commas
+		for j = 1 to controlTypes.count do
+		(
+			controlNamesSep[j] = ""
+		)
+		local pos = [0,0]
+		for j=1 to controlTypes.count  do
+		(				
+			for i=1 to maxRows do
 			(				
+				local ii = i as string
+				local H = "height:"+(height as string)
+				
+				pos.y = (i-1) * height 			
+				
+				
 				local W = " width:" +(widths[j] as string ) 				
 				local posStr = " pos:"+(pos as string)
-				rci.addControl controlTypes[j] (ctrlStr[j] + ii) "" paramStr:(H + W + posStr) 
-				pos.x = pos.x + widths[j] + 2
+				local cName = (controlNames[j] + ii)
+				
+				rci.addControl controlTypes[j] cName "" paramStr:(H + W + posStr)
+				controlNamesSep[j] =  controlNamesSep[j]+ ","+ cName 
+				
+			)
+			pos.x = pos.x + widths[j] --+ 2
+		)
+		rci.AddText "--Arrays"
+		for j=1 to controlTypes.count do
+		(
+			local s = substring controlNamesSep[j] 2 -1
+			rci.addLocal (controlNames[j]+"_arr") init:("#("+s+")")
+		)
+		rci.AddText "--Pointers"
+		local EventPointers = #()
+		for j=1 to controlTypes.count do
+		(			
+			EventPointers[j] = controlNames[j]+"_event" 
+			rci.addLocal (EventPointers[j]) init:undefined
+		)
+		rci.AddText "--Events"
+		for j=1 to controlTypes.count  do
+		(				
+			for i=1 to maxRows do
+			(
+				local ii = i as string
+				local s = "on "+ controlNames[j]+ii +" pressed do (if "
+				local s = s + EventPointers[j] + "!=undefined then " + EventPointers[j] + " " + ii+ ")"
+				rci.addText s
 			)
 		)
-	)
-	
-	function RollMatrix_AddFooterButtons rci names captions width height posy:0 =
+		rci.AddText "--"
+	),
+
+	function AddButtonRow rci names captions width height posy:0 =
 	(
 		--rci = rolloutCreator Instance
 		for i=1 to names.count do
@@ -37,4 +76,114 @@
 			local posStr = " pos:" + (p as string)
 			rci.addControl #button ("btn"+names[i]) Captions[i] paramStr:(H + W + posStr)
 		)
+		rci.AddText "--"
+		local fEventName = "footerBtn_Event"
+		rci.AddLocal fEventName init:undefined
+		rci.AddText "--"
+		--TODO: naa... better to put all footerns buttons in a single Event pointer
+		for i=1 to names.count do
+		(
+			local cName = "btn"+ names[i]			
+			local s = "on " + cName + " pressed do (if "
+			s = s + fEventName+"!=undefined then "+ fEventName+" \""+names[i]+"\" )"
+			rci.addText s
+		)
+	),
+	
+	function CreateActionListRoll rollName rollCaption FullWidth height maxRows:10 startY:0 rolloutFloater: =
+	(
+		struct ActionList 
+		(
+			rollDef,			
+			maxRows,
+			rowCount = 0,
+			rowHeight,
+			
+			--events
+			onAddItem,
+			
+			function init =
+			(
+				--Call this after 
+				for i=1 to rollDef.edit_arr.count do
+				(					
+					rollDef.edit_arr[i].caption = ";"
+					rollDef.action_arr[i].caption = "item " + (i as string)
+					rollDef.up_arr[i].caption = "^" 
+					rollDef.remove_arr[i].caption ="X"
+				)
+			),
+			function setRowCount N =
+			(
+				if N > maxRows then N = maxRows
+				rowCount = N
+				for i=1 to maxRows do
+				(
+					hideIt = (i < N)
+					rollDef.edit_arr[i].visible = hideIt;
+					rollDef.action_arr[i].visible = hideIt;
+					rollDef.up_arr[i].visible = hideIt;
+					rollDef.remove_arr[i].visible = hideIt;
+				)
+				rollDef.height = (N+0.5) * rowHeight
+				rollDef.btnAdd.pos.y = (N-1)*rowHeight
+				rollDef.btnAdd.pos.x = 0;
+				if N<maxRows then 
+				( rollDef.btnAdd.enabled = true)
+				else (rollDef.btnAdd.enabled = false)
+			),
+			
+			function btnAdd_event =
+			(
+				if rowCount < maxRows then 
+				(					
+					setRowCount (rowCount + 1)
+				)
+			),
+			
+			function remove_event itemIdx =
+			(
+				if rowCount>0 then
+				(
+					print ( "removing "+(itemIdx as string));
+					setRowCount (rowCount - 1);
+				)
+			)
+		)
+		
+		local al = ActionList()
+		al.maxRows = maxRows
+		al.rowHeight = height
+		local rci = rolloutCreator rollName rollCaption
+		rci.begin()
+		local cTypes = #(#button, #button, #button, #button)
+		local cNames = #("edit", "action", "up","remove")
+		local H = height
+		local b1Width = FullWidth-(H+2)*3 - 8
+		local cWidths = #(H, b1Width, H, H)
+		AddControlMatrix rci maxRows cTypes cNames cWidths H
+		rci.addControl #button "btnAdd" "+" paramStr:("height:"+(H as string)+ " width:"+(H as string))
+		rci.addLocal "btnAdd_event"
+		rci.addText "on btnAdd pressed do (btnAdd_event())"
+		--
+		rci.end()
+		print rci.str
+		--
+		al.rollDef = rci.def
+		if (rolloutFloater==unsupplied) then 
+		( 
+			--If NOT provided then ActionList.init() must be called after adding the rollout or creating a dialog
+		)
+		else
+		(
+			addRollout al.rollDef rolloutFloater
+			al.init()
+			al.setRowCount 7
+			al.rollDef.btnAdd_event = al.btnAdd_event
+			al.rollDef.remove_event = al.remove_event
+		)
+			
+		--return
+		(al)
 	)
+)
