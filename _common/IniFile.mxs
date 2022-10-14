@@ -1,0 +1,64 @@
+struct IniFile
+(
+	filename,
+	currSection,
+	
+	--wrapping:
+	function read key =
+	(
+		(getINISetting filename currSection key)
+	),
+
+	function write key value =
+	(
+		(setINISetting filename currSection key (value as string))
+	),
+	
+	function remove key =
+	(
+		delIniSetting filename currSection key
+	),
+	
+	function removeSection =
+	(
+		delIniSetting filename currSection
+	),
+	
+	function hasKey key =
+	(
+		(hasINISetting filename currSection key)
+	),
+	
+	function hasSection =
+	(
+		(hasINISetting filename currSection)
+	),
+	
+	--extending:
+	function writeArray ArrName ArrValues =
+	(		
+		write (ArrName+"_count") ArrValues.count
+		for i=1 to ArrValues.count do
+		(
+			write (ArrName+"_"+(i as string)) (ArrValues[i] as string)
+		)
+
+	),
+	
+	function readArray ArrName =
+	(
+		local count = read (ArrName+"_count") 
+		local result = #()
+		if count!="" then
+		(
+			count = count as number
+			for i = 1 to count do
+			(
+				result[i] = read (ArrName+"_"+(i as string))
+			)
+		)
+		--return
+		(result)
+	)
+	
+)

@@ -98,9 +98,13 @@ struct RollBuilder
 			maxRows,
 			rowCount = 0,
 			rowHeight,
+			itemObjects = #(),
 			
-			--events
+			--EVENTS
+			--onAddItem(idx):should return #(string, obj)
 			onAddItem,
+			onItemAction,
+			onEditItem,
 			
 			function init =
 			(
@@ -112,6 +116,7 @@ struct RollBuilder
 					rollDef.up_arr[i].caption = "^" 
 					rollDef.remove_arr[i].caption ="X"
 				)
+				rollDef.up_arr[1].enabled = false;
 			),
 			function setRowCount N =
 			(
@@ -119,14 +124,14 @@ struct RollBuilder
 				rowCount = N
 				for i=1 to maxRows do
 				(
-					hideIt = (i < N)
-					rollDef.edit_arr[i].visible = hideIt;
-					rollDef.action_arr[i].visible = hideIt;
-					rollDef.up_arr[i].visible = hideIt;
-					rollDef.remove_arr[i].visible = hideIt;
+					local show = (i <= N)
+					rollDef.edit_arr[i].visible = show;
+					rollDef.action_arr[i].visible = show;
+					rollDef.up_arr[i].visible = show;
+					rollDef.remove_arr[i].visible = show;
 				)
-				rollDef.height = (N+0.5) * rowHeight
-				rollDef.btnAdd.pos.y = (N-1)*rowHeight
+				rollDef.height = (N+1.2) * rowHeight
+				rollDef.btnAdd.pos.y = (N)*rowHeight
 				rollDef.btnAdd.pos.x = 0;
 				if N<maxRows then 
 				( rollDef.btnAdd.enabled = true)
@@ -136,8 +141,29 @@ struct RollBuilder
 			function btnAdd_event =
 			(
 				if rowCount < maxRows then 
-				(					
-					setRowCount (rowCount + 1)
+				(				
+					
+					if (onAddItem != undefined) then
+					(
+						local itemInfo = onAddItem rowCount
+						if itemInfo != undefined then
+						(
+							setRowCount (rowCount + 1)
+							rollDef.action_arr[rowCount].caption = itemInfo[1]
+							itemObjects[rowCount] = itemInfo
+						) 
+					) 
+				)
+			),
+			
+			function refreshCaptions =
+			(
+				for i=1 to rowCount do
+				(
+					if itemObjects[i] != undefined then
+					(
+						rollDef.action_arr[i].caption = itemObjects[i][1]
+					)
 				)
 			),
 			
@@ -145,10 +171,68 @@ struct RollBuilder
 			(
 				if rowCount>0 then
 				(
+					deleteItem itemObjects itemIdx
+					refreshCaptions()
 					print ( "removing "+(itemIdx as string));
 					setRowCount (rowCount - 1);
 				)
-			)
+			),
+			
+			function action_event itemIdx =
+			(
+				--edit itemObjects[itemIdx][2]
+				if onItemAction!=undefined then
+				(
+					local c = undefined
+					local obj = undefined
+					if itemObjects [itemIdx]!=undefined then
+					(
+						c = itemObjects[itemIdx][1]
+						obj = itemObjects[itemIdx][2]
+					)
+					onItemAction c obj
+				)
+			),
+			
+			function up_event itemIdx =
+			(
+				if itemIdx > 1 then 
+				(
+					local tmp = itemObjects[itemIdx]
+					itemObjects[itemIdx] =itemObjects[itemIdx-1]
+					itemObjects[itemIdx-1] = tmp
+					refreshCaptions()
+				)
+			),
+			
+			function edit_event itemIdx =
+			(				
+				if onEditItem!=undefined then
+				(
+					local c = undefined
+					local obj = undefined
+					if itemObjects [itemIdx]!=undefined then
+					(
+						c = itemObjects[itemIdx][1]
+						obj = itemObjects[itemIdx][2]
+					)
+					local result = onEditItem c obj
+					if result!=undefined then
+					(
+						itemObjects[itemIdx][1] = result[1]
+						itemObjects[itemIdx][2] = result[2]
+						refreshCaptions()
+					)
+				)
+			),
+			
+			function getObjects =
+			(
+				local result = #()
+				for i =1 to itemObjects.count do result[i] = itemObjects[i][2];
+				(result)
+			)			
+			
 		)
 		
 		local al = ActionList()
@@ -167,7 +251,7 @@ struct RollBuilder
 		rci.addText "on btnAdd pressed do (btnAdd_event())"
 		--
 		rci.end()
-		print rci.str
+		--print rci.str
 		--
 		al.rollDef = rci.def
 		if (rolloutFloater==unsupplied) then 
@@ -178,9 +262,12 @@ struct RollBuilder
 		(
 			addRollout al.rollDef rolloutFloater
 			al.init()
-			al.setRowCount 7
+			al.setRowCount 0
 			al.rollDef.btnAdd_event = al.btnAdd_event
 			al.rollDef.remove_event = al.remove_event
+			al.rollDef.action_event = al.action_event
+			al.rollDef.up_event = al.up_event
+			al.rollDef.edit_event = al.edit_event
 		)
 			
 		--return

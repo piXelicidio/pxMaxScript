@@ -1,4 +1,7 @@
---This script whenk ls
+--Include this script at the last execution line of your script to replace all previous 
+--include staments with the actual sources
+
+--TODO: sometimes not working with ProjectPanel_DEV 
 
 include @"F:\_px\3D\MaxScripts\_common\TextParse.mxs"
 
@@ -27,15 +30,19 @@ function genOutFileName fnameIn =
 --Apply all include instructions in source file
 function DoIncludes devFilename =
 (	
+	format "Preprocessing includes for: %\n" devFilename;
 	local t1 = timeStamp()
 	textp = TextParse()
 	textp.macro_tag = "_SELF_INCLUDE_MACRO_"
 	local srcOut = (textp.ApplyInclude devFilename) 	
 	--format (srcOut as string)
-	textp.WriteAllText srcOut (genOutFileName devFilename) 
+	if not (textp.WriteAllText srcOut (genOutFileName devFilename)) then
+	(
+		format "Generated file not saved: %\n" genOutFileName
+	)
 	local t2 = timeStamp()
 	format "Elapsed %s \n" ((t2-t1)/1000.0)
 )
 
 --format  "ThisScript: %\n" (getThisScriptFilename())
-DoIncludes (getThisScriptFilename())
+DoIncludes (getThisScriptFilename());
