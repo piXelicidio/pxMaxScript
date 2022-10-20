@@ -1,7 +1,5 @@
 struct TextParse 
 (	
-	macro_tag = "_SELF_INCLUDE_MACRO_",
-	
 	--Find the start quote, parse a literal string processing escape codes, 
 	--Return evaluated string or undefined
 	function parseLiteralStr str startPos:1 = 
@@ -142,9 +140,11 @@ struct TextParse
 		sysInfo.currentdir = wdir
 		local sout = "" as stringStream
 		local includeStr = "include"	
+		local DEV_ONLY_Str = "--$DEV_ONLY$" -- if found skip this full line
+		local DIST_ONLY_Str = "--$DIST_ONLY$" --if found keep line delete token, therefore uncomment
 		if fs!=undefined then
 		( 
-			local multiLineComment = false
+		
 			while not (eof fs) do 
 			(
 				local sline = readLine fs
@@ -154,29 +154,30 @@ struct TextParse
 				--thereMultiCommentEnd = MatchPattern sline pattern:"*/"
 				--thereQuotes = MatchPattern sline pattern:"\""
 				
-				local fileToInclude = undefined
-				
-				if thereInclude then 
-				(
-					local pos = findString sline "include"				
-					local posLC = pos + 1
-					if thereLineComment then posLC = findString sline "--"
+				local fileToInclude = undefined				
+				local skips = false
+				local posLineComment = sline.count+1
+				if thereLineComment then posLineComment = findString sline "--"
 					
-					if pos < posLC then 
+				if MatchPattern sline pattern:("*"+ DEV_ONLY_str+"*") then
+				(
+					skips = true
+				)					
+				if MatchPattern sline pattern:("*"+DIST_ONLY_str+"*") then
+				(
+					sline = substituteString sline DIST_ONLY_str ""
+				)
+				
+				if thereInclude and not skips then 
+				(
+					local pos = findString sline "include"
+					
+					if pos < posLineComment then 
 					(					
 						fileToInclude = parseLiteralStr sLine startPos:(pos+includeStr.count)					
 					)
 				)
 				
-				if fileToInclude != undefined then
-				(
-					if (getFilenameFile fileToInclude[1]) == macro_tag then
-					(
-						--special self include macro IGNORE and delete line
-						fileToInclude = undefined
-						sline = ""
-					)
-				)
 				
 				if fileToInclude != undefined then 
 				(				
@@ -197,7 +198,10 @@ struct TextParse
 					
 				) else
 				(
-					append sout (sline+"\n")
+					if not skips then 
+					(
+						append sout (sline+"\n")
+					)
 				)
 			)
 			--close fs
