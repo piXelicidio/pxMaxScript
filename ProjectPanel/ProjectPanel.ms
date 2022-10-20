@@ -1,85 +1,82 @@
--- Project Panel: Context awere panel with project tools and shortcuts.
+-- Project Panel: Project context awere panel with shortcuts and tools.
 
 
--- Features ---------
+-- DONE ---------
 -- Show current project folder with button to open in browser.
 -- Dynamic List of scripts shortcut buttons. 
+-- Save/load state within projec folder.
 
 -- TODO:
--- Save/load state within projec folder.
--- **
+-- Solve one instance window: See Macroscript isChecked and CloseDialogs. See Macroscript scope.
+-- ^- Maybe the trick to toggle dialogBar is Visible true/false. test.
 
---macroscript ProjectPanel category:"pX Tools" 
-
-(		
-	local currProject = ""
-	local PPfloater = undefined
-	local PanelWidth = 200
-	
-	function maxVer =
+ macroscript ProjectPanel category:"pX Tools" 
+(	
+	--
+	struct IniFile
 	(
-		local mv = maxVersion()
-		local res = mv[4] * 10
-		local res = res + mv[5]
-		-- 2020.0 => 220
-		-- 2021.1 => 231
-		-- 2022.3 => 243
-		--
-		(res)
-	)
-	
-	struct inififi (x,y,z)
-	
-	
-	rollout ProjectPanel "Project Folder"
-	(
-		label lblProject @"c:\" align:#right
-		button btnOpenExplorer "Open In Explorer"
+		filename,
+		currSection,
 		
-		--functions
-		function UpdateContextTo newPath =
+		--wrapping:
+		function read key =
 		(
-			currProject = newPath
-			lblProject.text = newPath
-		)
+			(getINISetting filename currSection key)
+		),
+	
+		function write key value =
+		(
+			(setINISetting filename currSection key (value as string))
+		),
 		
-		function ProjectPanel_FolderChanged =
+		function remove key =
+		(
+			delIniSetting filename currSection key
+		),
+		
+		function removeSection =
+		(
+			delIniSetting filename currSection
+		),
+		
+		function hasKey key =
+		(
+			(hasINISetting filename currSection key)
+		),
+		
+		function hasSection =
+		(
+			(hasINISetting filename currSection)
+		),
+		
+		--extending:
+		function writeArray ArrName ArrValues =
 		(		
-			--fixing callback event firing twice
-			if currProject != (pathConfig.getCurrentProjectFolder()) then
-				(
-					currProject = pathConfig.getCurrentProjectFolder()
-					UpdateContextTo currProject
-				)
-		)
+			write (ArrName+"_count") ArrValues.count
+			for i=1 to ArrValues.count do
+			(
+				write (ArrName+"_"+(i as string)) (ArrValues[i] as string)
+			)
 	
+		),
 		
-		--events
-		on ProjectPanel open do
+		function readArray ArrName =
 		(
-			UpdateContextTo (pathConfig.getCurrentProjectFolder())
-			callbacks.addScript #postProjectFolderChange ProjectPanel_FolderChanged id:#pxProjectChange	
-			local ini = inififi 1 2 3
+			local count = read (ArrName+"_count") 
+			local result = #()
+			if count!="" then
+			(
+				count = count as number
+				for i = 1 to count do
+				(
+					result[i] = read (ArrName+"_"+(i as string))
+				)
+			)
+			--return
+			(result)
 		)
-		
-		on ProjectPanel close do
-		(
-			callbacks.removeScripts id:#pxProjectChange
-		)
-		
-		on btnOpenExplorer pressed do
-		(
-			ShellLaunch (currProject+@"\") ""
-		)		
 		
 	)
-		
-	
-	
-	PPFloater = newRolloutFloater "Project Panel" PanelWidth 400
-	addRollout ProjectPanel PPFloater
-	--addRollout ScriptList PPFLoater 	
-	
 	
 	--Helper function to use with rolloutCreator class,
 	--parameter rci: an instance to a rolloutCreator
@@ -223,7 +220,7 @@
 				function btnAdd_event =
 				(
 					if rowCount < maxRows then 
-					(					
+					(				
 						
 						if (onAddItem != undefined) then
 						(
@@ -233,11 +230,8 @@
 								setRowCount (rowCount + 1)
 								rollDef.action_arr[rowCount].caption = itemInfo[1]
 								itemObjects[rowCount] = itemInfo
-							) else print "WARNING: should return #(string, obj)"
-						) else 
-						(
-							setRowCount (rowCount + 1)
-						)
+							) 
+						) 
 					)
 				),
 				
@@ -292,7 +286,7 @@
 				
 				function edit_event itemIdx =
 				(				
-					if onItemAction!=undefined then
+					if onEditItem!=undefined then
 					(
 						local c = undefined
 						local obj = undefined
@@ -309,7 +303,15 @@
 							refreshCaptions()
 						)
 					)
-				)
+				),
+				
+				function getObjects =
+				(
+					local result = #()
+					for i =1 to itemObjects.count do result[i] = itemObjects[i][2];
+					(result)
+				)			
+				
 			)
 			
 			local al = ActionList()
@@ -351,9 +353,122 @@
 			(al)
 		)
 	)
-	rb = RollBuilder()
 	
-	ActionRoll = rb.CreateActionListRoll "_ActionRoll_" "Scripts" PanelWidth 20 maxRows:10 rolloutFloater:PPFloater 
+	if g_ProjectPanelwindow!=undefined then
+	(
+		if g_ProjectPanelwindow.open then
+		(
+			--TODO: Reset/close the old window. Is there a more convenient approach?
+			--BUG: this doesn't work with macros, weird undefined function error
+			cui.unRegisterDialogBar g_ProjectPanelWindow 
+			closeRolloutFloater g_ProjectPanelWindow			
+		)
+	)
+	
+	local rollScripts_ref = undefined
+	local rollProjectPanel_ref = undefined
+	local ActionListScripts = undefined
+	local currProject = ""
+	local lastProject = undefined
+	
+	local PanelWidth = 200	
+	local ini = IniFile()
+	
+	function maxVer =
+	(
+		local mv = maxVersion()
+		local res = mv[4] * 10
+		local res = res + mv[5]
+		-- 2020.0 => 220
+		-- 2021.1 => 231
+		-- 2022.3 => 243
+		--
+		(res)
+	)
+	
+	function Scripts_SaveState =
+	(
+		ini.currSection = "SCRIPTS" 
+		local als = ActionListScripts
+		local scriptsFileNames = als.getObjects()
+		ini.writeArray "scripts" scriptsFileNames
+	)
+	
+	function Scripts_LoadState =
+	(	
+		ini.currSection = "SCRIPTS"
+		local als = ActionListScripts
+		local scriptsFileNames = ini.readArray "scripts";
+		local items = #()
+		for i=1 to scriptsFileNames.count do
+		(
+			local n = scriptsFileNames[i]
+			items[i] = #(getFilenameFile n, n)
+		)
+		als.itemObjects = items
+		als.SetRowCount items.count
+		als.refreshCaptions()		
+	)
+	
+	function ProjectPanel_FolderChanged =
+	(		
+		--fixing callback event firing twice
+		if currProject != (pathConfig.getCurrentProjectFolder()) then
+			(
+				Scripts_SaveState()
+				lastProject = currProject					
+				currProject = pathConfig.getCurrentProjectFolder()
+				rollProjectPanel_ref.UpdateContext()	
+				Scripts_LoadState()
+			)
+	)
+
+	
+	--events
+	function Start =
+	(
+		currProject = (pathConfig.getCurrentProjectFolder())
+		rollProjectPanel_ref.UpdateContext()
+		Scripts_LoadState()
+		callbacks.addScript #postProjectFolderChange ProjectPanel_FolderChanged id:#pxProjectChange				
+	)
+	
+	-- Project Panel ----------------------------------------------------
+	rollout rollProjectPanel "Project:"
+	(			
+		button btnOpenExplorer "Open In Explorer"
+		
+		--functions
+		function UpdateContext =
+		(			
+			btnOpenExplorer.tooltip = currProject
+			rollProjectPanel.Title = (getFilenameFile currProject)
+			ini.filename = currProject + "\\" + "ProjectPanel.ini"	
+		)
+		
+		
+		on rollProjectPanel close do
+		(
+			Scripts_SaveState()
+			callbacks.removeScripts id:#pxProjectChange
+		)
+		
+		on btnOpenExplorer pressed do
+		(
+			ShellLaunch (currProject+@"\") ""
+		)		
+		
+	)
+	rollProjectPanel_ref = rollProjectPanel
+	
+	--Floater window ----------------------------------------------------
+	global g_ProjectPanelWindow = newRolloutFloater "Project Panel" PanelWidth 400
+	addRollout rollProjectPanel g_ProjectPanelWindow
+		
+	-- Scripts List  ------------------------------------------------------------------
+	local rb = RollBuilder()	
+	ActionListScripts = rb.CreateActionListRoll "_rollScripts_" "Scripts" PanelWidth 20 maxRows:20 rolloutFloater:g_ProjectPanelWindow
+	rollScripts_ref = ActionListScripts.rollDef
 	function onAddItem idx =
 	(
 		local fname = getOpenFileName "Select Script" types:"MaxScript(*.ms, *.mxs, *.mse)|*.ms;*.mxs;*.mse|Python(*.py)|*.py|All(*.*)|*.*" 
@@ -385,13 +500,11 @@
 		--return: undefined to not modify		
 		(undefined)
 	)
-	ActionRoll.onAddItem = onAddItem
-	ActionRoll.onItemAction = onAction
-	ActionRoll.onEditItem = onEdit
+	ActionListScripts.onAddItem = onAddItem
+	ActionListScripts.onItemAction = onAction
+	ActionListScripts.onEditItem = onEdit
+			
+	cui.registerDialogBar g_ProjectPanelWindow
+	Start()	
 	
-	
-		
-	
-	cui.registerDialogBar PPFloater
-
 )
