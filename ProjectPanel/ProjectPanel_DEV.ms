@@ -5,39 +5,39 @@
 -- Show current project folder with button to open in browser.
 -- Dynamic List of scripts shortcut buttons. 
 -- Save/load state within projec folder.
+-- This scripts define a macro and run itself. Useful to put in startup folder
+-- Toggle window and remember docking state
+
 
 -- TODO:
--- Solve one instance window: See Macroscript isChecked and CloseDialogs. See Macroscript scope.
--- ^- Maybe the trick to toggle dialogBar is Visible true/false. test.
 
---$DIST_ONLY$ macroscript ProjectPanel category:"pX Tools" 
+
+--$DIST_ONLY$function DefineAndRunMacro = ( 
+--$DIST_ONLY$local macroID = macroscript ProjectPanel category:"pX Tools" 
 (	
 	local _SELF_SCRIPT_ = @"F:\_px\3D\MaxScripts\ProjectPanel\ProjectPanel_DEV.ms" --$DEV_ONLY$
-	include @"F:\_px\3D\MaxScripts\_common\_SELF_INCLUDE_MACRO_.mxs"	--$DEV_ONLY$
+	include @"F:\_px\3D\MaxScripts\_common\_SELF_INCLUDE_MACRO_.mxs"	--$DEV_ONLY$	
+	local EXECUTE_DEV = true --$DEV_ONLY$
 	--
 	include @"F:\_px\3D\MaxScripts\_common\IniFile.mxs"
 	include @"F:\_px\3D\MaxScripts\_common\RollBuilder.mxs"
-	
-	if g_ProjectPanelwindow!=undefined then
-	(
-		if g_ProjectPanelwindow.open then
-		(
-			--TODO: Reset/close the old window. Is there a more convenient approach?
-			--BUG: this doesn't work with macros, weird undefined function error
-			cui.unRegisterDialogBar g_ProjectPanelWindow 
-			closeRolloutFloater g_ProjectPanelWindow			
-		)
-	)
 	
 	local rollScripts_ref = undefined
 	local rollProjectPanel_ref = undefined
 	local ActionListScripts = undefined
 	local currProject = ""
 	local lastProject = undefined
+	local executions = 0	
+	local closedBy_max = false
 	
 	local PanelWidth = 200	
-	local ini = IniFile()
+	local WindowOpen = false;
+	local ProjectPanelWindow = undefined
 	
+	local ini = IniFile()
+	ini.filename = pathConfig.getCurrentProjectFolder() + "\\" + "ProjectPanel.ini"	
+	
+	--LOCAL FUNCTIONS --------------------------------------------------------------------------
 	function maxVer =
 	(
 		local mv = maxVersion()
@@ -52,7 +52,7 @@
 	
 	function Scripts_SaveState =
 	(
-		ini.currSection = "SCRIPTS" 
+		ini.section = "SCRIPTS" 
 		local als = ActionListScripts
 		local scriptsFileNames = als.getObjects()
 		ini.writeArray "scripts" scriptsFileNames
@@ -60,7 +60,7 @@
 	
 	function Scripts_LoadState =
 	(	
-		ini.currSection = "SCRIPTS"
+		ini.section = "SCRIPTS"
 		local als = ActionListScripts
 		local scriptsFileNames = ini.readArray "scripts";
 		local items = #()
@@ -86,6 +86,13 @@
 				Scripts_LoadState()
 			)
 	)
+	
+	function MaxIsClosing = 
+	(
+		local globalIni = (getDir #userMacros) + "//" + "g_ProjectPanel.ini"
+		setINISetting globalIni "SETTINGS" "closedBy" "max" 		
+		closedBy_max = true
+	)
 
 	
 	--events
@@ -94,13 +101,49 @@
 		currProject = (pathConfig.getCurrentProjectFolder())
 		rollProjectPanel_ref.UpdateContext()
 		Scripts_LoadState()
-		callbacks.addScript #postProjectFolderChange ProjectPanel_FolderChanged id:#pxProjectChange				
+		callbacks.addScript #postProjectFolderChange ProjectPanel_FolderChanged id:#projectPanel_folderChange
+		callbacks.addScript #preSystemShutdown MaxIsClosing id:#projectPanel_maxIsClosing
+	)
+	
+	function get_lastDockState =
+	(
+		ini.section = "SETTINGS"
+		(ini.read "lastDockState") as name
+	)
+	
+	function set_lastDockState state = 
+	(
+		ini.section = "SETTINGS";
+		ini.write "lastDockState" (state as string)
+	)
+	
+	function CloseWindow =
+	(
+		set_lastDockState (cui.getDockState ProjectPanelWindow)
+		rollProjectPanel_ref.closingByCloseDialogs = true;
+		cui.unRegisterDialogBar ProjectPanelWindow
+		closeRolloutFloater ProjectPanelWindow
+		WindowOpen = false	
+	)
+	
+
+		
+	function RestoreDocking =
+	(		
+		local lastDockState = get_lastDockState()
+		local valid = findItem #(#cui_dock_left, #cui_dock_top, #cui_dock_right, #cui_dock_bottom ) lastDockState
+		if valid then
+		(
+			cui.dockDialogBar ProjectPanelWindow lastDockState
+		)
 	)
 	
 	-- Project Panel ----------------------------------------------------
 	rollout rollProjectPanel "Project:"
 	(			
+		local closingByCloseDialogs = false
 		button btnOpenExplorer "Open In Explorer"
+	
 		
 		--functions
 		function UpdateContext =
@@ -110,11 +153,25 @@
 			ini.filename = currProject + "\\" + "ProjectPanel.ini"	
 		)
 		
+		on rollProjectPanel open do
+		(
+			
+		)
+				
 		
 		on rollProjectPanel close do
-		(
+		(		
+			if not closingByCloseDialogs then set_lastDockState #cui_floatable
 			Scripts_SaveState()
-			callbacks.removeScripts id:#pxProjectChange
+			callbacks.removeScripts id:#projectPanel_folderChange
+			callbacks.removeScripts id:#projectPanel_maxIsClosing
+			if not closedBy_max then
+			(
+				local globalIni = (getDir #userMacros) + "//" + "g_ProjectPanel.ini"
+				setINISetting globalIni "SETTINGS" "closedBy" "user" 	
+			)
+			WindowOpen = false; 
+			updateToolbarButtons()
 		)
 		
 		on btnOpenExplorer pressed do
@@ -123,52 +180,72 @@
 		)		
 		
 	)
-	rollProjectPanel_ref = rollProjectPanel
 	
-	--Floater window ----------------------------------------------------
-	global g_ProjectPanelWindow = newRolloutFloater "Project Panel" PanelWidth 400
-	addRollout rollProjectPanel g_ProjectPanelWindow
+	----MACROSCRIPTS EVENTS----------------------------------------		
+	function MainExecute = 
+	(
+		executions += 1
+		rollProjectPanel_ref = rollProjectPanel		
 		
-	-- Scripts List  ------------------------------------------------------------------
-	local rb = RollBuilder()	
-	ActionListScripts = rb.CreateActionListRoll "_rollScripts_" "Scripts" PanelWidth 20 maxRows:20 rolloutFloater:g_ProjectPanelWindow
-	rollScripts_ref = ActionListScripts.rollDef
-	function onAddItem idx =
-	(
-		local fname = getOpenFileName "Select Script" types:"MaxScript(*.ms, *.mxs, *.mse)|*.ms;*.mxs;*.mse|Python(*.py)|*.py|All(*.*)|*.*" 
-		local result = undefined	
-		if fname != undefined then 
+		--Floater window ----------------------------------------------------
+		ProjectPanelWindow = newRolloutFloater "Project Panel" PanelWidth 400
+		cui.registerDialogBar ProjectPanelWindow		
+		WindowOpen = true;
+		addRollout rollProjectPanel ProjectPanelWindow
+			
+		-- Scripts List  ------------------------------------------------------------------
+		local rb = RollBuilder()	
+		ActionListScripts = rb.CreateActionListRoll "_rollScripts_" "Scripts" PanelWidth 20 maxRows:20 rolloutFloater:ProjectPanelWindow
+		rollScripts_ref = ActionListScripts.rollDef
+		-- Scripts list events:
+		function onAddItem idx =
 		(
-			result = #(getFileNameFile fname, fname);
-		)
-		--return
-		(result)
-	)
-	function onAction itemCaption itemObject =
-	(
-		--print("run script: "+itemObject)
-		if itemObject!=undefined then
-		(	
-			if maxVer() >= 231 then
+			local fname = getOpenFileName "Select Script" types:"MaxScript(*.ms, *.mxs, *.mse)|*.ms;*.mxs;*.mse|Python(*.py)|*.py|All(*.*)|*.*" 
+			local result = undefined	
+			if fname != undefined then 
 			(
-				executeScriptFile itemObject
-			) else
+				result = #(getFileNameFile fname, fname);
+			)
+			--return
+			(result)
+		)
+		function onAction itemCaption itemObject =
+		(
+			--print("run script: "+itemObject)
+			if itemObject!=undefined then
 			(	
-			   fileIn itemObject
+				if maxVer() >= 231 then
+				(
+					executeScriptFile itemObject
+				) else
+				(	
+				   fileIn itemObject
+				)
 			)
 		)
+		function onEdit itemCaption itemObject =
+		(
+			edit itemObject
+			--return: undefined to not modify		
+			(undefined)
+		)
+		ActionListScripts.onAddItem = onAddItem
+		ActionListScripts.onItemAction = onAction
+		ActionListScripts.onEditItem = onEdit
+				
+		
+		Start()
+		RestoreDocking();
 	)
-	function onEdit itemCaption itemObject =
-	(
-		edit itemObject
-		--return: undefined to not modify		
-		(undefined)
-	)
-	ActionListScripts.onAddItem = onAddItem
-	ActionListScripts.onItemAction = onAction
-	ActionListScripts.onEditItem = onEdit
-			
-	cui.registerDialogBar g_ProjectPanelWindow
-	Start()	
 	
+	--$DIST_ONLY$on execute do MainExecute()
+	--$DIST_ONLY$on isChecked do (WindowOpen)
+	--$DIST_ONLY$on closeDialogs do CloseWindow()
+		
+	
+	if EXECUTE_DEV then MainExecute() --$DEV_ONLY$	
 )
+--$DIST_ONLY$ local globalIni = (getDir #userMacros) + "//" + "g_ProjectPanel.ini"
+--$DIST_ONLY$ local dorun = (getINISetting globalIni "SETTINGS" "closedBy") == "max"
+--$DIST_ONLY$ if dorun then (macros.run macroID))
+--$DIST_ONLY$ DefineAndRunMacro()

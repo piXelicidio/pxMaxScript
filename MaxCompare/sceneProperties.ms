@@ -55,8 +55,7 @@
 		for i=1 to ref.modifiers.count do
 		(
 			local m = ref.modifiers[i] 
-			mods[i] = GetInstanceProperties m 
-			--TODO: add common modifier properties
+			mods[i] = GetInstanceProperties m 			
 			
 			mods[i]["name"] = m.name
 			mods[i]["enabled"] = m.enabled as string

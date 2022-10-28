@@ -1,37 +1,37 @@
 struct IniFile
 (
 	filename,
-	currSection,
+	section,
 	
 	--wrapping:
 	function read key =
 	(
-		(getINISetting filename currSection key)
+		(getINISetting filename section key)
 	),
 
 	function write key value =
 	(
-		(setINISetting filename currSection key (value as string))
+		(setINISetting filename section key (value as string))
 	),
 	
 	function remove key =
 	(
-		delIniSetting filename currSection key
+		delIniSetting filename section key
 	),
 	
 	function removeSection =
 	(
-		delIniSetting filename currSection
+		delIniSetting filename section
 	),
 	
 	function hasKey key =
 	(
-		(hasINISetting filename currSection key)
+		(hasINISetting filename section key)
 	),
 	
 	function hasSection =
 	(
-		(hasINISetting filename currSection)
+		(hasINISetting filename section)
 	),
 	
 	--extending:
