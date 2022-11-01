@@ -194,11 +194,16 @@ local macroID = macroscript ProjectPanel category:"pX Tools"
 					for i=1 to rollDef.edit_arr.count do
 					(					
 						rollDef.edit_arr[i].caption = ";"
+						rollDef.edit_arr[i].tooltip = "Edit"
 						rollDef.action_arr[i].caption = "item " + (i as string)
+						rollDef.action_arr[i].tooltip = "Execute!"
 						rollDef.up_arr[i].caption = "^" 
+						rollDef.up_arr[i].tooltip = "Move to first"
 						rollDef.remove_arr[i].caption ="X"
+						rollDef.remove_arr[i].tooltip ="Remove"
 					)
 					rollDef.up_arr[1].enabled = false;
+					rollDef.btnAdd.tooltip = "Add..."
 				),
 				function setRowCount N =
 				(
@@ -564,6 +569,7 @@ local macroID = macroscript ProjectPanel category:"pX Tools"
 			--return: undefined to not modify		
 			(undefined)
 		)
+
 		ActionListScripts.onAddItem = onAddItem
 		ActionListScripts.onItemAction = onAction
 		ActionListScripts.onEditItem = onEdit

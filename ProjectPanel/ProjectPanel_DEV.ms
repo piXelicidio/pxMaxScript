@@ -17,7 +17,7 @@
 (	
 	local _SELF_SCRIPT_ = @"F:\_px\3D\MaxScripts\ProjectPanel\ProjectPanel_DEV.ms" --$DEV_ONLY$
 	include @"F:\_px\3D\MaxScripts\_common\_SELF_INCLUDE_MACRO_.mxs"	--$DEV_ONLY$	
-	local EXECUTE_DEV = true --$DEV_ONLY$
+	local EXECUTE_DEV = false --$DEV_ONLY$
 	--
 	include @"F:\_px\3D\MaxScripts\_common\IniFile.mxs"
 	include @"F:\_px\3D\MaxScripts\_common\RollBuilder.mxs"
@@ -229,6 +229,7 @@
 			--return: undefined to not modify		
 			(undefined)
 		)
+
 		ActionListScripts.onAddItem = onAddItem
 		ActionListScripts.onItemAction = onAction
 		ActionListScripts.onEditItem = onEdit
