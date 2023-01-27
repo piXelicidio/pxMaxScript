@@ -1630,7 +1630,7 @@ struct XMLWriter
 			local Percent = 0
 			-- first colunm Name, color, bold, instance)  
 			ObjectsInfo[i] = #()
-			ObjectsInfo[i].count = 9 -- NumColumns			
+			ObjectsInfo[i].count = 11 -- NumColumns			
 			if (GetUserProp o up_DefaultName)==true then 
 			(
 				bb=true 
@@ -2859,6 +2859,7 @@ struct XMLWriter
 			
 		SummaryInfoListView = ListViewClass()
 	    SummaryInfoListView.lvControl = InspectorReports.lvSummary
+		--SummaryInfoListView.lvControl.CheckBoxes = true
 		SummaryInfoListView.layout_def = SummaryColumns
 		SummaryInfoListView.Init()	
 

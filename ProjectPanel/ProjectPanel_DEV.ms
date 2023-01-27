@@ -180,6 +180,12 @@
 		)		
 		
 	)
+
+	rollout rollSettings "Settings"
+	(
+		checkbox chkUseExternalEditor "Use External Editor" checked:false
+		edittext edtExternalEditor "Editor" text:@"C:\Users\piXel\AppData\Local\Programs\Microsoft VS Code\Code.exe"
+	)
 	
 	----MACROSCRIPTS EVENTS----------------------------------------		
 	function MainExecute = 
@@ -225,7 +231,14 @@
 		)
 		function onEdit itemCaption itemObject =
 		(
-			edit itemObject
+			if rollSettings.chkUseExternalEditor.checked then
+			(
+				ShellLaunch rollSettings.edtExternalEditor.text itemObject
+			) else
+			(				
+				edit itemObject
+			)
+			
 			--return: undefined to not modify		
 			(undefined)
 		)
@@ -233,7 +246,8 @@
 		ActionListScripts.onAddItem = onAddItem
 		ActionListScripts.onItemAction = onAction
 		ActionListScripts.onEditItem = onEdit
-				
+		
+		addRollout rollSettings ProjectPanelWindow
 		
 		Start()
 		RestoreDocking();
