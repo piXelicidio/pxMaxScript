@@ -32,3 +32,12 @@ Fix duplicated object names.
 
 **StepCap.ms**
 Cap a hole! but one step at time. Repeat multiple times to fully cap. Reduce polygons creating some triangles.
+
+**ReopenLastScene.ms**
+Small startup script to make 3ds Max reopen the last scene, from the previous session.
+Copy it into your script's startup folder.
+
+**bipsToGround.ms**
+Gets all selected Bipeds (At least one bone object for each biped) and move them all to the "ground".
+Ground is defined by default as Z = 0. Edit the script to customize. 
+What it does?: Move the Biped down (or up, maybe?) so the most lower bounding box of any bone is touching the ground.
