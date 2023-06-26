@@ -29,6 +29,7 @@
 macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Poly Paint"
 (	
 	global g_PolyPaint	
+	global g_PolyPaint_rf
 	if g_PolyPaint != undefined then
 	(
 		if g_PolyPaint.open then
@@ -1152,7 +1153,8 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			paint3D.changed false
 			
 			--ini settings
-			local p = getDialogPos roll_PolyPaint
+			local p = g_polyPaint_rf.pos
+			print p
 			set_ini "dialogPos" (p as string)
 			set_ini "curr_uv" (curr_UV as string)
 		)
@@ -1162,9 +1164,10 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			-- loading ini settings
 			local s = get_ini "dialogPos"
 			local p = eval s
+			print s
 			if (classof p ) == point2 then
 			(
-				setDialogPos roll_PolyPaint p
+				g_polyPaint_rf.pos =  p
 			)
 			s = get_ini "curr_uv"
 			p = eval s
@@ -1409,8 +1412,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 	)
 
 
-	--TODO: save last dialog position somewhere..global var..
-	
+
 	g_polypaint_rf = newRolloutFloater "pX Poly Paint" (roll_PolyPaint.bmpSize + 10) (roll_PolyPaint.bmpSize + 460 )
 	addRollout roll_PolyPaint g_polypaint_rf
 	addRollout roll_help g_polyPaint_rf rolledup:true
