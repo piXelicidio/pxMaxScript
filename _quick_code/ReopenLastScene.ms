@@ -25,6 +25,7 @@ function GetRecentDocuments =
 			)
 		)
 	)	
+	close file
 	--return
 	(result)
 )
