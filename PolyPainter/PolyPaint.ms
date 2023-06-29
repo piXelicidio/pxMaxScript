@@ -275,13 +275,17 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			--
 			local list = #()
 			local triIndex = 1
-			local numTriangles = undefined
+			local numTriangles = 0
 			for k = 1 to polyop.getNumFaces EPolyObj do
 			(
 				-- Triangles are ordered in correspondence to polygons.
 				-- We just need to count....
-				numTriangles = (polyop.getFaceDeg EPolyObj K) - 2
-				if numTriangles == undefined then numTriangles = 0
+				local faceDeg = polyop.getFaceDeg EPolyObj K
+				if faceDeg == undefined then 
+				( numTriangles = 0 )
+					else 
+				(numTriangles = (faceDeg) - 2)
+				
 				for i=1 to numTriangles do
 				(
 					list[triIndex] = k
