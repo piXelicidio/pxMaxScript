@@ -1,7 +1,7 @@
 --Fixing the mesh native origin to be set to origin [0,0,0] while keeping it in place.
 --Which is not the 3ds Max pivot
 --It moves the Editable_Poly vertices the same value the current pivot has, then move the object position to 0,0,0.
---Results: Mesh looks in the same plase, but its native pivot is not at 0,0,0.
+--Results: Mesh looks in the same plase, but its native pivot is now at 0,0,0.
 
 function FixMeshOrigin obj =
 (
