@@ -119,9 +119,9 @@
 	
 	function CloseWindow =
 	(
-		set_lastDockState (cui.getDockState ProjectPanelWindow)
+		--set_lastDockState (cui.getDockState ProjectPanelWindow)
 		rollProjectPanel_ref.closingByCloseDialogs = true;
-		cui.unRegisterDialogBar ProjectPanelWindow
+		--cui.unRegisterDialogBar ProjectPanelWindow
 		closeRolloutFloater ProjectPanelWindow
 		WindowOpen = false	
 	)
@@ -195,7 +195,7 @@
 		
 		--Floater window ----------------------------------------------------
 		ProjectPanelWindow = newRolloutFloater "Project Panel" PanelWidth 400
-		cui.registerDialogBar ProjectPanelWindow		
+		--cui.registerDialogBar ProjectPanelWindow		
 		WindowOpen = true;
 		addRollout rollProjectPanel ProjectPanelWindow
 			
@@ -250,7 +250,7 @@
 		addRollout rollSettings ProjectPanelWindow
 		
 		Start()
-		RestoreDocking();
+		--RestoreDocking();
 	)
 	
 	--$DIST_ONLY$on execute do MainExecute()
