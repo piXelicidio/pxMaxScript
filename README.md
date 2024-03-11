@@ -1,7 +1,7 @@
 # pxMaxScript
 ### Time-Saving MaxScript Tools and Tricks – From My Personal Workflow Jungle
 
-A diverse collection of standalone scripts for 3ds Max.  Pick and choose the ones that spark your interest! This repository offers:
+A diverse collection of standalone scripts for 3ds Max.  Pick and choose the ones that spark your interest!
 
 Find scripts for specific tasks or workflow improvements. With new tools and updates shared along the way. Browse folders and their readme files to find exactly what you need.
 
