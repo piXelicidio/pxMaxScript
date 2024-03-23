@@ -47,7 +47,7 @@ namespace Symmetry
                 }
 
             }
-            Debug.WriteLine($"build-7\nInitializing {vertPositions.Length} verts: {sw.ElapsedMilliseconds}ms");
+            Debug.WriteLine($"build-10\nInitializing {vertPositions.Length} verts: {sw.ElapsedMilliseconds}ms");
             
             sw.Restart();
             //finding pairs by position
@@ -80,31 +80,30 @@ namespace Symmetry
             {
                 var UnpairedList = UnpairedSet.ToArray(); 
                 FoundNewPairs = 0;
-                for (int r = 0; r < UnpairedList.Count; r++)
+                for (int i = 0; i < UnpairedList.Length; i++)
                 {
-                    var i = UnpairedList[r];
+                    var RIndex = UnpairedList[i];
+                    var RightSymLinks = new HashSet<int>();
+                    int RightUnpairedLinks = 0;
+                    foreach (var k in vertsInfo_LinkedTo[RIndex])
+                    {
+                        if (vertsInfo_PairedWith[k] == -1)
+                            RightUnpairedLinks++;
+                        else
+                            RightSymLinks.Add(k);
+                    }
 
-                    if (vertsInfo_PairedWith[i] == -1)
+                    if (vertsInfo_PairedWith[RIndex] == -1 && RightSymLinks.Count > 0) 
                     {
                         int MyCandidate = -1;
                         int MyCandidateNum = 0;
-                        for (int rr = 0; rr < UnpairedList.Count; rr++)
+                        for (int j = 0; j < UnpairedList.Length; j++)
                         {
-                            var j = UnpairedList[rr];
-                            var RightSymLinks = new HashSet<int>();
-                            var LeftSymLinks = new HashSet<int>();
-                            int RightUnpairedLinks = 0;
+                            var LIndex = UnpairedList[j];                            
+                            var LeftSymLinks = new HashSet<int>();                            
                             int LeftUnpairedLinks = 0;
-                            //collect both sides pairs
-
-                            foreach (var k in vertsInfo_LinkedTo[i])
-                            {
-                                if (vertsInfo_PairedWith[k] == -1)
-                                    RightUnpairedLinks++;
-                                else
-                                    RightSymLinks.Add(k);
-                            }
-                            foreach (var k in vertsInfo_LinkedTo[j])
+                            //collect both sides pairs                           
+                            foreach (var k in vertsInfo_LinkedTo[LIndex])
                             {
                                 if (vertsInfo_PairedWith[k] == -1)
                                     LeftUnpairedLinks++;
@@ -112,9 +111,8 @@ namespace Symmetry
                                     LeftSymLinks.Add(vertsInfo_PairedWith[k]);
                             }
 
-
                             //evaluate candidate
-                            if (RightSymLinks.Count > 0 && LeftSymLinks.Count > 0)
+                            if (LeftSymLinks.Count > 0)
                             {
                                 if (RightSymLinks.SetEquals(LeftSymLinks))
                                 {
@@ -125,21 +123,23 @@ namespace Symmetry
                                         if (MyCandidate == -1)
                                         {
                                             //is first one, hope only 
-                                            MyCandidate = j;
+                                            MyCandidate = LIndex;
+                                            
                                         }
                                     }
                                 }
                             }
                         }
-                        //if one and only one then is good to go, else... think later
+
+                        //if one and only one then is good to go, else... think later                        
                         if (MyCandidateNum == 1)
                         {
 
                             //we can pair vert I with vert MyCandidate
-                            vertsInfo_PairedWith[i] = MyCandidate;
-                            vertsInfo_PairedWith[MyCandidate] = i;
+                            vertsInfo_PairedWith[RIndex] = MyCandidate;
+                            vertsInfo_PairedWith[MyCandidate] = RIndex;
                             FoundNewPairs++;
-                            UnpairedSet.Remove(i);
+                            UnpairedSet.Remove(RIndex);
                             UnpairedSet.Remove(MyCandidate);
                         }
                     }
