@@ -1,0 +1,242 @@
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics;
+namespace Symmetry
+{
+    public static class Functions
+    {
+        public static TResult FindPairs(float[][] vertPositions, int[][] vertsInfo_LinkedTo)
+        {
+            var vertsInfo_RightSide = new bool[vertPositions.Length];
+            var vertsInfo_PairedWith = new int[vertPositions.Length];
+            var positiveVerts = new List<int>();
+            var negativeVerts = new List<int>();
+            var tolerance = 0.005f;
+            var Result = new BitArray(vertPositions.Length);
+            Result.SetAll(true);
+
+            // initializing verts information
+            for (int i = 0; i < vertPositions.Length; i++)
+            {
+                var v = vertPositions[i];
+                vertsInfo_PairedWith[i] = -1; //undefined pair
+                if (Vec3.X(v) >= 0)
+                {
+                    vertsInfo_RightSide[i] = true;
+                    positiveVerts.Add(i);
+                } else
+                {
+                    negativeVerts.Add(i);
+                }
+
+                //idexes comming from MaxScript are 1-based, fixing...
+                for (int j = 0; j < vertsInfo_LinkedTo[i].Length; j++)
+                {
+                    vertsInfo_LinkedTo[i][j]--;                                      
+                }
+
+                //those in the center (close to x = 0) paired with themselves
+                if (Math.Abs(Vec3.X(v)) <= tolerance)
+                {
+                    vertsInfo_PairedWith[i] = i;
+                    Result[i] = false;
+                }
+
+            }
+
+            //finding pairs by position
+            for (int i = 0; i < positiveVerts.Count; i++)
+            {
+                var v1 = vertPositions[positiveVerts[i]];
+                for (int j = 0; j < negativeVerts.Count; j++)
+                {
+                    var v2 = vertPositions[negativeVerts[j]];
+                    if (Vec3.DistanceXMirror(v1, v2) < tolerance)
+                    {
+                        //building relationships
+                        vertsInfo_PairedWith[positiveVerts[i]] = negativeVerts[j];
+                        vertsInfo_PairedWith[negativeVerts[j]] = positiveVerts[i];
+                        Result[positiveVerts[i]] = false;
+                        Result[negativeVerts[j]] = false;
+                    }
+                }
+            }
+
+
+            //incoming cool stuff ------------------------- PAIR BY EDGE CONNECTION ANALYSIS
+            var ResultList = ToArray(Result);            
+
+            // ResultList cointains the unpaired vertices
+            if (ResultList.Length != 0)
+            {
+                int FoundNewPairs;
+                do
+                {
+                    FoundNewPairs = 0;
+                    for (int r = 0; r < ResultList.Length - 1; r++)
+                    {
+                        var i = ResultList[r];
+                        
+                        if (vertsInfo_PairedWith[i] == -1)
+                        {
+                            int MyCandidate = -1;
+                            int MyCandidateNum = 0;
+                            for (int rr = 0; rr < ResultList.Length-1; rr++)
+                            {
+                                var j = ResultList[rr];
+                                var RightSymLinks = new HashSet<int>();
+                                var LeftSymLinks = new HashSet<int>();
+                                int RightUnpairedLinks = 0;
+                                int LeftUnpairedLinks = 0;
+                                //collect both sides pairs
+                              
+                                foreach (var k in vertsInfo_LinkedTo[i])
+                                {
+                                    if (vertsInfo_PairedWith[k] == -1)
+                                        RightUnpairedLinks++;
+                                    else
+                                        RightSymLinks.Add(k);
+                                }
+                                foreach (var k in vertsInfo_LinkedTo[j])
+                                {
+                                    if (vertsInfo_PairedWith[k] == -1)
+                                        LeftUnpairedLinks++;
+                                    else
+                                        LeftSymLinks.Add(vertsInfo_PairedWith[k]);
+                                }
+
+
+                                //evaluate candidate
+                                if (RightSymLinks.Count > 0 && LeftSymLinks.Count > 0)
+                                {
+                                    if (RightSymLinks.SetEquals(LeftSymLinks))
+                                    {
+                                        if (RightUnpairedLinks == LeftUnpairedLinks)
+                                        {
+                                            //this is a good candidate
+                                            MyCandidateNum++;
+                                            if (MyCandidate == -1)
+                                            {
+                                                //is first one, hope only 
+                                                MyCandidate = j;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            //if one and only one then is good to go, else... think later
+                            if (MyCandidateNum == 1)
+                            {
+
+                                //we can pair vert I with vert MyCandidate
+                                vertsInfo_PairedWith[i] = MyCandidate;
+                                vertsInfo_PairedWith[MyCandidate] = i;
+                                FoundNewPairs++;
+                                Result[i] = false;
+                                Result[MyCandidate] = false;                                
+                            }
+                        }
+                    }
+                } while (FoundNewPairs > 0);
+            }            
+
+            //return ToMxsArray(Result);
+            var res = new TResult();
+            res.unpaired = ToMxsArray(Result);
+            res.rightSide = vertsInfo_RightSide;
+            res.pairedWith = vertsInfo_PairedWith; //this is 0 based, remember add 1 in MaxScript.
+            return res;
+        }
+
+        public struct TResult
+        {
+            public int[] unpaired;
+            public bool[] rightSide;
+            public int[] pairedWith;
+        }
+        
+        private static int[] ToMxsArray(BitArray bits)
+        {
+            var list = new List<int>();
+            for (int i = 0; i < bits.Length; i++)
+            {
+                if (bits[i]) list.Add(i + 1); //'cause MaxScript arrays indexes are 1-based;		
+            }
+            return list.ToArray();
+        }
+
+        private static int[] ToArray(BitArray bits)
+        {
+            var list = new List<int>();
+            for (int i = 0; i < bits.Length; i++)
+            {
+                if (bits[i]) list.Add(i); 
+            }
+            return list.ToArray();
+        }
+    }
+
+    internal static class Vec3
+    {
+        // Get the X component of a vector
+        public static float X(float[] vector)
+        {
+            return vector[0];
+        }
+
+        // Get the Y component of a vector
+        public static float Y(float[] vector)
+        {
+            return vector[1];
+        }
+
+        // Get the Z component of a vector
+        public static float Z(float[] vector)
+        {
+            return vector[2];
+        }
+
+        //distance between two vectors
+        public static float Distance(float[] vector1, float[] vector2)
+        {            
+            float dx = vector1[0] - vector2[0];            
+            float dy = vector1[1] - vector2[1];
+            float dz = vector1[2] - vector2[2];
+
+            return (float)Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        }
+
+        //distance between two vectors, with X mirrored
+        public static float DistanceXMirror(float[] vector1, float[] vector2)
+        {
+            float dx = - vector1[0] - vector2[0];
+            float dy = vector1[1] - vector2[1];
+            float dz = vector1[2] - vector2[2];
+
+            return (float)Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        }
+
+        // Add two vectors
+        public static float[] Add(float[] vector1, float[] vector2)
+        {
+            return new float[3]
+            {
+            vector1[0] + vector2[0],
+            vector1[1] + vector2[1],
+            vector1[2] + vector2[2]
+            };
+        }
+
+        // Subtract two vectors
+        public static float[] Subtract(float[] vector1, float[] vector2)
+        {
+            return new float[3]
+            {
+            vector1[0] - vector2[0],
+            vector1[1] - vector2[1],
+            vector1[2] - vector2[2]
+            };
+        }
+    }
+}

@@ -5,3 +5,6 @@ z_max2015_scripts/
 z_max2014_SCRIPTS/
 PolyPainter/test/
 _common/IniFile_DIST.mxs
+/SymmetryFix/dotnet/symmetry/.vs
+*.pdb
+*.cache

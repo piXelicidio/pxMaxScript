@@ -248,8 +248,16 @@
 			(
 				local v1 = polyop.getVert EPolyObj i
 				VertsInfo[i] = TVertInfo undefined undefined undefined v1				
-                VertsInfo[i].RightSide = ( v1.x >= 0 )  -- RightSide = positive
-                if VertsInfo[i].RightSide then (  append PositiveVerts i )  else ( append negativeVerts i )
+				if (v1.x >=0) then
+				(
+					VertsInfo[i].RightSide = true  -- RightSide = positive
+					append positiveVerts i 
+				) else
+				(
+					VertsInfo[i].RightSide = false
+					append negativeVerts i					
+				)
+                
 				
 				--Vertices on the "center" Symmetry AXE paired with themselves. 
 				If 	abs(v1.x) <= Tolerance then 
@@ -270,11 +278,11 @@
 				VertsInfo[i].Linkedto =  VertsInfo[i].Linkedto - #{i}
 			)
          
-            print ("Initializing Verts Info. delay: "+(timeStamp()-t1) as string)
+            
 			
 			
 			--Finding Pairs by position------------------------------- The standard easy way				
-			print "Finding symmetrical pairs..."
+			
             t1 = timeStamp()
 			proBar.color = [0,255,255]
 			for i=1 to positiveVerts.count do in coordsys local
@@ -297,13 +305,13 @@
 				)
 				proBar.value = (i * 100) / N
 			)
-			print ("Done. delay: "+(timeStamp()-t1) as string )
+			
             
 			
 			-- Find pairs by links -------------------------- the cool start here -------------- Edge Connections Analysis            
             local ResultList = result as array
             -- ResultList cointatins the vertices that has not pairs yet.
-			print ("Finding pairs by edge connections. Verts count: "+(ResultList.count as string))
+			
             t1 = timeStamp()
 			--proBar.value = 0
 			proBar.color = [255, 255, 0]
@@ -321,76 +329,76 @@
 					
 						if VertsInfo[i].PairedWith==undefined then
 						(
-							Result[i] = true
+							--Result[i] = true
 							local MyCandidate = 0
 							local MyCandidateNum = 0
 							
 							for rr=1 to ResultList.count do
 							(                                
                                 local j = ResultList[rr]  -- to avoid rename all J vars O.o
-								if i!=j then 
-								(							
-									local RSymLinks = #{}
-									local RUnpairedLinks = 0
-									local LSymLinks = #{}
-									local LUnpairedLinks = 0
-									--Remap the links using paired Vertice Numbers. 
-									--Side 1
-									for k in VertsInfo[i].LinkedTo do
+							 
+														
+								local RSymLinks = #{}
+								local RUnpairedLinks = 0
+								local LSymLinks = #{}
+								local LUnpairedLinks = 0
+								--Remap the links using paired Vertice Numbers. 
+								--Side 1
+								for k in VertsInfo[i].LinkedTo do
+								(
+									if VertsInfo[k].PairedWith==undefined then
 									(
-										if VertsInfo[k].PairedWith==undefined then
-										(
-											RUnpairedLinks +=  1
-										) else 
-										(
-                                            -- collect just the links indices for this side
-											RSymLinks = RSymLinks + #{ k }											
-										)					
-									)
-									--Side 2
-									for k in VertsInfo[j].LinkedTo do
+										RUnpairedLinks +=  1
+									) else 
 									(
-										if VertsInfo[k].PairedWith==undefined then
-										(
-											LUnpairedLinks += 1
-										) else 
-										(
-                                            -- for this side The pairs of the links
-											LSymLinks = LSymLinks + #{ VertsInfo[k].PairedWith } 											
-										)					
-									)
-									
-									-- And now the moment of "almost" truth!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-									-- The left vert qualify for pairing???
-									
-									--Empty links sets, cant prove nothing 
-									if (not RSymLInks.isEmpty) and (not LSymLinks.isEmpty )then 
+										-- collect just the links indices for this side
+										RSymLinks[k] = true
+									)					
+								)
+								--Side 2
+								for k in VertsInfo[j].LinkedTo do
+								(
+									if VertsInfo[k].PairedWith==undefined then
 									(
-										-- Testing if two SETS are EQUAL:
-										if (RSymLinks-LSymLinks).isEmpty and (LSymLinks-RSymLinks).IsEmpty  then
+										LUnpairedLinks += 1
+									) else 
+									(
+										-- for this side The pairs of the links
+										LSymLinks[VertsInfo[k].PairedWith]=true
+									)					
+								)
+								
+								-- And now the moment of "almost" truth!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+								-- The left vert qualify for pairing???
+								
+								--Empty links sets, cant prove nothing 
+								if (not RSymLInks.isEmpty) and (not LSymLinks.isEmpty )then 
+								(
+									-- Testing if two SETS are EQUAL:
+									if (RSymLinks-LSymLinks).isEmpty and (LSymLinks-RSymLinks).IsEmpty  then
+									(
+										--but wat about the Unpaired links?
+										if RUnpairedLinks == LUnpairedLinks then
 										(
-											--but wat about the Unpaired links?
-											if RUnpairedLinks == LUnpairedLinks then
+											--this is a good candidate!
+											--lets see if  there not already one before...
+											if MyCandidate==0 then 
 											(
-												--this is a good candidate!
-												--lets see if  there not already one before...
-												if MyCandidate==0 then 
-												(
-													--Nice this is the first (hope only)
-													MyCandidate=j 
-													MyCandidateNum+= 1
-													--print ("Candidate! " + (MyCandidate as string) )
-												) else
-												(
-													--no need for more searching there are duplicated "ideal" conditions
-													--but instead of exiting the loops, lets just count the candidates
-													MyCandidateNum += 1
-												)
+												--Nice this is the first (hope only)
+												MyCandidate=j 
+												MyCandidateNum+= 1
+												--print ("Candidate! " + (MyCandidate as string) )
+											) else
+											(
+												--no need for more searching there are duplicated "ideal" conditions
+												--but instead of exiting the loops, lets just count the candidates
+												MyCandidateNum += 1
 											)
 										)
 									)
-								
 								)
+								
+								
 							)--For J end
 							
 							--if One and only One then yeah
@@ -418,15 +426,76 @@
 				--print ("Found New Pairs: " + (FoundNewPairs	as string))
 			)	while FoundNewPairs!=0
 				
-			print ("Done. delay: " +(timeStamp()-t1) as string)
-			print ( "New found: " + (NewLinkscount as string))
-			print ("Unpaired: " + (UnlinkedPairs as string))
+			
+			
 			proBar.value = 100;
 			proBar.color = [0,255,0]
 			
 			EPolyObj.selectedVerts = Result
 			Result
 		) -- FindPairs funciton END
+		
+		function GetVertsConnected EP vertIdx =
+		(
+			edges = polyop.getEdgesUsingVert EP vertIdx
+			verts = polyop.getVertsUsingEdge EP edges
+			--return
+			(verts - #{vertIdx})
+		)
+		
+		------------- Same as FindPairs but calling my .NET library
+
+		function FindPairs_dotNet ePoly =
+		(
+			--settings
+			usingDllManager = true	
+			--vertices
+			if (classOf ePoly) != Editable_poly then return undefined;
+			numVerts = polyop.getNumVerts ePoly
+			in coordsys local (
+				allVerts = polyop.getVerts ePoly #{1..(numVerts)}	
+			)
+			print allVerts.count
+			
+			--conections
+			vertConnections = #()
+			vertConnections.count = numVerts
+			for i = 1 to numVerts do
+			(
+				vertConnections[i] = (GetVertsConnected ePoly i) as array
+			)
+			
+			TArrayArrayFloat = dotNetClass "System.single[][]"
+			TArrayArrayInt = dotNetClass "System.int32[][]"
+			csVerts = dotnet.valueToDotNetObject allVerts TArrayArrayFloat
+			csVertConnections = dotnet.valueToDotNetObject vertConnections TArrayArrayInt
+			
+			--.net calls	
+			if usingDllManager then
+			(
+				result = dllManager.callMethod "Symmetry.Functions.FindPairs" args:#(csVerts, csVertConnections)
+			)	
+
+			VertsInfo.count = numVerts;
+			rightSide = result.rightSide
+			pairedWith = result.pairedWith
+			for i=1 to numVerts do 
+			(
+				vi = TVertInfo()
+				vi.RightSide = rightSide[i]
+				pw = pairedWith[i]+1
+				if pw==0 then pw = undefined;
+				vi.PairedWith = pw
+				vi.vPos = allVerts[i]
+				vi.LinkedTo = vertConnections[i]
+				VertsInfo[i] = vi
+			)
+			
+			unpaired = result.unpaired as bitArray
+			--return
+			ePoly.selectedVerts = unpaired
+			(unpaired)
+		)
 	
 		-- Mirroring vertices positions
 		-- PosToNeg Boolean; Axis String "x"|"y"|"z"
@@ -484,7 +553,10 @@
 			if (classof obj)==Editable_poly then 
 			(				
 				baseObject = obj
-				FindPairs baseObject
+				tt = timeStamp()
+				Print "Finding symmetrical pairs..."
+				FindPairs_dotNet baseObject				
+				Format "Processing time: %\n" (timeStamp()-tt)
 				btnPickObject.text = obj.name	
 			) else messageBox "Pick an Editable Poly object" title:"Pro Symmetry Tools"
 		)
