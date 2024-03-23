@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 namespace Symmetry
 {
     public static class Functions
@@ -13,10 +14,12 @@ namespace Symmetry
             var positiveVerts = new List<int>();
             var negativeVerts = new List<int>();
             var tolerance = 0.005f;
-            var Result = new BitArray(vertPositions.Length);
-            Result.SetAll(true);
-
+            //var UnpairedSet = new BitArray(vertPositions.Length);
+            //UnpairedSet.SetAll(true);
+            var UnpairedSet = new HashSet<int>(Enumerable.Range(0, vertPositions.Length));
+            //Debug.WriteLine("FindPairs v1.1");
             // initializing verts information
+            var sw = Stopwatch.StartNew();
             for (int i = 0; i < vertPositions.Length; i++)
             {
                 var v = vertPositions[i];
@@ -40,11 +43,13 @@ namespace Symmetry
                 if (Math.Abs(Vec3.X(v)) <= tolerance)
                 {
                     vertsInfo_PairedWith[i] = i;
-                    Result[i] = false;
+                    UnpairedSet.Remove(i);
                 }
 
             }
-
+            Debug.WriteLine($"build-7\nInitializing {vertPositions.Length} verts: {sw.ElapsedMilliseconds}ms");
+            
+            sw.Restart();
             //finding pairs by position
             for (int i = 0; i < positiveVerts.Count; i++)
             {
@@ -57,95 +62,99 @@ namespace Symmetry
                         //building relationships
                         vertsInfo_PairedWith[positiveVerts[i]] = negativeVerts[j];
                         vertsInfo_PairedWith[negativeVerts[j]] = positiveVerts[i];
-                        Result[positiveVerts[i]] = false;
-                        Result[negativeVerts[j]] = false;
+                        UnpairedSet.Remove(positiveVerts[i]);
+                        UnpairedSet.Remove(negativeVerts[j]);
                     }
                 }
             }
-
+            Debug.WriteLine($"Pairs by position: {sw.ElapsedMilliseconds}ms");
+            sw.Restart();
 
             //incoming cool stuff ------------------------- PAIR BY EDGE CONNECTION ANALYSIS
-            var ResultList = ToArray(Result);            
+
 
             // ResultList cointains the unpaired vertices
-            if (ResultList.Length != 0)
+
+            int FoundNewPairs;
+            do
             {
-                int FoundNewPairs;
-                do
+                var UnpairedList = UnpairedSet.ToArray(); 
+                FoundNewPairs = 0;
+                for (int r = 0; r < UnpairedList.Count; r++)
                 {
-                    FoundNewPairs = 0;
-                    for (int r = 0; r < ResultList.Length - 1; r++)
+                    var i = UnpairedList[r];
+
+                    if (vertsInfo_PairedWith[i] == -1)
                     {
-                        var i = ResultList[r];
-                        
-                        if (vertsInfo_PairedWith[i] == -1)
+                        int MyCandidate = -1;
+                        int MyCandidateNum = 0;
+                        for (int rr = 0; rr < UnpairedList.Count; rr++)
                         {
-                            int MyCandidate = -1;
-                            int MyCandidateNum = 0;
-                            for (int rr = 0; rr < ResultList.Length-1; rr++)
+                            var j = UnpairedList[rr];
+                            var RightSymLinks = new HashSet<int>();
+                            var LeftSymLinks = new HashSet<int>();
+                            int RightUnpairedLinks = 0;
+                            int LeftUnpairedLinks = 0;
+                            //collect both sides pairs
+
+                            foreach (var k in vertsInfo_LinkedTo[i])
                             {
-                                var j = ResultList[rr];
-                                var RightSymLinks = new HashSet<int>();
-                                var LeftSymLinks = new HashSet<int>();
-                                int RightUnpairedLinks = 0;
-                                int LeftUnpairedLinks = 0;
-                                //collect both sides pairs
-                              
-                                foreach (var k in vertsInfo_LinkedTo[i])
-                                {
-                                    if (vertsInfo_PairedWith[k] == -1)
-                                        RightUnpairedLinks++;
-                                    else
-                                        RightSymLinks.Add(k);
-                                }
-                                foreach (var k in vertsInfo_LinkedTo[j])
-                                {
-                                    if (vertsInfo_PairedWith[k] == -1)
-                                        LeftUnpairedLinks++;
-                                    else
-                                        LeftSymLinks.Add(vertsInfo_PairedWith[k]);
-                                }
+                                if (vertsInfo_PairedWith[k] == -1)
+                                    RightUnpairedLinks++;
+                                else
+                                    RightSymLinks.Add(k);
+                            }
+                            foreach (var k in vertsInfo_LinkedTo[j])
+                            {
+                                if (vertsInfo_PairedWith[k] == -1)
+                                    LeftUnpairedLinks++;
+                                else
+                                    LeftSymLinks.Add(vertsInfo_PairedWith[k]);
+                            }
 
 
-                                //evaluate candidate
-                                if (RightSymLinks.Count > 0 && LeftSymLinks.Count > 0)
+                            //evaluate candidate
+                            if (RightSymLinks.Count > 0 && LeftSymLinks.Count > 0)
+                            {
+                                if (RightSymLinks.SetEquals(LeftSymLinks))
                                 {
-                                    if (RightSymLinks.SetEquals(LeftSymLinks))
+                                    if (RightUnpairedLinks == LeftUnpairedLinks)
                                     {
-                                        if (RightUnpairedLinks == LeftUnpairedLinks)
+                                        //this is a good candidate
+                                        MyCandidateNum++;
+                                        if (MyCandidate == -1)
                                         {
-                                            //this is a good candidate
-                                            MyCandidateNum++;
-                                            if (MyCandidate == -1)
-                                            {
-                                                //is first one, hope only 
-                                                MyCandidate = j;
-                                            }
+                                            //is first one, hope only 
+                                            MyCandidate = j;
                                         }
                                     }
                                 }
                             }
-                            //if one and only one then is good to go, else... think later
-                            if (MyCandidateNum == 1)
-                            {
+                        }
+                        //if one and only one then is good to go, else... think later
+                        if (MyCandidateNum == 1)
+                        {
 
-                                //we can pair vert I with vert MyCandidate
-                                vertsInfo_PairedWith[i] = MyCandidate;
-                                vertsInfo_PairedWith[MyCandidate] = i;
-                                FoundNewPairs++;
-                                Result[i] = false;
-                                Result[MyCandidate] = false;                                
-                            }
+                            //we can pair vert I with vert MyCandidate
+                            vertsInfo_PairedWith[i] = MyCandidate;
+                            vertsInfo_PairedWith[MyCandidate] = i;
+                            FoundNewPairs++;
+                            UnpairedSet.Remove(i);
+                            UnpairedSet.Remove(MyCandidate);
                         }
                     }
-                } while (FoundNewPairs > 0);
-            }            
+                }
+            } while (FoundNewPairs > 0);
+
+            Debug.WriteLine($"Pairing by edges: {sw.ElapsedMilliseconds}ms");
+            sw.Restart();
 
             //return ToMxsArray(Result);
             var res = new TResult();
-            res.unpaired = ToMxsArray(Result);
+            res.unpaired = ToMxsArray(UnpairedSet);
             res.rightSide = vertsInfo_RightSide;
             res.pairedWith = vertsInfo_PairedWith; //this is 0 based, remember add 1 in MaxScript.
+            Debug.WriteLine($"Preparing result: {sw.ElapsedMilliseconds}ms");
             return res;
         }
 
@@ -164,6 +173,13 @@ namespace Symmetry
                 if (bits[i]) list.Add(i + 1); //'cause MaxScript arrays indexes are 1-based;		
             }
             return list.ToArray();
+        }
+
+        private static int[] ToMxsArray(HashSet<int> ints)
+        {
+            var list = ints.ToArray();
+            for (int i = 0; list.Length > i; i++) list[i]++;
+            return list;
         }
 
         private static int[] ToArray(BitArray bits)

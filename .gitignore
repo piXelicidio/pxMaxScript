@@ -8,3 +8,5 @@ _common/IniFile_DIST.mxs
 /SymmetryFix/dotnet/symmetry/.vs
 *.pdb
 *.cache
+*.user
+*.suo

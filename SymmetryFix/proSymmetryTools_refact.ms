@@ -26,8 +26,29 @@
 	local DialogWidth = 200
 	local DialogHeight = 600
 	local maxBWidth = DialogWidth - 30
-    
+	--settings
+	usingDllManager = true
+    dllFuncs = undefined
     -- common functions			
+	
+    function LoadDLL =
+	(
+		if (usingDllManager==false) then
+		(
+			thisFile = getThisScriptFilename()
+			dir = pathConfig.removePathLeaf thisFile 
+			dllFile = pathConfig.appendPath dir @"dotnet\symmetry\symmetry.dll"
+			Format "Loading assembly: %\n" dllFile
+			dotNet.loadAssembly dllFile
+			dllFuncs = dotNetClass "Symmetry.Functions"
+			if dllFuncs==undefined then
+			(
+				print "Loading assembly failed"
+			)
+			print dllFuncs
+		)
+	)
+	
     
     --get the mirrored vertecies, verts :array of vertices
     -- resulting order and count is not guarateed, some verts may not be found
@@ -443,19 +464,18 @@
 			(verts - #{vertIdx})
 		)
 		
+
 		------------- Same as FindPairs but calling my .NET library
 
 		function FindPairs_dotNet ePoly =
-		(
-			--settings
-			usingDllManager = true	
+		(			
 			--vertices
+			tt = timeStamp()
 			if (classOf ePoly) != Editable_poly then return undefined;
 			numVerts = polyop.getNumVerts ePoly
 			in coordsys local (
 				allVerts = polyop.getVerts ePoly #{1..(numVerts)}	
-			)
-			print allVerts.count
+			)			
 			
 			--conections
 			vertConnections = #()
@@ -469,31 +489,48 @@
 			TArrayArrayInt = dotNetClass "System.int32[][]"
 			csVerts = dotnet.valueToDotNetObject allVerts TArrayArrayFloat
 			csVertConnections = dotnet.valueToDotNetObject vertConnections TArrayArrayInt
-			
-			--.net calls	
+			preparing = (timeStamp()-tt)
+			--.net calls
+			result = undefined
 			if usingDllManager then
 			(
-				result = dllManager.callMethod "Symmetry.Functions.FindPairs" args:#(csVerts, csVertConnections)
-			)	
-
+				if dllManager != undefined then
+				(
+					result = dllManager.callMethod "Symmetry.Functions.FindPairs" args:#(csVerts, csVertConnections)
+				) else
+				(
+					Print "dllManager is not loaded"
+				)
+			) else
+			(
+				--standard call to .net functions
+				result = dllFuncs.FindPairs csVerts csVertConnections
+			)
+			
+			tt = timeStamp()
 			VertsInfo.count = numVerts;
+		
 			rightSide = result.rightSide
-			pairedWith = result.pairedWith
+			pairedWith = result.pairedWith			
+			
 			for i=1 to numVerts do 
 			(
 				vi = TVertInfo()
 				vi.RightSide = rightSide[i]
 				pw = pairedWith[i]+1
 				if pw==0 then pw = undefined;
-				vi.PairedWith = pw
+				vi.PairedWith = pw				
 				vi.vPos = allVerts[i]
 				vi.LinkedTo = vertConnections[i]
 				VertsInfo[i] = vi
 			)
 			
 			unpaired = result.unpaired as bitArray
+			
 			--return
 			ePoly.selectedVerts = unpaired
+			preparing = preparing + (timeStamp()-tt)
+			Format "Data transfere time: %\n" preparing
 			(unpaired)
 		)
 	
@@ -815,6 +852,7 @@
 		
 	)--rollout roll_EditGeometry ---end --
 	
+	loadDll()
 	rf = newRolloutFloater "Pro Symmetry Tools"  DialogWidth DialogHeight
 	addrollout roll_proSymmetryTools rf
 	addrollout roll_EditGeometry rf
