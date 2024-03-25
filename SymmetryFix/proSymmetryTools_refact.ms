@@ -33,7 +33,7 @@
 	
     function LoadDLL =
 	(
-		if (usingDllManager==false) then
+		if (usingDllManager==false) or (dllManager==undefined) then
 		(
 			thisFile = getThisScriptFilename()
 			dir = pathConfig.removePathLeaf thisFile 
@@ -44,8 +44,11 @@
 			if dllFuncs==undefined then
 			(
 				print "Loading assembly failed"
+			) else
+			(
+				print "Assembly loading success"
 			)
-			print dllFuncs
+			--print dllFuncs
 		)
 	)
 	
@@ -492,15 +495,9 @@
 			preparing = (timeStamp()-tt)
 			--.net calls
 			result = undefined
-			if usingDllManager then
+			if usingDllManager and (dllManager!=undefined) then
 			(
-				if dllManager != undefined then
-				(
-					result = dllManager.callMethod "Symmetry.Functions.FindPairs" args:#(csVerts, csVertConnections)
-				) else
-				(
-					Print "dllManager is not loaded"
-				)
+				result = dllManager.callMethod "Symmetry.Functions.FindPairs" args:#(csVerts, csVertConnections)				
 			) else
 			(
 				--standard call to .net functions

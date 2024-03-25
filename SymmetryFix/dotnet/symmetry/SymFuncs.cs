@@ -2,18 +2,21 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Numerics;
 using System.Linq;
 namespace Symmetry
 {
     public static class Functions
     {
         public static TResult FindPairs(float[][] vertPositions, int[][] vertsInfo_LinkedTo)
-        {
+        {            
             var vertsInfo_RightSide = new bool[vertPositions.Length];
             var vertsInfo_PairedWith = new int[vertPositions.Length];
             var positiveVerts = new List<int>();
             var negativeVerts = new List<int>();
             var tolerance = 0.005f;
+
+
             //var UnpairedSet = new BitArray(vertPositions.Length);
             //UnpairedSet.SetAll(true);
             var UnpairedSet = new HashSet<int>(Enumerable.Range(0, vertPositions.Length));
@@ -44,7 +47,7 @@ namespace Symmetry
                 {
                     vertsInfo_PairedWith[i] = i;
                     UnpairedSet.Remove(i);
-                }
+                }                
 
             }
             Debug.WriteLine($"build-10\nInitializing {vertPositions.Length} verts: {sw.ElapsedMilliseconds}ms");
@@ -57,7 +60,9 @@ namespace Symmetry
                 for (int j = 0; j < negativeVerts.Count; j++)
                 {
                     var v2 = vertPositions[negativeVerts[j]];
-                    if (Vec3.DistanceXMirror(v1, v2) < tolerance)
+                    if (Math.Abs(- v2[0] - v1[0]) < tolerance &&
+                        Math.Abs(v2[1] - v1[1]) < tolerance &&
+                        Math.Abs(v2[2] - v1[2]) < tolerance)
                     {
                         //building relationships
                         vertsInfo_PairedWith[positiveVerts[i]] = negativeVerts[j];
@@ -224,13 +229,13 @@ namespace Symmetry
         }
 
         //distance between two vectors, with X mirrored
-        public static float DistanceXMirror(float[] vector1, float[] vector2)
+        public static float SqDistanceXMirror(float[] vector1, float[] vector2)
         {
             float dx = - vector1[0] - vector2[0];
             float dy = vector1[1] - vector2[1];
             float dz = vector1[2] - vector2[2];
 
-            return (float)Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            return (dx * dx + dy * dy + dz * dz);
         }
 
         // Add two vectors
