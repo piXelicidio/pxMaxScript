@@ -19,7 +19,7 @@ namespace Symmetry
             // initializing verts information
             var sw = Stopwatch.StartNew();
             (var positiveVerts, var negativeVerts) = Initialize(verts, tolerance, UnpairedSet);
-            Debug.WriteLine($"build-14\nInitializing {verts.NumVerts} verts: {sw.ElapsedMilliseconds}ms");
+            Debug.WriteLine($"build-15\nInitializing {verts.NumVerts} verts: {sw.ElapsedMilliseconds}ms");
 
             sw.Restart();
             //finding pairs by position
@@ -63,28 +63,29 @@ namespace Symmetry
         private static void PairByEdgeConnections(VertInfo verts, HashSet<int> UnpairedSet)
         {
             var UnpairedBorder = new HashSet<int>();
-            foreach (var uIndex in UnpairedSet)
+            void CheckIfBorder(int index)
             {
                 int link = 0;
                 bool nextToPaired = false;
-                int len = verts.linkedTo[uIndex].Length;
+                int len = verts.linkedTo[index].Length;
                 while (!nextToPaired && link < len)
                 {
-                    nextToPaired = verts.pairedWith[verts.linkedTo[uIndex][link]] >= 0;
+                    nextToPaired = verts.pairedWith[verts.linkedTo[index][link]] >= 0;
                     link++;
                 }
                 if (nextToPaired)
                 {
-                    UnpairedBorder.Add(uIndex);
+                    UnpairedBorder.Add(index);
                 }
             }
 
+            //Narrowing the search to just the border of interest.
+            foreach (var uIndex in UnpairedSet) CheckIfBorder(uIndex);            
+
             int FoundNewPairs;
             do
-            {
-
-                //var UnpairedList = UnpairedSet.ToArray();
-                var UnpairedList = UnpairedBorder.ToArray();
+            {              
+                var UnpairedList = UnpairedBorder.ToArray(); //Need a copy, to modify the original.
                 FoundNewPairs = 0;
                 foreach (var RIndex in UnpairedList)
                 {
@@ -113,24 +114,18 @@ namespace Symmetry
                                     LeftUnpairedLinks++;
                                 else
                                     LeftSymLinks.Add(verts.pairedWith[k]);
-                            }
+                            }                           
 
-                            //evaluate candidate
-                            if (LeftSymLinks.Count > 0)
+                            if (LeftSymLinks.Count > 0
+                                && RightSymLinks.SetEquals(LeftSymLinks)
+                                && RightUnpairedLinks == LeftUnpairedLinks)
                             {
-                                if (RightSymLinks.SetEquals(LeftSymLinks))
+                                // This is a good candidate
+                                MyCandidateNum++;
+                                if (MyCandidate == -1)
                                 {
-                                    if (RightUnpairedLinks == LeftUnpairedLinks)
-                                    {
-                                        //this is a good candidate
-                                        MyCandidateNum++;
-                                        if (MyCandidate == -1)
-                                        {
-                                            //is first one, hope only 
-                                            MyCandidate = LIndex;
-
-                                        }
-                                    }
+                                    // Is the first one, hopefully the only one
+                                    MyCandidate = LIndex;
                                 }
                             }
                         }
@@ -157,23 +152,13 @@ namespace Symmetry
                     {
                         if (verts.pairedWith[uIndex] < 0)
                         {
-                            int link = 0;
-                            bool nextToPaired = false;
-                            int len = verts.linkedTo[uIndex].Length;
-                            while (!nextToPaired && link < len)
-                            {
-                                nextToPaired = verts.pairedWith[verts.linkedTo[uIndex][link]] >= 0;
-                                link++;
-                            }
-                            if (nextToPaired)
-                            {
-                                UnpairedBorder.Add(uIndex);
-                            }
+                            CheckIfBorder(uIndex);
                         }
                     }
                 }
 
             } while (FoundNewPairs > 0);
+
         }
 
         private static (List<int> positiveVerts, List<int> negativeVerts) Initialize(VertInfo vertsInfo, float tolerance, HashSet<int> UnpairedSet)

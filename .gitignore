@@ -10,3 +10,4 @@ _common/IniFile_DIST.mxs
 *.cache
 *.user
 *.suo
+/SymmetryFix/dotnet/symmetry/obj
