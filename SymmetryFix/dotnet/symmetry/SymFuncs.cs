@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
 using System.Linq;
+using System.Reflection;
 namespace Symmetry
 {
     public static class Functions
@@ -18,7 +19,7 @@ namespace Symmetry
             // initializing verts information
             var sw = Stopwatch.StartNew();
             (var positiveVerts, var negativeVerts) = Initialize(verts, tolerance, UnpairedSet);
-            Debug.WriteLine($"build-13\nInitializing {verts.NumVerts} verts: {sw.ElapsedMilliseconds}ms");
+            Debug.WriteLine($"build-14\nInitializing {verts.NumVerts} verts: {sw.ElapsedMilliseconds}ms");
 
             sw.Restart();
             //finding pairs by position
@@ -61,29 +62,29 @@ namespace Symmetry
         //PAIR BY EDGE CONNECTION ANALYSIS
         private static void PairByEdgeConnections(VertInfo verts, HashSet<int> UnpairedSet)
         {
+            var UnpairedBorder = new HashSet<int>();
+            foreach (var uIndex in UnpairedSet)
+            {
+                int link = 0;
+                bool nextToPaired = false;
+                int len = verts.linkedTo[uIndex].Length;
+                while (!nextToPaired && link < len)
+                {
+                    nextToPaired = verts.pairedWith[verts.linkedTo[uIndex][link]] >= 0;
+                    link++;
+                }
+                if (nextToPaired)
+                {
+                    UnpairedBorder.Add(uIndex);
+                }
+            }
 
             int FoundNewPairs;
             do
             {
-                var UnpairedBorder = new HashSet<int>();
-                foreach (var uIndex in UnpairedSet)
-                {
-                    int link = 0;
-                    bool nextToPaired = false;
-                    int len = verts.linkedTo[uIndex].Length;
-                    while (!nextToPaired && link < len) 
-                    {
-                        nextToPaired = verts.pairedWith[ verts.linkedTo[uIndex][link] ] >= 0;
-                        link++;
-                    } 
-                    if (nextToPaired)
-                    {
-                        UnpairedBorder.Add(uIndex);
-                    }
-                }
 
                 //var UnpairedList = UnpairedSet.ToArray();
-                var UnpairedList = UnpairedBorder;
+                var UnpairedList = UnpairedBorder.ToArray();
                 FoundNewPairs = 0;
                 foreach (var RIndex in UnpairedList)
                 {
@@ -147,6 +148,31 @@ namespace Symmetry
                         }
                     }
                 }
+
+                //Rebuilding the border, just close to the old border
+                UnpairedBorder.Clear();
+                foreach (var idx in UnpairedList)
+                {
+                    foreach (var uIndex in verts.linkedTo[idx])
+                    {
+                        if (verts.pairedWith[uIndex] < 0)
+                        {
+                            int link = 0;
+                            bool nextToPaired = false;
+                            int len = verts.linkedTo[uIndex].Length;
+                            while (!nextToPaired && link < len)
+                            {
+                                nextToPaired = verts.pairedWith[verts.linkedTo[uIndex][link]] >= 0;
+                                link++;
+                            }
+                            if (nextToPaired)
+                            {
+                                UnpairedBorder.Add(uIndex);
+                            }
+                        }
+                    }
+                }
+
             } while (FoundNewPairs > 0);
         }
 
