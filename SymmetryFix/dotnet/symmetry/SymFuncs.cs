@@ -8,112 +8,110 @@ namespace Symmetry
 {
     public static class Functions
     {
-        public static TResult FindPairs(float[][] vertPositions, int[][] vertsInfo_LinkedTo)
-        {            
-            var vertsInfo_RightSide = new bool[vertPositions.Length];
-            var vertsInfo_PairedWith = new int[vertPositions.Length];
-            var positiveVerts = new List<int>();
-            var negativeVerts = new List<int>();
+        public static TResult FindPairs(float[][] positions, int[][] links)
+        {
+            var verts = new VertInfo(positions, links);
             var tolerance = 0.005f;
 
+            var UnpairedSet = new HashSet<int>(Enumerable.Range(0, verts.NumVerts));
 
-            //var UnpairedSet = new BitArray(vertPositions.Length);
-            //UnpairedSet.SetAll(true);
-            var UnpairedSet = new HashSet<int>(Enumerable.Range(0, vertPositions.Length));
-            //Debug.WriteLine("FindPairs v1.1");
             // initializing verts information
             var sw = Stopwatch.StartNew();
-            for (int i = 0; i < vertPositions.Length; i++)
-            {
-                var v = vertPositions[i];
-                vertsInfo_PairedWith[i] = -1; //undefined pair
-                if (Vec3.X(v) >= 0)
-                {
-                    vertsInfo_RightSide[i] = true;
-                    positiveVerts.Add(i);
-                } else
-                {
-                    negativeVerts.Add(i);
-                }
+            (var positiveVerts, var negativeVerts) = Initialize(verts, tolerance, UnpairedSet);
+            Debug.WriteLine($"build-13\nInitializing {verts.NumVerts} verts: {sw.ElapsedMilliseconds}ms");
 
-                //idexes comming from MaxScript are 1-based, fixing...
-                for (int j = 0; j < vertsInfo_LinkedTo[i].Length; j++)
-                {
-                    vertsInfo_LinkedTo[i][j]--;                                      
-                }
-
-                //those in the center (close to x = 0) paired with themselves
-                if (Math.Abs(Vec3.X(v)) <= tolerance)
-                {
-                    vertsInfo_PairedWith[i] = i;
-                    UnpairedSet.Remove(i);
-                }                
-
-            }
-            Debug.WriteLine($"build-10\nInitializing {vertPositions.Length} verts: {sw.ElapsedMilliseconds}ms");
-            
             sw.Restart();
             //finding pairs by position
-            for (int i = 0; i < positiveVerts.Count; i++)
+            foreach (int v1_idx in positiveVerts)
             {
-                var v1 = vertPositions[positiveVerts[i]];
-                for (int j = 0; j < negativeVerts.Count; j++)
+                var v1 = verts.positions[v1_idx];
+                foreach (int v2_idx in negativeVerts)
                 {
-                    var v2 = vertPositions[negativeVerts[j]];
-                    if (Math.Abs(- v2[0] - v1[0]) < tolerance &&
+                    var v2 = verts.positions[v2_idx];
+                    if (Math.Abs(-v2[0] - v1[0]) < tolerance && 
                         Math.Abs(v2[1] - v1[1]) < tolerance &&
                         Math.Abs(v2[2] - v1[2]) < tolerance)
                     {
                         //building relationships
-                        vertsInfo_PairedWith[positiveVerts[i]] = negativeVerts[j];
-                        vertsInfo_PairedWith[negativeVerts[j]] = positiveVerts[i];
-                        UnpairedSet.Remove(positiveVerts[i]);
-                        UnpairedSet.Remove(negativeVerts[j]);
+                        verts.pairedWith[v1_idx] = v2_idx;
+                        verts.pairedWith[v2_idx] = v1_idx;
+                        UnpairedSet.Remove(v1_idx);
+                        UnpairedSet.Remove(v2_idx);
                     }
                 }
             }
             Debug.WriteLine($"Pairs by position: {sw.ElapsedMilliseconds}ms");
             sw.Restart();
 
-            //incoming cool stuff ------------------------- PAIR BY EDGE CONNECTION ANALYSIS
+            //incoming cool stuff 
+            PairByEdgeConnections(verts, UnpairedSet);
 
+            Debug.WriteLine($"Pairing by edges: {sw.ElapsedMilliseconds}ms");
+            sw.Restart();
 
-            // ResultList cointains the unpaired vertices
+            //return ToMxsArray(Result);
+            var res = new TResult();
+            res.unpaired = ToMxsArray(UnpairedSet);
+            res.rightSide = verts.rightSide;
+            res.pairedWith = verts.pairedWith; //this is 0 based, remember add 1 in MaxScript.
+            Debug.WriteLine($"Preparing result: {sw.ElapsedMilliseconds}ms");
+            return res;
+        }
+
+        //PAIR BY EDGE CONNECTION ANALYSIS
+        private static void PairByEdgeConnections(VertInfo verts, HashSet<int> UnpairedSet)
+        {
 
             int FoundNewPairs;
             do
             {
-                var UnpairedList = UnpairedSet.ToArray(); 
-                FoundNewPairs = 0;
-                for (int i = 0; i < UnpairedList.Length; i++)
+                var UnpairedBorder = new HashSet<int>();
+                foreach (var uIndex in UnpairedSet)
                 {
-                    var RIndex = UnpairedList[i];
+                    int link = 0;
+                    bool nextToPaired = false;
+                    int len = verts.linkedTo[uIndex].Length;
+                    while (!nextToPaired && link < len) 
+                    {
+                        nextToPaired = verts.pairedWith[ verts.linkedTo[uIndex][link] ] >= 0;
+                        link++;
+                    } 
+                    if (nextToPaired)
+                    {
+                        UnpairedBorder.Add(uIndex);
+                    }
+                }
+
+                //var UnpairedList = UnpairedSet.ToArray();
+                var UnpairedList = UnpairedBorder;
+                FoundNewPairs = 0;
+                foreach (var RIndex in UnpairedList)
+                {
                     var RightSymLinks = new HashSet<int>();
                     int RightUnpairedLinks = 0;
-                    foreach (var k in vertsInfo_LinkedTo[RIndex])
+                    foreach (var k in verts.linkedTo[RIndex])
                     {
-                        if (vertsInfo_PairedWith[k] == -1)
+                        if (verts.pairedWith[k] == -1)
                             RightUnpairedLinks++;
                         else
                             RightSymLinks.Add(k);
                     }
 
-                    if (vertsInfo_PairedWith[RIndex] == -1 && RightSymLinks.Count > 0) 
+                    if (verts.pairedWith[RIndex] == -1 && RightSymLinks.Count > 0)
                     {
                         int MyCandidate = -1;
                         int MyCandidateNum = 0;
-                        for (int j = 0; j < UnpairedList.Length; j++)
+                        foreach (var LIndex in UnpairedList)
                         {
-                            var LIndex = UnpairedList[j];                            
-                            var LeftSymLinks = new HashSet<int>();                            
+                            var LeftSymLinks = new HashSet<int>();
                             int LeftUnpairedLinks = 0;
                             //collect both sides pairs                           
-                            foreach (var k in vertsInfo_LinkedTo[LIndex])
+                            foreach (var k in verts.linkedTo[LIndex])
                             {
-                                if (vertsInfo_PairedWith[k] == -1)
+                                if (verts.pairedWith[k] == -1)
                                     LeftUnpairedLinks++;
                                 else
-                                    LeftSymLinks.Add(vertsInfo_PairedWith[k]);
+                                    LeftSymLinks.Add(verts.pairedWith[k]);
                             }
 
                             //evaluate candidate
@@ -129,7 +127,7 @@ namespace Symmetry
                                         {
                                             //is first one, hope only 
                                             MyCandidate = LIndex;
-                                            
+
                                         }
                                     }
                                 }
@@ -141,8 +139,8 @@ namespace Symmetry
                         {
 
                             //we can pair vert I with vert MyCandidate
-                            vertsInfo_PairedWith[RIndex] = MyCandidate;
-                            vertsInfo_PairedWith[MyCandidate] = RIndex;
+                            verts.pairedWith[RIndex] = MyCandidate;
+                            verts.pairedWith[MyCandidate] = RIndex;
                             FoundNewPairs++;
                             UnpairedSet.Remove(RIndex);
                             UnpairedSet.Remove(MyCandidate);
@@ -150,17 +148,41 @@ namespace Symmetry
                     }
                 }
             } while (FoundNewPairs > 0);
+        }
 
-            Debug.WriteLine($"Pairing by edges: {sw.ElapsedMilliseconds}ms");
-            sw.Restart();
+        private static (List<int> positiveVerts, List<int> negativeVerts) Initialize(VertInfo vertsInfo, float tolerance, HashSet<int> UnpairedSet)
+        {
+            var positive = new List<int>();
+            var negative = new List<int>();
+            for (int i = 0; i < vertsInfo.NumVerts; i++)
+            {
+                var v = vertsInfo.positions[i];
+                vertsInfo.pairedWith[i] = -1; //undefined pair
+                if (Vec3.X(v) >= 0)
+                {
+                    vertsInfo.rightSide[i] = true;
+                    positive.Add(i);
+                }
+                else
+                {
+                    negative.Add(i);
+                }
 
-            //return ToMxsArray(Result);
-            var res = new TResult();
-            res.unpaired = ToMxsArray(UnpairedSet);
-            res.rightSide = vertsInfo_RightSide;
-            res.pairedWith = vertsInfo_PairedWith; //this is 0 based, remember add 1 in MaxScript.
-            Debug.WriteLine($"Preparing result: {sw.ElapsedMilliseconds}ms");
-            return res;
+                //idexes comming from MaxScript are 1-based, fixing...
+                for (int j = 0; j < vertsInfo.linkedTo[i].Length; j++)
+                {
+                    vertsInfo.linkedTo[i][j]--;
+                }
+
+                //those in the center (close to x = 0) paired with themselves
+                if (Math.Abs(Vec3.X(v)) <= tolerance)
+                {
+                    vertsInfo.pairedWith[i] = i;
+                    UnpairedSet.Remove(i);
+                }
+
+            }
+            return (positive, negative);
         }
 
         public struct TResult
@@ -195,6 +217,24 @@ namespace Symmetry
                 if (bits[i]) list.Add(i); 
             }
             return list.ToArray();
+        }
+    }
+
+    internal class VertInfo
+    {
+        public float[][] positions;
+        public int[][] linkedTo;
+        public bool[] rightSide;
+        public int[] pairedWith;
+        public int NumVerts { get; private set; }
+
+        public VertInfo(float[][] vertPositions, int[][] vertLinkedTo)
+        {
+            positions = vertPositions;
+            linkedTo = vertLinkedTo;
+            NumVerts = vertPositions.Length;
+            rightSide = new bool[NumVerts];
+            pairedWith = new int[NumVerts];
         }
     }
 
@@ -259,5 +299,6 @@ namespace Symmetry
             vector1[2] - vector2[2]
             };
         }
+
     }
 }
