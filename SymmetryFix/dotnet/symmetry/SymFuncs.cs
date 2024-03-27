@@ -9,8 +9,10 @@ namespace Symmetry
 {
     public static class Functions
     {
-        public static TResult FindPairs(float[][] positions, int[][] links)
+
+        public static TResult FindPairs(float[][] positions, int[][] edges)
         {
+            var links = ConvertEdgesToLinks(positions.Length, edges);
             var verts = new VertInfo(positions, links);
             var tolerance = 0.005f;
 
@@ -19,7 +21,7 @@ namespace Symmetry
             // initializing verts information
             var sw = Stopwatch.StartNew();
             (var positiveVerts, var negativeVerts) = Initialize(verts, tolerance, UnpairedSet);
-            Debug.WriteLine($"build-15\nInitializing {verts.NumVerts} verts: {sw.ElapsedMilliseconds}ms");
+            Debug.WriteLine($"\nbuild-22\nInitializing {verts.NumVerts} verts");
 
             sw.Restart();
             //finding pairs by position
@@ -55,8 +57,89 @@ namespace Symmetry
             res.unpaired = ToMxsArray(UnpairedSet);
             res.rightSide = verts.rightSide;
             res.pairedWith = verts.pairedWith; //this is 0 based, remember add 1 in MaxScript.
-            Debug.WriteLine($"Preparing result: {sw.ElapsedMilliseconds}ms");
+            foreach (var li in links)
+            {
+                for (var i = 0; i < li.Length; i++)
+                {
+                    li[i]++;
+                }
+            }
+            res.connections = links;
+            
+            
             return res;
+        }
+
+        public static int[][] ConvertEdgesToLinks(int vertCount, int[][] edges)
+        {
+            //converting edges to list of linked vertices (links)
+            var linkDict = new Dictionary<int, List<int>>();
+            List<int> linkList; 
+            
+            foreach (int[] edge in edges)
+            {
+                if (linkDict.TryGetValue(edge[0]-1, out linkList))
+                {
+                    linkList.Add(edge[1]-1);
+                }
+                else
+                {
+                    linkList = new List<int>() { edge[1]-1 };
+                    linkDict.Add(edge[0] - 1, linkList);
+                }
+                if (linkDict.TryGetValue(edge[1] - 1, out linkList))
+                {
+                    linkList.Add(edge[0] - 1);
+                }
+                else
+                {
+                    linkList = new List<int>() { edge[0] - 1 };
+                    linkDict.Add(edge[1] - 1, linkList);
+                }
+            }
+
+            var links = new int[vertCount][];
+            for (var i = 0; i < vertCount; i++)
+            {
+                if (linkDict.TryGetValue(i, out linkList))
+                {
+                    links[i] = linkList.ToArray();
+                }
+                else
+                {
+                    links[i] = new int[0];
+                }
+            }
+            return links;
+        }
+
+        private static (List<int> positiveVerts, List<int> negativeVerts) Initialize(VertInfo vertsInfo, float tolerance, HashSet<int> UnpairedSet)
+        {
+            var positive = new List<int>();
+            var negative = new List<int>();
+            for (int i = 0; i < vertsInfo.NumVerts; i++)
+            {
+                var v = vertsInfo.positions[i];
+                vertsInfo.pairedWith[i] = -1; //undefined pair
+                if (Vec3.X(v) >= 0)
+                {
+                    vertsInfo.rightSide[i] = true;
+                    positive.Add(i);
+                }
+                else
+                {
+                    negative.Add(i);
+                }            
+
+                //those in the center (close to x = 0) paired with themselves
+                if (Math.Abs(Vec3.X(v)) <= tolerance)
+                {
+                    vertsInfo.pairedWith[i] = i;
+                    UnpairedSet.Remove(i);
+                }
+
+            }
+            return (positive, negative);
         }
 
         //PAIR BY EDGE CONNECTION ANALYSIS
@@ -93,10 +176,8 @@ namespace Symmetry
                     int RightUnpairedLinks = 0;
                     foreach (var k in verts.linkedTo[RIndex])
                     {
-                        if (verts.pairedWith[k] == -1)
-                            RightUnpairedLinks++;
-                        else
-                            RightSymLinks.Add(k);
+                        if (verts.pairedWith[k] == -1) RightUnpairedLinks++; 
+                        else RightSymLinks.Add(k);
                     }
 
                     if (verts.pairedWith[RIndex] == -1 && RightSymLinks.Count > 0)
@@ -110,10 +191,8 @@ namespace Symmetry
                             //collect both sides pairs                           
                             foreach (var k in verts.linkedTo[LIndex])
                             {
-                                if (verts.pairedWith[k] == -1)
-                                    LeftUnpairedLinks++;
-                                else
-                                    LeftSymLinks.Add(verts.pairedWith[k]);
+                                if (verts.pairedWith[k] == -1) LeftUnpairedLinks++;
+                                else LeftSymLinks.Add(verts.pairedWith[k]);
                             }                           
 
                             if (LeftSymLinks.Count > 0
@@ -133,7 +212,6 @@ namespace Symmetry
                         //if one and only one then is good to go, else... think later                        
                         if (MyCandidateNum == 1)
                         {
-
                             //we can pair vert I with vert MyCandidate
                             verts.pairedWith[RIndex] = MyCandidate;
                             verts.pairedWith[MyCandidate] = RIndex;
@@ -161,46 +239,14 @@ namespace Symmetry
 
         }
 
-        private static (List<int> positiveVerts, List<int> negativeVerts) Initialize(VertInfo vertsInfo, float tolerance, HashSet<int> UnpairedSet)
-        {
-            var positive = new List<int>();
-            var negative = new List<int>();
-            for (int i = 0; i < vertsInfo.NumVerts; i++)
-            {
-                var v = vertsInfo.positions[i];
-                vertsInfo.pairedWith[i] = -1; //undefined pair
-                if (Vec3.X(v) >= 0)
-                {
-                    vertsInfo.rightSide[i] = true;
-                    positive.Add(i);
-                }
-                else
-                {
-                    negative.Add(i);
-                }
 
-                //idexes comming from MaxScript are 1-based, fixing...
-                for (int j = 0; j < vertsInfo.linkedTo[i].Length; j++)
-                {
-                    vertsInfo.linkedTo[i][j]--;
-                }
-
-                //those in the center (close to x = 0) paired with themselves
-                if (Math.Abs(Vec3.X(v)) <= tolerance)
-                {
-                    vertsInfo.pairedWith[i] = i;
-                    UnpairedSet.Remove(i);
-                }
-
-            }
-            return (positive, negative);
-        }
 
         public struct TResult
         {
             public int[] unpaired;
             public bool[] rightSide;
             public int[] pairedWith;
+            public int[][] connections;
         }
         
         private static int[] ToMxsArray(BitArray bits)

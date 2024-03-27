@@ -518,25 +518,35 @@
 				allVerts = polyop.getVerts ePoly #{1..(numVerts)}	
 			)			
 			
+						
 			--conections
 			vertConnections = #()
-			vertConnections.count = numVerts
-			for i = 1 to numVerts do
-			(
-				vertConnections[i] = (GetVertsConnected ePoly i) as array
-			)
+			
+			numEdges = polyop.getNumEdges ePoly
+			vertConnections = polyop.getEdgesVerts ePoly #{1..numEdges}				
+		
+-- 				vertConnections.count = numVerts
+-- 				ttt = timeStamp()
+-- 				for i = 1 to numVerts do
+-- 				(
+-- 					vertConnections[i] = (GetVertsConnected ePoly i) as array
+-- 				)
+-- 				Format "Getting connections: %ms\n" (timeStamp()-tt)
+		
 			
 			TArrayArrayFloat = dotNetClass "System.single[][]"
 			TArrayArrayInt = dotNetClass "System.int32[][]"
-			csVerts = dotnet.valueToDotNetObject allVerts TArrayArrayFloat
+			csVerts = dotnet.valueToDotNetObject allVerts TArrayArrayFloat			
 			csVertConnections = dotnet.valueToDotNetObject vertConnections TArrayArrayInt
 			
+			
 			Format "Preparing data: %ms\n" (timeStamp()-tt)
+			
 			--.net calls
 			result = undefined
 			if usingDllManager and (dllManager!=undefined) then
 			(
-				result = dllManager.callMethod "Symmetry.Functions.FindPairs" args:#(csVerts, csVertConnections)				
+				result = dllManager.callMethod "Symmetry.Functions.FindPairs" args:#(csVerts, csVertConnections)
 			) else
 			(
 				--standard call to .net functions
@@ -548,6 +558,7 @@
 			
 			vertsInfo_RightSide = result.rightSide
 			vertsInfo_vPos = allVerts			
+			vertConnections = result.connections
 			
 			pairedWith = result.pairedWith	
 			
@@ -557,6 +568,7 @@
 				if pw==0 then pw = undefined;
 				vertsInfo_PairedWith[i] = pw
 				vertsInfo_linkedTo[i] = vertConnections[i] as bitArray
+				--format "%\n" vertsInfo_linkedTo[i]
 			)
 
 			
