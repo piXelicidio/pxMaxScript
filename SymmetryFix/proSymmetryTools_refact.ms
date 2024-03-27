@@ -13,13 +13,16 @@
 (
 
 
-	struct TVertInfo  ( RightSide, LinkedTo, PairedWith, vPos ) --[ RightSide:boolean, LinkedTo, PairedWith, vertPos ]
 	local  Tolerance = 0.005
 	local MySelection = #{}
 	local MirrorRightToLeft  = true
 	
 	local baseObject = undefined
-	local VertsInfo = #() --array of TVertInfo
+	local vertsInfo_count = 0;
+	local vertsInfo_RightSide = #()
+	local vertsInfo_LinkedTo = #()
+	local vertsInfo_PairedWith = #()
+	local vertsInfo_vPos = #()
 	local ClipboardIndexes = #() --array of indices;
 	local ClipboardVerts = #() --array of verts
 	
@@ -30,6 +33,15 @@
 	usingDllManager = true
     dllFuncs = undefined
     -- common functions			
+	
+	function SetVertsInfo_count count =
+	(
+		vertsInfo_RightSide.count = count
+		vertsInfo_LinkedTo.count = count
+		vertsInfo_PairedWith.count = count
+		vertsInfo_vPos.count = count
+		vertsInfo_count = count
+	)
 	
     function LoadDLL =
 	(
@@ -60,7 +72,7 @@
         local result = #()
         for i=1 to verts.count do
         (
-            local pair = VertsInfo[ verts[i] ].pairedWith
+            local pair = vertsInfo_PairedWith[ verts[i] ]
             if pair != undefined then append result pair                
         )
         result
@@ -155,14 +167,14 @@
             (
                 newVertsInfo[ni] = vertsInfo[o]
                 --Updating pairs				
-                local newPair = VertsInfo[o].pairedWith
+                local newPair = vertsInfo_PairedWith[o]
                 if newPair!= undefined then
                 (
                     if newPair <= NewIndex.count then newPair = NewIndex[ newPair ] else newPair = undefined
                 )
-                newVertsInfo[ni].pairedWith = newPair
+                newvertsInfo_PairedWith[ni] = newPair
                 --Updating linkedTo???
-                -- newVertsInfo[o].linkedTo =  --linkedTo is a bitArray, its info gets obsolete now, update it IF NEEDED.
+                -- newvertsInfo_LinkedTo[o] =  --linkedTo is a bitArray, its info gets obsolete now, update it IF NEEDED.
             
             )
         )
@@ -264,21 +276,21 @@
             local positiveVerts = #()
             local negativeVerts = #()
 			
-			VertsInfo.count = N
+			SetVertsInfo_count N
 			
 			--initializing vertInfo
-            t1 = timeStamp()
+            tt = timeStamp()
 			for i=1 to N do in coordsys local
 			(
 				local v1 = polyop.getVert EPolyObj i
-				VertsInfo[i] = TVertInfo undefined undefined undefined v1				
+				vertsInfo_vPos[i] = v1				
 				if (v1.x >=0) then
 				(
-					VertsInfo[i].RightSide = true  -- RightSide = positive
+					vertsInfo_RightSide[i] = true  -- RightSide = positive
 					append positiveVerts i 
 				) else
 				(
-					VertsInfo[i].RightSide = false
+					vertsInfo_RightSide[i] = false
 					append negativeVerts i					
 				)
                 
@@ -286,72 +298,107 @@
 				--Vertices on the "center" Symmetry AXE paired with themselves. 
 				If 	abs(v1.x) <= Tolerance then 
 				(	
-					VertsInfo[i].PairedWith = i	
+					vertsInfo_PairedWith[i] = i	
 					Result[i]=false
 				)
 				
 				--Links
 				--Find the list of vertices connected via edge, store in LinkedTo bitarray
 				local MyEdges = polyop.getEdgesUsingVert EPolyObj  i
-				VertsInfo[i].Linkedto = #{}	
+				vertsInfo_LinkedTo[i] = #{}	
 				for k in MyEdges do
 				(
-					VertsInfo[i].Linkedto  = VertsInfo[i].Linkedto  + (polyop.getVertsUsingEdge EPolyObj k )			
+					vertsInfo_LinkedTo[i]  = vertsInfo_LinkedTo[i]  + (polyop.getVertsUsingEdge EPolyObj k )			
 				)		
 				--remove self
-				VertsInfo[i].Linkedto =  VertsInfo[i].Linkedto - #{i}
+				vertsInfo_LinkedTo[i] =  vertsInfo_LinkedTo[i] - #{i}
 			)
          
-            
+            Format "initializing: %ms\n" (timeStamp()-tt)
 			
 			
 			--Finding Pairs by position------------------------------- The standard easy way				
 			
-            t1 = timeStamp()
+            tt = timeStamp()
 			proBar.color = [0,255,255]
 			for i=1 to positiveVerts.count do in coordsys local
 			(
-				local v1 = VertsInfo[ positiveVerts[i] ].vPos
+				local v1 = vertsInfo_vPos[ positiveVerts[i] ]
 				
 				for j=1 to negativeVerts.count do
 				(			
-					local v2 = copy VertsInfo[ negativeVerts[j] ].vPos
+					local v2 = copy vertsInfo_vPos[ negativeVerts[j] ]
 					v2.x = -v2.x
 					local d = (distance v1 v2)
 					
 					if d<=Tolerance then
 					(
-						VertsInfo[ positiveVerts[i] ].PairedWith = negativeVerts[j]
-						VertsInfo[ negativeVerts[j] ].PairedWith = positiveVerts[i] 
+						vertsInfo_PairedWith[ positiveVerts[i] ] = negativeVerts[j]
+						vertsInfo_PairedWith[ negativeVerts[j] ] = positiveVerts[i] 
 						Result[ positiveVerts[i] ]=false
 						Result[ negativeVerts[j] ]=false
 					)	
+
 				)
 				proBar.value = (i * 100) / N
 			)
-			
+			format "Pairs by position: %ms\n" (timeStamp()-tt)
             
 			
 			-- Find pairs by links -------------------------- the cool start here -------------- Edge Connections Analysis            
             local ResultList = result as array
             -- ResultList cointatins the vertices that has not pairs yet.
 			
-            t1 = timeStamp()
+            tt = timeStamp()
 			--proBar.value = 0
 			proBar.color = [255, 255, 0]
 			local NewLinksCount = 0            
 			local UnlinkedPairs = (ResultList.count / 2) +1            
+			
+			local Unpairedborder = #{}
+			fn CheckIfBorder index border =
+			(
+				alink = 1
+				nextToPaired = false
+				linklist = vertsInfo_LinkedTo[index] as array
+				len = linklist.count
+				while ((not nextToPaired) and (alink <= len)) do
+				(						
+					nextToPaired = ( vertsInfo_PairedWith[ linkList[alink] ] != undefined)
+					alink += 1
+				)
+				if nextToPaired then border[index] = true;
+			)
+							
+			--Narrowing the search to just the border of interest
+			for uIndex in ResultList do CheckIfBorder uIndex UnpairedBorder;				
             
 			if (chkEdgeAnalysis.checked==true) and (ResultList.count != 0) then 
 			do
 			(
 				Local FoundNewPairs=0
-				
+
+
+				ResultList = UnpairedBorder as array
 				for r=1 to ResultList.count do in coordsys local                    
 				(		
 					local i = ResultList[r]
+					--Side 1
+					local RSymLinks = #{}
+					local RUnpairedLinks = 0
+					for k in vertsInfo_LinkedTo[i] do
+					(
+						if vertsInfo_PairedWith[k]==undefined then
+						(
+							RUnpairedLinks +=  1
+						) else 
+						(
+							-- collect just the links indices for this side
+							RSymLinks[k] = true
+						)					
+					)
 					
-						if VertsInfo[i].PairedWith==undefined then
+						if (vertsInfo_PairedWith[i]==undefined) and (not RSymLinks.isEmpty) then
 						(
 							--Result[i] = true
 							local MyCandidate = 0
@@ -362,33 +409,21 @@
                                 local j = ResultList[rr]  -- to avoid rename all J vars O.o
 							 
 														
-								local RSymLinks = #{}
-								local RUnpairedLinks = 0
+								
 								local LSymLinks = #{}
 								local LUnpairedLinks = 0
 								--Remap the links using paired Vertice Numbers. 
-								--Side 1
-								for k in VertsInfo[i].LinkedTo do
-								(
-									if VertsInfo[k].PairedWith==undefined then
-									(
-										RUnpairedLinks +=  1
-									) else 
-									(
-										-- collect just the links indices for this side
-										RSymLinks[k] = true
-									)					
-								)
+								
 								--Side 2
-								for k in VertsInfo[j].LinkedTo do
+								for k in vertsInfo_LinkedTo[j] do
 								(
-									if VertsInfo[k].PairedWith==undefined then
+									if vertsInfo_PairedWith[k]==undefined then
 									(
 										LUnpairedLinks += 1
 									) else 
 									(
 										-- for this side The pairs of the links
-										LSymLinks[VertsInfo[k].PairedWith]=true
+										LSymLinks[vertsInfo_PairedWith[k]]=true
 									)					
 								)
 								
@@ -396,31 +431,25 @@
 								-- The left vert qualify for pairing???
 								
 								--Empty links sets, cant prove nothing 
-								if (not RSymLInks.isEmpty) and (not LSymLinks.isEmpty )then 
-								(
+								if (not LSymLinks.isEmpty ) and								
 									-- Testing if two SETS are EQUAL:
-									if (RSymLinks-LSymLinks).isEmpty and (LSymLinks-RSymLinks).IsEmpty  then
-									(
+									(RSymLinks-LSymLinks).isEmpty and (LSymLinks-RSymLinks).IsEmpty  and									
 										--but wat about the Unpaired links?
-										if RUnpairedLinks == LUnpairedLinks then
+									(RUnpairedLinks == LUnpairedLinks) then
+									(
+										--this is a good candidate!
+										--lets see if  there not already one before...
+										if MyCandidate==0 then 
 										(
-											--this is a good candidate!
-											--lets see if  there not already one before...
-											if MyCandidate==0 then 
-											(
-												--Nice this is the first (hope only)
-												MyCandidate=j 
-												MyCandidateNum+= 1
-												--print ("Candidate! " + (MyCandidate as string) )
-											) else
-											(
-												--no need for more searching there are duplicated "ideal" conditions
-												--but instead of exiting the loops, lets just count the candidates
-												MyCandidateNum += 1
-											)
-										)
+											--Nice this is the first (hope only)
+											MyCandidate=j 
+											
+											--print ("Candidate! " + (MyCandidate as string) )
+										) 
+										MyCandidateNum+= 1
 									)
-								)
+									
+								
 								
 								
 							)--For J end
@@ -429,8 +458,8 @@
 							if MyCandidateNum == 1 then
 							(
 								--We can pair vert I with vert MyCandidate
-								VertsInfo[i].PairedWith = MyCandidate
-								VertsInfo[MyCandidate].PairedWith = i
+								vertsInfo_PairedWith[i] = MyCandidate
+								vertsInfo_PairedWith[MyCandidate] = i
                                 -- Revise the Side of the vertices.
                                 
 								FoundNewPairs += 1 
@@ -442,15 +471,24 @@
 									
 							)--if MyCandidateNum == 1
 							
-						)--if VertsInfo[i].PairedWith==undefined
+						)--if vertsInfo_PairedWith[i]==undefined
 					
 				)--For I end
                 
-                
+                --Rebuilding the border, just close to the old border
+				UnpariedBorder = #{}
+				for idx in ResultList do
+				(
+					for uIndex in vertsInfo_LinkedTo[idx] do 
+					(
+						if (vertsInfo_PairedWith[uIndex] == undefined) then CheckIfBorder uIndex UnpairedBorder;
+					)
+				)
+				
 				--print ("Found New Pairs: " + (FoundNewPairs	as string))
 			)	while FoundNewPairs!=0
 				
-			
+			Format "Pairs by edge connections: %ms\n" (timeStamp()-tt)
 			
 			proBar.value = 100;
 			proBar.color = [0,255,0]
@@ -492,7 +530,8 @@
 			TArrayArrayInt = dotNetClass "System.int32[][]"
 			csVerts = dotnet.valueToDotNetObject allVerts TArrayArrayFloat
 			csVertConnections = dotnet.valueToDotNetObject vertConnections TArrayArrayInt
-			preparing = (timeStamp()-tt)
+			
+			Format "Preparing data: %ms\n" (timeStamp()-tt)
 			--.net calls
 			result = undefined
 			if usingDllManager and (dllManager!=undefined) then
@@ -505,29 +544,27 @@
 			)
 			
 			tt = timeStamp()
-			VertsInfo.count = numVerts;
-		
-			rightSide = result.rightSide
-			pairedWith = result.pairedWith			
+			SetVertsInfo_count numVerts;			
+			
+			vertsInfo_RightSide = result.rightSide
+			vertsInfo_vPos = allVerts			
+			
+			pairedWith = result.pairedWith	
 			
 			for i=1 to numVerts do 
-			(
-				vi = TVertInfo()
-				vi.RightSide = rightSide[i]
+			(							
 				pw = pairedWith[i]+1
 				if pw==0 then pw = undefined;
-				vi.PairedWith = pw				
-				vi.vPos = allVerts[i]
-				vi.LinkedTo = vertConnections[i]
-				VertsInfo[i] = vi
+				vertsInfo_PairedWith[i] = pw
+				vertsInfo_linkedTo[i] = vertConnections[i] as bitArray
 			)
+
 			
 			unpaired = result.unpaired as bitArray
 			
 			--return
-			ePoly.selectedVerts = unpaired
-			preparing = preparing + (timeStamp()-tt)
-			Format "Data transfere time: %\n" preparing
+			ePoly.selectedVerts = unpaired			
+			Format "Parsing result: %\n" (timeStamp()-tt)
 			(unpaired)
 		)
 	
@@ -544,12 +581,12 @@
 			(
 				-- TODO: Find Solution. Currently limited to Editable_Poly objects
 				-- there is a problem with Edit_Poly modifier, I can't set vertices: see: https://forums.cgsociety.org/t/help-me-maxscript-and-editpoly/1026305/7 
-				for i=1 to VertsInfo.count do  in coordsys local
+				for i=1 to VertsInfo_count do  in coordsys local
 				(
-					if VertsInfo[i].RightSide then 
+					if vertsInfo_RightSide[i] then 
 					(
 						--is positive copy to paired
-						local him = VertsInfo[i].PairedWith
+						local him = vertsInfo_PairedWith[i]
 						if him != undefined then
 						(
 							local myPos = polyOp.getvert $ i	
@@ -566,14 +603,14 @@
 							) else
 							(
 								--calc offset translations taking oriignal vertices as origin
-								local myOffset = myPos - VertsInfo[i].vPos
-								local hisOffset = hisPos - VertsInfo[him].vPos
+								local myOffset = myPos - vertsInfo_vPos[i]
+								local hisOffset = hisPos - vertsInfo_vPos[him]
 								--mirror the offset translation
 								myOffset.x = - myOffset.x
 								hisOffset.x = - hisOffset.x
 								--apply mirrored  offset on opposite 
-								if (PosToNeg or Flip) then polyOp.setVert $ him (VertsInfo[him].vPos + myOffset)
-								if ((not PosToNeg) or Flip) then polyOp.setVert $ i (VertsInfo[i].vPos + hisOffset)
+								if (PosToNeg or Flip) then polyOp.setVert $ him (vertsInfo_vPos[him] + myOffset)
+								if ((not PosToNeg) or Flip) then polyOp.setVert $ i (vertsInfo_vPos[i] + hisOffset)
 							)
 							
 						)						
@@ -589,7 +626,7 @@
 				baseObject = obj
 				tt = timeStamp()
 				Print "Finding symmetrical pairs..."
-				FindPairs baseObject				
+				FindPairs_dotNet baseObject				
 				Format "Processing time: %\n" (timeStamp()-tt)
 				btnPickObject.text = obj.name	
 			) else messageBox "Pick an Editable Poly object" title:"Pro Symmetry Tools"
@@ -652,7 +689,7 @@
 					local maxverts = $.numVerts
 					if ClipboardIndexes[i]<=maxverts then
 					(
-						local opposite = VertsInfo[ ClipboardIndexes[i] ].pairedWith
+						local opposite = vertsInfo_PairedWith[ ClipboardIndexes[i] ]
 						if opposite != undefined then
 						(
 							if opposite <= maxverts then
@@ -674,9 +711,9 @@
                 verts = (polyop.getVertSelection $) as array
                 for i=1 to verts.count do
                 (
-                    if verts[i] < VertsInfo.count then
+                    if verts[i] < VertsInfo_count then
                     (
-                        VertsInfo[verts[i]].RightSide = not VertsInfo[verts[i]].RightSide
+                        vertsInfo_RightSide[verts[i]] = not vertsInfo_RightSide[verts[i]]
                     )
                 )
             )
@@ -792,10 +829,10 @@
 							polyOp.createEdge $ v1 v2
 							
 							-- find the Symmetrical EdgeVerts
-							edgeVerts1[1] = VertsInfo[ edgeVerts1[1] ].pairedWith
-							edgeVerts1[2] = VertsInfo[ edgeVerts1[2] ].pairedWith
-							edgeVerts2[1] = VertsInfo[ edgeVerts2[1] ].pairedWith
-							edgeVerts2[2] = VertsInfo[ edgeVerts2[2] ].pairedWith
+							edgeVerts1[1] = vertsInfo_PairedWith[ edgeVerts1[1] ]
+							edgeVerts1[2] = vertsInfo_PairedWith[ edgeVerts1[2] ]
+							edgeVerts2[1] = vertsInfo_PairedWith[ edgeVerts2[1] ]
+							edgeVerts2[2] = vertsInfo_PairedWith[ edgeVerts2[2] ]
 							
 							--if any of them are undefined end of story
 							if (edgeVerts1[1] != undefined) and (edgeVerts1[2] != undefined) and
@@ -813,31 +850,27 @@
 							)						  
 							
 							--TODO: update/add the new vertices to VertsInfo data
-							-- because potato we know the new vertices are added to the end, so expand array
-							VertsInfo.count = polyOp.getNumVerts $
-							VertsInfo[ v1 ] = TVertInfo undefined undefined undefined undefined
-							VertsInfo[ v2 ] = TVertInfo undefined undefined undefined undefined
+							-- because potato we know the new vertices are added to the end, so expand arrays
+							SetVertsInfo_count (polyOp.getNumVerts $)							
 							local v1Pos = polyOp.getVert $ v1
 							local v2Pos = polyOp.getVert $ v2
-							VertsInfo[v1].RightSide = (v1Pos.x >= 0)
-							VertsInfo[v2].RightSide = (v2Pos.x >= 0)
-							VertsInfo[v1].vPos = v1Pos
-							VertsInfo[v2].vPos = v2Pos						
+							vertsInfo_RightSide[v1] = (v1Pos.x >= 0)
+							vertsInfo_RightSide[v2] = (v2Pos.x >= 0)
+							vertsInfo_vPos[v1] = v1Pos
+							vertsInfo_vPos[v2] = v2Pos						
 							if (v3 != undefined) and (v3 != undefined) then 
-							(
-								VertsInfo[ v3 ] = TVertInfo undefined undefined undefined undefined
-								VertsInfo[ v4 ] = TVertInfo undefined undefined undefined undefined
+							(								
 								local v3Pos = polyOp.getVert $ v3
 								local v4Pos = polyOp.getVert $ v4
-								VertsInfo[ v3 ].RightSide = (v3Pos.x >= 0 );
-								VertsInfo[ v4 ].RightSide = (V4Pos.x >= 0);
-								VertsInfo[v3].vPos = v3Pos
-								VertsInfo[v4].vPos = v4Pos
+								vertsInfo_RightSide[ v3 ] = (v3Pos.x >= 0 );
+								vertsInfo_RightSide[ v4 ] = (V4Pos.x >= 0);
+								vertsInfo_vPos[v3] = v3Pos
+								vertsInfo_vPos[v4] = v4Pos
 								-- pairing
-								VertsInfo[v1].PairedWith = v3
-								VertsInfo[v3].Pairedwith = v1
-								VertsInfo[v2].Pairedwith = v4
-								VertsInfo[v4].PairedWith = v2
+								vertsInfo_PairedWith[v1] = v3
+								vertsInfo_PairedWith[v3] = v1
+								vertsInfo_PairedWith[v2] = v4
+								vertsInfo_PairedWith[v4] = v2
 							)
 							
 						) else messageBox "Please, select 2 edges on the same face."
