@@ -11,3 +11,5 @@ _common/IniFile_DIST.mxs
 *.user
 *.suo
 /SymmetryFix/dotnet/symmetry/obj
+/.vscode
+MaxScripts.code-workspace

@@ -163,7 +163,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 		(
 			if $!=undefined then
 			(
-				mo = undefined
+				mo = undefined				
 				for i=1 to $.modifiers.count do
 				(
 						if (classof $.modifiers[i])==Morpher then
@@ -175,13 +175,14 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 								
 				
 				if mo!=undefined then
-				(					
-					for i=1 to 100 do
+				(				
+					local capacity = wm3_NumberOfChannels mo
+					for i=1 to capacity do
 					(						
 						if (WM3_MC_HasData mo i) then
 						(
 							moName = substituteString (WM3_MC_GetName mo i) " " "_"
-							append MorphList #(moName, mo[i])														
+							append MorphList #(moName, mo[i])								
 						)
 					)
 					

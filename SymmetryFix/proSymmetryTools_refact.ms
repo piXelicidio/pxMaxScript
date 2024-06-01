@@ -584,15 +584,19 @@
 		-- PosToNeg Boolean; Axis String "x"|"y"|"z"
 		function MakeSymmetrical PosToNeg: Axis: Flip: =			
 		(
+			tt = timeStamp();
 			if PosToNeg == unsupplied then PosToNeg = true
 			if Axis == unsupplied then Axis = "x"
-			if Flip == unsupplied then Flip = false
+			if Flip == unsupplied then Flip = false			
 				
 			-- copy Positive positions to Negative on selected object
 			if ((classof $)==Editable_Poly) then
 			(
 				-- TODO: Find Solution. Currently limited to Editable_Poly objects
 				-- there is a problem with Edit_Poly modifier, I can't set vertices: see: https://forums.cgsociety.org/t/help-me-maxscript-and-editpoly/1026305/7 
+				local allSet =  #{1..(polyOp.getNumVerts $)}
+				local allVerts = polyOp.getVerts $ allSet
+				
 				for i=1 to VertsInfo_count do  in coordsys local
 				(
 					if vertsInfo_RightSide[i] then 
@@ -601,8 +605,8 @@
 						local him = vertsInfo_PairedWith[i]
 						if him != undefined then
 						(
-							local myPos = polyOp.getvert $ i	
-							local hisPos = polyOp.getvert $ him
+							local myPos = copy allVerts[i] --polyOp.getvert $ i	
+							local hisPos = copy allVerts[him] --polyOp.getvert $ him
 																								
 							if chkRelative.checked==false then
 							(
@@ -610,8 +614,8 @@
 								myPos.x = - myPos.x 
 								hisPos.x = - hisPos.x
 								--set to my pair
-								if (PosToNeg or Flip) then polyOp.setVert $ him myPos 
-								if ((not PosToNeg) or Flip) then polyOp.setVert $ i hisPos							
+								if (PosToNeg or Flip) then allVerts[him] = myPos --polyOp.setVert $ him myPos 
+								if ((not PosToNeg) or Flip) then allVerts[i] = hisPos --polyOp.setVert $ i hisPos							
 							) else
 							(
 								--calc offset translations taking oriignal vertices as origin
@@ -621,14 +625,16 @@
 								myOffset.x = - myOffset.x
 								hisOffset.x = - hisOffset.x
 								--apply mirrored  offset on opposite 
-								if (PosToNeg or Flip) then polyOp.setVert $ him (vertsInfo_vPos[him] + myOffset)
-								if ((not PosToNeg) or Flip) then polyOp.setVert $ i (vertsInfo_vPos[i] + hisOffset)
+								if (PosToNeg or Flip) then allVerts[him] = (vertsInfo_vPos[him] + myOffset) --polyOp.setVert $ him (vertsInfo_vPos[him] + myOffset)
+								if ((not PosToNeg) or Flip) then allVerts[i] = (vertsInfo_vPos[i] + hisOffset) --polyOp.setVert $ i (vertsInfo_vPos[i] + hisOffset)
 							)
 							
 						)						
 					)
 				)
+				polyOp.setVert $ allSet allVerts
 			)
+			--format "Symm op: %ms\n" (timeStamp()-tt)
 		)
 		
 		on btnPickObject picked obj do
