@@ -60,7 +60,8 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 		(
 			if (fverts[i] == sv1) and (fverts[i+1] == sv2) then
 			(
-				--on the same order, then need reverse!					
+				--on the same order, then need reverse!		
+				print "reversing loop"
 				last = curr_sequence.count
 				for j = 1 to (last / 2) do
 				(
@@ -72,22 +73,39 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 		)			
 	)
 	
-	function CheckLoop edgeSel = 
+	
+	function getPairs edgeSel =
 	(
-		if edgeSel == undefined then
-		(
-			return undefined
-		)
 		local pairs = #()
-		for es in edgeSel do 
+		if edgeSel != undefined then
 		(
-			append pairs ((polyOp.getVertsUsingEdge theObj es) as array )
-		)			
+			for es in edgeSel do
+			(				
+				--add only if border
+				local edgeFaces = polyOp.getEdgeFaces theObj es
+				if edgeFaces.count == 1 then
+				(
+					append pairs ((polyOp.getVertsUsingEdge theObj es) as array )
+					pairs[pairs.count][3] = es --saving the corresponding edge number 
+				)
+			)
+		)
+		--result:
+		(pairs)
+	)
+	
+	-- Check if the selection of edges form a closed loop
+	function CheckLoop pairs = 
+	(
+		if (pairs.count < 3) then return undefined
+		--print ("start pairs: " + (pairs.count as string))
 		
 		local sequence = #()
-		join sequence pairs[1]			
+		append sequence pairs[1][1]
+		append sequence pairs[1][2]
 		deleteItem pairs 1
-		
+		local firstEdge = pairs[1][3];
+				
 		--find conections
 		local count = 0
 		do 
@@ -125,6 +143,11 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 				return undefined
 			)
 			count += 1
+			if sequence[1] == sequence[ sequence.count ] then
+			(
+				--print "There it goes ONE LOOP"
+				exit
+			)
 		) while ((pairs.count > 0) and (found == 1))
 		
 		if sequence[1] != sequence[ sequence.count ] then
@@ -134,10 +157,22 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 		)
 		
 		--need reverse?			
-		reverse_if_needed ((edgeSel as array)[1]) &sequence
-		
+		reverse_if_needed firstEdge &sequence
+		--print ("pairs left: " + (pairs.count as string))
 		--return			
 		(sequence)
+	)
+	
+	function FindLoops edgeSel =
+	(
+		local result = #()
+		local pairs = getPairs edgeSel
+		do (
+			local sequence = CheckLoop pairs
+			if (sequence!=undefined) then append result sequence
+		) while (sequence != undefined)
+		--result				
+		(result)
 	)
 	
 	function all_vert_pos curr_sequence = 
@@ -345,6 +380,8 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 		if myEdge.count == 1 then
 		(
 			local myLoop = polyop.getBorderFromEdge theObj myEdge[1]
+			local oldSel = polyop.getEdgeSelection theObj
+			join myLoop oldSel
 			polyop.setEdgeSelection theObj (myLoop as array)
 		) 
 		else		
@@ -359,42 +396,48 @@ macroScript StepCap buttonText:"Step Cap" category:"pX Tools" tooltip:"Cap holes
 	----------------------------------------- THE GOOD STUFF  ---------------------------
 	t_start = timeStamp()
 	
-	vert_seq = checkLoop selected
-	if vert_seq != undefined then
+	loops = FindLoops selected
+	if loops.count > 0 then
 	(
-		if vert_seq.count <= 5 then 
-		( -- just close it if it's a quad or triangle
-			deleteItem vert_seq vert_seq.count
-			polyOp.createPolygon theObj vert_seq
-			update theObj
-		) 
-		else
+		polyop.setEdgeSelection theObj #() --clearing selected edges
+		for i=1 to loops.count do
 		(
-			verts_pos = all_vert_pos vert_seq
+			vert_seq = loops[i]
 			
-			--calc values for: center, average edge len, average distance to center
-			calc_stats() 
-			num_steps = ((ave_dist2center / ave_len ) as integer) + 1
-			if num_steps < 2 then num_steps = 2
-			--print ("StepCap: Estimated steps: "+ (num_steps as string))
-			step_len = ave_dist2center / num_steps
+			if vert_seq.count <= 5 then 
+			( -- just close it if it's a quad or triangle
+				deleteItem vert_seq vert_seq.count
+				polyOp.createPolygon theObj vert_seq				
+				update theObj
+			) 
+			else
+			(
+				verts_pos = all_vert_pos vert_seq
 				
-			-- how many to reduce?
-			local Num_edges = vert_seq.count - 1
-			local to_reduce = (Num_edges-4) --leve 4 for the ending quad.
-			to_reduce = (to_reduce / ( (num_steps - 1) as float))
-			to_reduce = (to_reduce + 0.5 ) as integer			
-			--print ("StepCap: Reducing polys "+ (to_reduce as string))
-			------------------------------------------------------------------------------------------------	
-			vert_seq = extrude_in vert_seq verts_pos num_steps reduce:to_reduce
-			------------------------------------------------------------------------------------------------	
-			update theObj
-				
-			--progressive capper, step by step by the user, last loop created get selected			
-			select_hole vert_seq
-				
-			--finished
-			format "StepCap: Elapsed time: %\n" (timeStamp() - t_start)
+				--calc values for: center, average edge len, average distance to center
+				calc_stats() 
+				num_steps = ((ave_dist2center / ave_len ) as integer) + 1
+				if num_steps < 2 then num_steps = 2
+				--print ("StepCap: Estimated steps: "+ (num_steps as string))
+				step_len = ave_dist2center / num_steps
+					
+				-- how many to reduce?
+				local Num_edges = vert_seq.count - 1
+				local to_reduce = (Num_edges-4) --leve 4 for the ending quad.
+				to_reduce = (to_reduce / ( (num_steps - 1) as float))
+				to_reduce = (to_reduce + 0.5 ) as integer			
+				--print ("StepCap: Reducing polys "+ (to_reduce as string))
+				------------------------------------------------------------------------------------------------	
+				vert_seq = extrude_in vert_seq verts_pos num_steps reduce:to_reduce
+				------------------------------------------------------------------------------------------------	
+				update theObj
+					
+				--progressive capper, step by step by the user, last loop created get selected			
+				select_hole vert_seq
+					
+				--finished
+				format "StepCap: Elapsed time: %\n" (timeStamp() - t_start)
+			)
 		)
 		redrawViews()
 	)

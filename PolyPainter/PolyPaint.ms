@@ -809,6 +809,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			(
 				thePI.endPaintSession()
 				paint3D.checked = false
+				paint3D.caption = ">>>      START Paint Tool      <<<"
 			) else
 			(				
 				updateCurrColor()				
@@ -836,6 +837,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 				thePI.mirrorAxis = 1
 				thePI.scriptFunctions startStroke paintStroke endStroke cancelStroke SystemEndPaintSession
 				thePI.startPaintSession()
+				paint3D.caption = "      END Paint Session      "
 			)			
 		)
 		
@@ -843,6 +845,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 		(
 			thePI.endPaintSession()
 			if paint3D.checked then paint3D.checked = false
+			paint3D.caption = ">>>      START Paint Tool      <<<"
 		)
 		
 		function findClosestColor thisColor fromBitmap = 
