@@ -769,10 +769,12 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			(
 				local mapFace = polyop.getMapFace obj mapChannel i
 				mapFaceSizes[i] = mapFace.count
-				if mapFace[1] > mapVerts then 
-					(vertsCopy[i] = polyop.getMapVert obj mapChannel 1)
-				else 
-					(vertsCopy[i] = polyop.getMapVert obj mapChannel mapFace[1])
+				
+					if mapFace[1] > mapVerts then 
+						(vertsCopy[i] = polyop.getMapVert obj mapChannel 1)
+					else 
+						(vertsCopy[i] = polyop.getMapVert obj mapChannel mapFace[1])
+			
 				
 			)
 			polyop.setNumMapVerts obj mapChannel mapFaces keep:true

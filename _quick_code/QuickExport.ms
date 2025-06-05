@@ -1,3 +1,17 @@
+/*
+Quick Multi-Export Tool
+This script provides a simple UI for exporting the current scene (or selected objects) to FBX, OBJ, and/or MAX formats.
+
+Features:
+- Toggle export formats: FBX, OBJ, MAX
+- Set custom export paths for each format
+- Option to use current scene name or a custom name for output files
+- Choose between exporting all scene objects or only the selected ones
+- Supports silent export with no prompts
+
+Intended for quick batch-style exports during character or asset prep workflows.
+*/
+
 rollout quickExport "Quick Multi-Export"
 (
 	checkbox chkFBX "" across:2 checked:true

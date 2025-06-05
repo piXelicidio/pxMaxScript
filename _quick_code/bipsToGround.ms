@@ -1,3 +1,10 @@
+/*
+bipsToGround Function
+Aligns one or multiple biped characters to a specified ground height (default 0) by adjusting their root node position.
+- Scans all biped nodes to find the lowest Z bound (foot contact).
+- Shifts the biped root so the lowest point aligns to the given `ground` level.
+*/
+
 function bipsToGround selbips ground =
 (
 	if ground == undefined then ground = 0
