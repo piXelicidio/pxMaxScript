@@ -155,9 +155,15 @@ function ProcessFiles basePath wildCard:"*.txt" =
 	(Dictionary sections:sections tagsCodes:tagsCodes tagsCodesDic:tagsCodesDic)
 )
 
-function Reduction data threshold =
+function Reduction data threshold thisSectionOnly =
 (	
-	for sec in data[#sections] do
+	local sections = data[#sections]
+	if thisSectionOnly != undefined then
+	(
+		sections = dictionary #string
+		sections[thisSectionOnly] = data[#sections][thisSectionOnly]
+	)
+	for sec in sections do
 	(
 		--each section is array of color info
 		local cinfo = sec.value
@@ -296,9 +302,7 @@ function BuildPackedBitmap data sizeWH:256 padding:3 =
 			drawRect outBitmap rect (sections[i][j][1] as color)
 		)
 		ySection = ySection + padding + SectionHeights[i]
-	)
-	--TODO: group by color similarity.
-	--how: Find a short good enough path between all colors (as points in space)
+	)	
 	display outBitmap
 )
 
@@ -367,6 +371,7 @@ function PackTexture data =
 	(
 		NiceColorSorting data; 
 		BuildPackedBitmap data;
+		--TODO: Updates UVS with new color positions on bitmap!
 	)
 )
 
@@ -382,6 +387,8 @@ rollout roll_palCompile "Palette Compilation"
 	--button btn	
 	button btnReduction "Similarity reduction..." enabled:false
 	edittext edtThreshold "Threshold" text:"1"
+	checkbox chkBySection "Named section only" checked:false
+	edittext edtBySection "Section name:" text:"hair"
 	)
 	group "" (
 	button btnPackTexture "Build Packed Texture" enabled:false
@@ -398,8 +405,12 @@ rollout roll_palCompile "Palette Compilation"
 				btnPackTexture.enabled = true
 			)
 		)
-	on btnReduction pressed do (Reduction sectionData (edtThreshold.text as number))
-	on btnPackTexture pressed do (PackTexture sectionData)
+	on btnReduction pressed do (
+			local byThisSection = undefined
+			if chkBySection.checked then byThisSection = edtBySection.text
+			Reduction sectionData (edtThreshold.text as number) byThisSection
+		)
+	on btnPackTexture pressed do (PackTexture sectionData) 
 )
 
 CreateDialog roll_palCompile
