@@ -1,3 +1,10 @@
+--PalCompile
+--Toolkit that:
+-- collect polygon section texel colors from different models and  scenes
+-- save info to text files
+-- reduce color by similarity
+-- compile a new Texture  palette to fit them all
+
 function findMatDiffuseMap mat = 
 (
 	local diffMap = undefined
@@ -28,15 +35,47 @@ function UVtoColor UV tempBitmap gamma:true =
 	(getPixels tempBitmap [ UV.x * w ,  (1-UV.y) * h ] 1 linear:gamma )[1]
 )
 
-function ExportUVSection EditPolyObj SectionName basePath =
+function ExportUVSections basePath =
 (
-	local sel = polyOp.getFaceSelection EditPolyObj
+	local objs = $selection
+	if objs.count == 0 then
+	(
+		objs = objects
+	)
+	objs = objs as array
+	local totalSections = 0
+	for obj in objs do
+	(
+		if (classof obj.baseObject)==Editable_Poly then
+		(
+			modPanel.setCurrentObject obj.baseObject	
+
+			for ss in obj.faces.selSetNames do
+			(
+				ExportSelSet obj ss basePath
+				totalSections += 1
+			)
+		)
+	)	
+	format "Done! Exported sections: %\n" totalSections
+)
+
+function ExportSelSet EditPolyObj NamedSelSet basePath =
+(
+	local SelSet = EditPolyObj.Faces[NamedSelSet]
+	if SelSet == undefined then 
+	(
+		print "Selection set not found"
+		return()
+	)
+	local sel = SelSet as BitArray
+	sel = sel as array
 	local diffmap = findMatDiffuseMap EditPolyObj.material
 	local diffbmp = diffmap.bitmap
-	sel = sel as array
+	
 	if sel.count > 0 then
 	(
-		local outFileName = basePath + maxFileName+"@" +EditPolyObj.name + "@" + SectionName + ".txt"
+		local outFileName = basePath + maxFileName+"@" +EditPolyObj.name + "@" + NamedSelSet + ".txt"
 		local f = createFile outFileName 
 		for face in sel do 
 		(
@@ -49,12 +88,13 @@ function ExportUVSection EditPolyObj SectionName basePath =
 	) else print "You need to select some faces to make an UV section"
 )
 
-function ProcessFiles basePath =
+function ProcessFiles basePath wildCard:"*.txt" =
 (
-	local textFiles = getFiles (basePath + "*.txt")
+	local textFiles = getFiles (basePath + wildCard)
 	local sections = dictionary #string --by section name
 	local tagsCodes = #() --encoded tags array
 	local tagsCodesDic = dictionary #string --tags code by string
+	local faceCheckDic = dictionary #string --dic of bitArrays to find repeated face references on same object
 	local totalFaces = 0
 	for fname in textFiles do
 	(
@@ -70,12 +110,23 @@ function ProcessFiles basePath =
 				tagsCodesDic[t] = tagsCodes.count
 			)
 		)
-		if sections[tags[3]] == undefined then
+		local tagSection = tags[3]
+		local tagObject = tags[2]
+		local tagScene = tags[1]
+		if sections[tagSection] == undefined then
 		(
-			sections[tags[3]] = #()			
+			sections[tagSection] = #()			
 		)
-		local currSection = sections[tags[3]] 
-		local f = openFile fname mode:"r"		
+		local SceneAndObjectTag = tagScene + "@" + tagObject
+		if faceCheckDic[SceneAndObjectTag] == undefined then
+		(
+			faceCheckDic[SceneAndObjectTag] = #{} 
+		)
+		
+
+		local currSection = sections[tagSection] 
+		local f = openFile fname mode:"r"	
+			
 		while not eof f do
 		(
 			local l = stringstream(readLine f)
@@ -84,8 +135,16 @@ function ProcessFiles basePath =
 			local col = (readvalue l) as point3
 			--bellow using tagsCodesDic to store numbers instead of strings to keep memory waste low,
 			--and future faster value comparisons
-			append currSection #(col, #(face, tagsCodesDic[tags[2]], tagsCodesDic[tags[1]]))
+			append currSection #(col, #(face, tagsCodesDic[tagObject], tagsCodesDic[tagScene]))
 			totalFaces = totalFaces + 1
+			--validating: Face cannot repeat on a single file
+			if faceCheckDic[SceneAndObjectTag][face] then 
+			(
+				format "WARNING: Face already referenced: #% scene: % obj: % Section: %\n" face tagScene tagObject tagSection
+			)
+			(
+				faceCheckDic[SceneAndObjectTag][face] = true --all fine
+			)
 		)
 		close f
 	)		
@@ -153,22 +212,194 @@ function Reduction data threshold =
 	)
 	format "Final Plyxels count %\n" final
 )	
+
+-- findBestLayout: choose grid minimizing we*empty + wd*distortion
+-- Returns: #(bestRows, bestCols)
+function findBestLayout containerW containerH N =
+(
+    local bestCost = 1e9
+    local bestRows = 1
+    local bestCols = N
+	local we = 1
+	local wd = 9
+
+    for rows = 1 to N do
+    (
+        local cols    = (ceil (N as float / rows)) as integer
+        local cellW   = containerW as float/ cols
+        local cellH   = containerH as float / rows
+        local emptycells   = rows * cols - N
+		local maxside = amax #(cellW, cellH)	
+        local dist    = (abs (cellW - cellH)) / maxside
+        local cost    = we * emptycells + wd * dist
+
+        if cost < bestCost then
+        (
+            bestCost = cost
+            bestRows = rows
+            bestCols = cols
+        )
+    )
+
+    return #(bestCols, bestRows)
+)
+
+function drawRect dst_Bitmap rect_box2 col = 
+(
+	local b = bitmap rect_box2.w rect_box2.h color:col
+	pasteBitmap b dst_Bitmap [0,0] [rect_box2.x,rect_box2.y]
+)
+
+function BuildPackedBitmap data sizeWH:256 padding:3 =
+(
+	local TotalCells = 0
+	local SectionCounts = #()
+	local Sections = #()
+	local ii = 0
+	for sec in data[#sections] do
+	(
+		ii = ii + 1
+		TotalCells = TotalCells + sec.value.count
+		SectionCounts[ii] = sec.value.count
+		Sections[ii] = sec.value
+	)	
+	local SectionHeights = #()
+	for i=1 to SectionCounts.count do
+	(
+		local h = ((SectionCounts[i] as float) / TotalCells) * (sizeWH-padding*2)
+		h = ((ceil h) - padding) as integer		
+		SectionHeights[i] = h
+	)
+	print SectionHeights
 	
+	local ySection = padding
+	local outBitmap = bitmap sizeWH sizeWH color:black
+	for i=1 to SectionHeights.count do
+	(
+		local sectionW = (sizeWH-(padding*2)) 
+		local sectionH = SectionHeights[i]	
+		local bestGrid = findBestLayout sectionW sectionH SectionCounts[i]
+		local cellW = sectionW  / bestGrid[1]
+		local cellH = sectionH  / bestGrid[2]
+		--format "cellW % , cellH %\n" cellW cellH
+		--format "bestGrid[1]=% bestGrid[2]=% \n" bestGrid[1] bestGrid[2]
+		local rect = box2 0 0 1 1
+		for j = 1 to SectionCounts[i] do 
+		(
+			local row = (j-1) / bestGrid[1]
+			local col = mod (j-1) bestGrid[1]	
+			--format "row % col %\n" row col
+			rect.x = padding + col * cellW
+			rect.y = row * cellH + ySection
+			rect.w = cellW
+			rect.h = cellH
+			drawRect outBitmap rect (sections[i][j][1] as color)
+		)
+		ySection = ySection + padding + SectionHeights[i]
+	)
+	--TODO: group by color similarity.
+	--how: Find a short good enough path between all colors (as points in space)
+	display outBitmap
+)
+
+
+/*=============================================================
+    Greedy Nearest-Neighbour ordering
+    -----------------------------------------------------------
+    nnOrder  ptsArray  [startIdx:<1>]
+        � ptsArray : #(point3 �)   (RGB or XYZ)
+        � startIdx : optional 1-based starting vertex
+        � returns  : #( idx0, idx1, � )  � visit order
+=============================================================*/
+function nnOrder pts startIdx:1 =
+(
+    local n = pts.count
+    if n == 0 do return #()
+
+    local visited = for i = 1 to n collect false
+    local order   = #()
+    local cur     = startIdx
+
+    for k = 1 to n do
+    (
+        append order cur
+        visited[cur] = true
+
+        if k < n do
+        (
+            local best   = 0
+            local bestD2 = 1e9
+
+            for j = 1 to n where not visited[j] do
+            (
+                local d2 = distance pts[cur] pts[j]
+                if d2 < bestD2 do 
+				(
+					bestD2 = d2; 
+					best = j
+				)
+            )
+            cur = best     -- jump to nearest unvisited
+        )
+    )
+    order          -- 1-based indices
+)
+
+
+function NiceColorSorting data =
+(
+	for sec in data[#sections] do
+	(
+		colorPoints = for i = 1 to sec.value.count collect sec.value[i][1];
+		sorted = nnOrder colorPoints
+		newSection = #()
+		for i=1 to sorted.count do
+		(
+			newSection[i] = sec.value[sorted[i]]
+		)
+		data[#sections][sec.key] = newSection
+	)
+)
+
+function PackTexture data =
+(			
+	if data != undefined then
+	(
+		NiceColorSorting data; 
+		BuildPackedBitmap data;
+	)
+)
 
 rollout roll_palCompile "Palette Compilation"
 (
-	button btnExportUV "Export UV from face sel."
-	edittext edtSectionName "SectionName" text:"cloth"
-	label lblSeparator "-------"
-	button btnProcessFiles "Process TXT files"	
-	button btnReduction "Similarity reduction..."
+	group "" (
+	button btnExportUV "Export UV sections" tooltip:"Export UV and texel by face selection sets"
+	--edittext edtSectionName "SectionName" text:"cloth,items,hair,skin"
+	)
+	group "" (
+	button btnProcessFiles "Process files..."
+	edittext edtWildCard "" text:"*.txt"
+	--button btn	
+	button btnReduction "Similarity reduction..." enabled:false
 	edittext edtThreshold "Threshold" text:"1"
+	)
+	group "" (
+	button btnPackTexture "Build Packed Texture" enabled:false
+	)
 	
 	local sectionData = undefined
 	
-	on btnExportUV pressed do (ExportUVSection $ edtSectionName.text maxFilePath)
-	on btnProcessFiles pressed do (sectionData = ProcessFiles maxFilePath)
+	on btnExportUV pressed do (ExportUVSections maxFilePath)
+	on btnProcessFiles pressed do (
+			sectionData = ProcessFiles maxFilePath wildCard:edtWildCard.text
+			if sectionData != undefined then 
+			(
+				btnReduction.enabled = true
+				btnPackTexture.enabled = true
+			)
+		)
 	on btnReduction pressed do (Reduction sectionData (edtThreshold.text as number))
+	on btnPackTexture pressed do (PackTexture sectionData)
 )
 
 CreateDialog roll_palCompile
