@@ -5,6 +5,12 @@
 -- reduce color by similarity
 -- compile a new Texture  palette to fit them all
 
+struct PlyxelData (
+    color,      -- point3
+    uv,        -- point2
+    faces       -- array of #(face, tagObj, tagScene)
+)
+
 function findMatDiffuseMap mat = 
 (
 	local diffMap = undefined
@@ -90,6 +96,7 @@ function ExportSelSet EditPolyObj NamedSelSet basePath =
 
 function ProcessFiles basePath wildCard:"*.txt" =
 (
+	format "Processing: '%'\n" (basePath + wildcard)
 	local textFiles = getFiles (basePath + wildCard)
 	local sections = dictionary #string --by section name
 	local tagsCodes = #() --encoded tags array
@@ -99,6 +106,11 @@ function ProcessFiles basePath wildCard:"*.txt" =
 	for fname in textFiles do
 	(
 		local tags = filterString ( getfilenamefile fname) "@"
+		if tags.count < 3 then
+		(
+			format "ERROR: Filenames needs 3 tags separated by @. Tags.count = %'\n" tags.count
+			return()
+		)
 		
 		--encoding tags as numbers, keeping both as array and dictionary
 		for i=1 to 2 do
@@ -131,11 +143,9 @@ function ProcessFiles basePath wildCard:"*.txt" =
 		(
 			local l = stringstream(readLine f)
 			local face = readValue l
-			local uv = readvalue l --ignore
+			local oldUV = readvalue l
 			local col = (readvalue l) as point3
-			--bellow using tagsCodesDic to store numbers instead of strings to keep memory waste low,
-			--and future faster value comparisons
-			append currSection #(col, #(face, tagsCodesDic[tagObject], tagsCodesDic[tagScene]))
+			append currSection (PlyxelData color:col uv:oldUV faces:#(#(face, tagsCodesDic[tagObject], tagsCodesDic[tagScene])))
 			totalFaces = totalFaces + 1
 			--validating: Face cannot repeat on a single file
 			if faceCheckDic[SceneAndObjectTag][face] then 
@@ -172,24 +182,20 @@ function Reduction data threshold thisSectionOnly =
 		(
 			if cinfo[i] != undefined then 
 			(
-				--each item is a also nested array with first value the color as point3
-				local c1 = cinfo[i][1] 
+				--each item is now a PlyxelData struct, use .color for color
+				local c1 = cinfo[i].color 
 				--lets compare with each bro, bro.
 				for j= i+1 to cinfo.count do
 				(
 					if cinfo[j] != undefined then
 					(
-						local c2 = cinfo[j][1]
+						local c2 = cinfo[j].color
 						local dist = distance c1 c2
 						if dist < threshold then
 						(
-							-- too similar let's join face info
-							-- after fist item cinfo[i][1], each other item is a face info array (cinfo[i][2] == some face data as array
-							-- bring all face datas from cinfo[j] to cinfo[i]
-							for k =  2 to cinfo[j].count do
-							(
-								append cinfo[i] cinfo[j][k]
-							)
+							-- too similar, let's join face info
+							-- bring all face datas from cinfo[j].faces to cinfo[i].faces
+							join cinfo[i].faces cinfo[j].faces
 							--mark this color info for discarding... deletion.. removal... 
 							cinfo[j] = undefined
 							--and be careful
@@ -299,8 +305,15 @@ function BuildPackedBitmap data sizeWH:256 padding:3 =
 			rect.y = row * cellH + ySection
 			rect.w = cellW
 			rect.h = cellH
-			drawRect outBitmap rect (sections[i][j][1] as color)
+			drawRect outBitmap rect (sections[i][j].color as color)
+			--NEW UVs important stuff!
+			local newUV = [0,0]
+			newUV.x = (rect.x + rect.w * 0.5) / sizeWH
+			newUV.y = (rect.y + rect.h * 0.5) / sizeWH
+			sections[i][j].uv = newUV
+			format "% " newUV
 		)
+		format "\n";
 		ySection = ySection + padding + SectionHeights[i]
 	)	
 	display outBitmap
@@ -354,7 +367,7 @@ function NiceColorSorting data =
 (
 	for sec in data[#sections] do
 	(
-		colorPoints = for i = 1 to sec.value.count collect sec.value[i][1];
+		colorPoints = for i = 1 to sec.value.count collect sec.value[i].color;
 		sorted = nnOrder colorPoints
 		newSection = #()
 		for i=1 to sorted.count do
@@ -371,8 +384,55 @@ function PackTexture data =
 	(
 		NiceColorSorting data; 
 		BuildPackedBitmap data;
-		--TODO: Updates UVS with new color positions on bitmap!
 	)
+)
+
+function ExportRepackedUVs data basePath =
+(
+    local tagsCodes = data[#tagsCodes]
+    local tagsCodesDic = data[#tagsCodesDic]
+    local sections = data[#sections]
+
+    -- Build reverse lookup for tagsCodes
+    local tagsByCode = #()
+    for i=1 to tagsCodes.count do tagsByCode[i] = tagsCodes[i]
+
+    -- Add .repacked subfolder to basePath
+    local repackedPath = basePath + ".repacked\\"
+    if not (doesFileExist repackedPath) do makeDir repackedPath
+
+    -- Rebuild file structure in memory
+    local fileData = dictionary #string
+    for secName in sections.keys do
+    (
+        local sec = sections[secName]
+        for plyxel in sec do
+        (
+            for faceInfo in plyxel.faces do
+            (
+                local faceIdx = faceInfo[1]
+                local objCode = faceInfo[2]
+                local sceneCode = faceInfo[3]
+                local objName = tagsByCode[objCode]
+                local sceneName = tagsByCode[sceneCode]
+                local fileName = repackedPath + sceneName + "@" + objName + "@" + secName + ".txt"
+                if fileData[fileName] == undefined do fileData[fileName] = #()
+                append fileData[fileName] #(faceIdx, plyxel.uv)
+            )
+        )
+    )
+
+    -- Write each file once, overwriting
+    for fileName in fileData.keys do
+    (
+        local f = createFile fileName
+        for entry in fileData[fileName] do
+        (
+            format "% %\n" entry[1] entry[2] to:f
+        )
+        close f
+    )
+    format "Done! Exported repacked UVs to .repacked folder.\n"
 )
 
 rollout roll_palCompile "Palette Compilation"
@@ -392,6 +452,7 @@ rollout roll_palCompile "Palette Compilation"
 	)
 	group "" (
 	button btnPackTexture "Build Packed Texture" enabled:false
+	button btnExportUpdatedUV "Export Repacked UVs..." tooltip:"Write updated UVs to files after packing texture" enabled:false
 	)
 	
 	local sectionData = undefined
@@ -410,7 +471,13 @@ rollout roll_palCompile "Palette Compilation"
 			if chkBySection.checked then byThisSection = edtBySection.text
 			Reduction sectionData (edtThreshold.text as number) byThisSection
 		)
-	on btnPackTexture pressed do (PackTexture sectionData) 
+	on btnPackTexture pressed do (
+		PackTexture sectionData
+		btnExportUpdatedUV.enabled = true
+	) 
+	on btnExportUpdatedUV pressed do (
+		ExportRepackedUVs sectionData maxFilePath
+	)
 )
 
 CreateDialog roll_palCompile
