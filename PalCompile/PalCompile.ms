@@ -264,59 +264,64 @@ function drawRect dst_Bitmap rect_box2 col =
 
 function BuildPackedBitmap data sizeWH:256 padding:3 =
 (
-	local TotalCells = 0
-	local SectionCounts = #()
-	local Sections = #()
-	local ii = 0
-	for sec in data[#sections] do
-	(
-		ii = ii + 1
-		TotalCells = TotalCells + sec.value.count
-		SectionCounts[ii] = sec.value.count
-		Sections[ii] = sec.value
-	)	
-	local SectionHeights = #()
-	for i=1 to SectionCounts.count do
-	(
-		local h = ((SectionCounts[i] as float) / TotalCells) * (sizeWH-padding*2)
-		h = ((ceil h) - padding) as integer		
-		SectionHeights[i] = h
+	struct SectionInfo (
+		count,
+		data,
+		height,
+		name
 	)
-	print SectionHeights
-	
-	local ySection = padding
-	local outBitmap = bitmap sizeWH sizeWH color:black
-	for i=1 to SectionHeights.count do
-	(
-		local sectionW = (sizeWH-(padding*2)) 
-		local sectionH = SectionHeights[i]	
-		local bestGrid = findBestLayout sectionW sectionH SectionCounts[i]
-		local cellW = sectionW  / bestGrid[1]
-		local cellH = sectionH  / bestGrid[2]
-		--format "cellW % , cellH %\n" cellW cellH
-		--format "bestGrid[1]=% bestGrid[2]=% \n" bestGrid[1] bestGrid[2]
-		local rect = box2 0 0 1 1
-		for j = 1 to SectionCounts[i] do 
-		(
-			local row = (j-1) / bestGrid[1]
-			local col = mod (j-1) bestGrid[1]	
-			--format "row % col %\n" row col
-			rect.x = padding + col * cellW
-			rect.y = row * cellH + ySection
-			rect.w = cellW
-			rect.h = cellH
-			drawRect outBitmap rect (sections[i][j].color as color)
-			--NEW UVs important stuff!
-			local newUV = [0,0]
-			newUV.x = (rect.x + rect.w * 0.5) / sizeWH
-			newUV.y = (rect.y + rect.h * 0.5) / sizeWH
-			sections[i][j].uv = newUV
-			format "% " newUV
-		)
-		format "\n";
-		ySection = ySection + padding + SectionHeights[i]
-	)	
-	display outBitmap
+    local TotalCells = 0
+    local sectionsInfo = #()
+    local ii = 0
+    for sec in data[#sections] do
+    (
+        ii = ii + 1
+        local count = sec.value.count
+        TotalCells += count
+        append sectionsInfo (SectionInfo count:count data:sec.value height:0 name:sec.key)
+    )
+
+    -- Calculate heights
+    for i = 1 to sectionsInfo.count do
+    (
+        local h = ((sectionsInfo[i].count as float) / TotalCells) * (sizeWH-padding*2)
+        h = ((ceil h) - padding) as integer
+        sectionsInfo[i].height = h
+    )
+
+    -- Sort descending by count
+	fn compare a b = (b.count - a.count)
+    qsort sectionsInfo compare
+
+    local ySection = padding
+    local outBitmap = bitmap sizeWH sizeWH color:black
+    for i = 1 to sectionsInfo.count do
+    (
+        local sectionW = (sizeWH-(padding*2))
+        local sectionH = sectionsInfo[i].height
+        local bestGrid = findBestLayout sectionW sectionH sectionsInfo[i].count
+        local cellW = sectionW / bestGrid[1]
+        local cellH = sectionH / bestGrid[2]
+        local rect = box2 0 0 1 1
+        for j = 1 to sectionsInfo[i].count do
+        (
+            local row = (j-1) / bestGrid[1]
+            local col = mod (j-1) bestGrid[1]
+            rect.x = padding + col * cellW
+            rect.y = row * cellH + ySection
+            rect.w = cellW
+            rect.h = cellH
+            drawRect outBitmap rect (sectionsInfo[i].data[j].color as color)
+            -- NEW UVs important stuff!
+            local newUV = [0,0]
+            newUV.x = (rect.x + rect.w * 0.5) / sizeWH
+            newUV.y = 1.0 - ((rect.y + rect.h * 0.5) / sizeWH)
+            sectionsInfo[i].data[j].uv = newUV           
+        )
+        format "% %\n" sectionsInfo[i].name sectionsInfo[i].count
+        ySection = ySection + padding + sectionsInfo[i].height
+    )
+    display outBitmap
 )
 
 
@@ -435,6 +440,64 @@ function ExportRepackedUVs data basePath =
     format "Done! Exported repacked UVs to .repacked folder.\n"
 )
 
+function ApplyRepackedUVs basePath =
+(
+    local repackedPath = basePath + ".repacked\\"
+    local sceneTag = maxFileName
+    local objs = $selection
+    if objs.count == 0 then objs = objects
+    objs = objs as array
+
+    for obj in objs do
+    (
+        if (classof obj.baseObject) == Editable_Poly then
+        (
+            modPanel.setCurrentObject obj.baseObject
+            local baseObj = obj.baseObject
+
+            -- Find all repacked files for this object (any section)
+            local pattern = repackedPath + sceneTag + "@" + obj.name + "@*.txt"
+            local files = getFiles pattern
+
+            for fileName in files do
+            (
+                format "Applying UVs from: %\n" fileName
+                local f = openFile fileName mode:"r"
+                local faceUVs = #()
+                while not eof f do
+                (
+                    local l = stringstream(readLine f)					
+                    local face = readValue l
+                    local uv = readValue l
+					uv = [uv.x, uv.y, 0]
+                    append faceUVs #(face, uv)
+                )
+                close f
+
+                -- Apply UVs to all verts in the mapFace
+                for pair in faceUVs do
+                (
+                    local faceIdx = pair[1]
+                    local uv = pair[2]
+                    local mapFace = polyop.getMapFace baseObj 1 faceIdx
+                    if isKindOf mapFace Array then
+                    (
+                        for v = 1 to mapFace.count do
+                        (
+                            polyop.setMapVert baseObj 1 mapFace[v] uv
+                        )
+                    )
+                    else
+                    (
+                        format "Warning: mapFace for face % is not an array, got: %\n" faceIdx mapFace
+                    )
+                )
+            )
+        )
+    )
+    format "Done applying repacked UVs.\n"
+)
+
 rollout roll_palCompile "Palette Compilation"
 (
 	group "" (
@@ -454,6 +517,9 @@ rollout roll_palCompile "Palette Compilation"
 	button btnPackTexture "Build Packed Texture" enabled:false
 	button btnExportUpdatedUV "Export Repacked UVs..." tooltip:"Write updated UVs to files after packing texture" enabled:false
 	)
+	group "" (
+		button btnApplyRepackedUV "Apply Repacked UVs" tooltip:"Apply repacked UVs to selected objects"
+	)	
 	
 	local sectionData = undefined
 	
@@ -477,6 +543,9 @@ rollout roll_palCompile "Palette Compilation"
 	) 
 	on btnExportUpdatedUV pressed do (
 		ExportRepackedUVs sectionData maxFilePath
+	)
+	on btnApplyRepackedUV pressed do (
+		ApplyRepackedUVs maxFilePath
 	)
 )
 
