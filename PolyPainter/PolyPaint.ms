@@ -62,22 +62,26 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 				timer timerFill "" interval:1000 active:false
 			)
 			group "Current Color" (
-				imgTag imgCurrColor  width:50 height:35 across:3 
-				spinner spnU "U" range:[0,1,0] type:#float across:3 
-				spinner spnV "V" range:[0,1,0] type:#float across:3 
-				editText editRGBColor "RGB" text:"[0,0,0]" across:4 readonly:true				
-				button btnUV_copy "Copy" across:4 
-				button btnUV_paste "Paste" across:4
-				button btnUV_set "Set" across:4 
+				imgTag imgCurrColor  width:100 height:10 across:2
+				editText editUVs "UV" Text:"[0,0]" 
+				editText editRGBColor "RGB" text:"[0,0,0]" readonly:true across:2
+				editText editPixelCoords "xy" Text:"[0,0]" readonly:true 
+				button btnUV_copy "Copy" across:3
+				button btnUV_paste "Paste" 
+				button btnUV_set "Set" 
 			)						
 			
 			progressBar pbar "" value:0
 			
 			group "Texture remapping & swapping" (
 				button btnSwapMap "Remap with -->" across:3 toolTip:"Remap UV based on texture target, keeping same colors as close as possible"				
-				mapbutton mapBtnSwapMap "<none>" across:3 tooltip:"Select bitmap texture to be replaced with"								
-				checkbox chkNoReplace "Without replace" across:3 checked:false tooltip:"Do not replace with new bitmap when remapping"
-				button btnReplaceFromFile "Replace from other file..." tooltip:"Get the paint from same object in different file and replace"
+				mapbutton mapBtnSwapMap "<none>" tooltip:"Select bitmap texture to be replaced with"								
+				checkbox chkNoReplace "Without replace" checked:false tooltip:"Do not replace with new bitmap when remapping"
+				
+				checkbox chkLimitToSection "Limit to Section:" across:2 checked:false toolTip:"Remap limited to the area [x y width heigh]"
+				editText edtSectionBox "x y w h" text:"0 0 200 100"
+				
+				button btnReplaceFromFile "Replace UVs from other file..." tooltip:"Get the UVs paint from same object in different file and replace"
 			)			
 
 			
@@ -202,7 +206,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 		function updateCurrColor =
 		(	      
 			local diffMap = findMatDiffuseMap masterObj.material
-            copy diffMap.bitmap tempBitmap
+            copy diffMap.bitmap tempBitmap --This resize 1st into 2nd
 						
 			local p = UVtoColor curr_UV 								
 			if p != undefined then
@@ -212,8 +216,8 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 				imgCurrColor.bitmap = colorBitmap
 				
 				-- draw pixel marker                
-				xx = curr_UV.x * tempBitmap.width
-				yy = (1-curr_UV.y) * tempBitmap.height
+				local xx = curr_UV.x * tempBitmap.width
+				local yy = (1-curr_UV.y) * tempBitmap.height
                 for i = 2 to 3 do 
                 (
                     setPixels tempBitmap [xx+1*i, yy] #(color 255 255 255)
@@ -225,10 +229,12 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
                 
 			)
             
-            --set UV coords on spinners
-            spnU.value = curr_UV.x
-            spnV.value = curr_UV.y
-			editRGBColor.text = ((UVGetPixel curr_UV diffMap gamma:false) as point3) as string			
+            --update UV coords on UI
+            editUVs.text = [curr_UV.x, curr_UV.y] as string			
+			editRGBColor.text = ((UVGetPixel curr_UV diffMap gamma:false) as point3) as string
+			local mapx = curr_UV.x * diffMap.bitmap.width;
+			local mapy = (1-curr_UV.y) * diffMap.bitmap.height
+			editPixelCoords.text = [mapx, mapy] as string;						
 		)
 		
 			
@@ -875,7 +881,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 		)
 		
 		--converts bitmap to 2D table -- DEPRECATED
-		function getPixelTable fromBitmap =
+		function __getPixelTable fromBitmap =
 		(
 			pixelTable = #()
 			pixelTable.count = fromBitmap.height
@@ -888,11 +894,12 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 		)
 		
 		--convert bitmap to RLE compressed data
-		function getPixelData fromBitmap =
+		function getPixelData__old fromBitmap  =
 		(			
 			local c = color 0 0 0
-			local last_c = color 0 0 -1
-			local pixelData = #()
+			local last_c = color 0 0 -1			
+			local pixelData = #()			
+
 			for y = 0 to (fromBitmap.height-1) do
 			(
 				local pixels = getPixels fromBitmap [0,y] fromBitmap.width linear:false
@@ -910,6 +917,43 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			(pixelData)
 		)
 		
+		function getPixelData fromBitmap box2limited:undefined =
+		(
+			local c = color 0 0 0
+			local last_c = color 0 0 -1
+			local pixelData = #()
+		
+			local area
+			if box2limited == undefined then
+			(
+				area = box2 0 0 fromBitmap.width fromBitmap.height
+			)
+			else
+			(
+				area = box2 box2limited.x box2limited.y box2limited.w box2limited.h
+				format "Limiting area...\n"
+			)
+		
+			local startX = area.x
+			local startY = area.y
+			local endX = area.x + area.w - 1
+			local endY = area.y + area.h - 1
+		
+			for y = startY to endY do
+			(
+				local pixels = getPixels fromBitmap [startX, y] (endX - startX + 1) linear:false
+				for x = 0 to (pixels.count-1) do
+				(
+					c = pixels[x+1]
+					if c != last_c then
+					(
+						append pixelData #(c, [x + startX, y])
+					)
+					last_c = c
+				)
+			)
+			(pixelData)
+		)
 		
 		-- Find looking down and right diagonal pixels with the same color than
 		-- pos [x,y], then return the one in the middle. 
@@ -993,6 +1037,36 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			( #( found, otherColor) )
 		)
 		
+		function getLimitedSection =
+		(
+			local result = undefined
+			if chkLimitToSection.checked == false then
+				result = undefined
+			else
+			(
+				local vals = filterString edtSectionBox.text " "
+				if vals.count == 4 then
+				(
+					local x = try(vals[1] as float) catch(result = "ERROR")
+					local y = try(vals[2] as float) catch(result = "ERROR")
+					local w = try(vals[3] as float) catch(result = "ERROR")
+					local h = try(vals[4] as float) catch(result = "ERROR")
+					if x != undefined and y != undefined and w != undefined and h != undefined then
+						result = box2 x y w h
+					else
+					(
+						format "Invalid limit numbers: %\n" edtSectionBox.text
+						result = "ERROR"
+					)
+				)
+				else
+				(
+					format "Invalid limit numbers: %\n" edtSectionBox.text
+					result = "ERROR"
+				)
+			)
+			(result)
+		)
 		
 		--- big deal, find closest similar colors from incoming map to remap all UVs
 		function remapTo newBitmap = 
@@ -1005,7 +1079,14 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 				local findFunc 
 				local diffMap = findDiffuseMap theObj
 				
-				pixelData = getPixelData newBitmap
+				local isBoxLimited = getLimitedSection()
+				if isBoxLimited == "ERROR" then
+				(
+					messageBox "Invalid Section input x,y,w,h"	
+					return()
+				)
+				
+				pixelData = getPixelData newBitmap box2limited:isBoxLimited
 				findFunc = findClosestColorData
 				
 				format "Preparing table, elapsed time: %\n" (timeStamp()-t1)
