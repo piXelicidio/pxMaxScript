@@ -55,10 +55,19 @@ function ExportUVSections basePath =
 		if (classof obj.baseObject)==Editable_Poly then
 		(
 			modPanel.setCurrentObject obj.baseObject	
+			local covered = #{}
 
 			for ss in obj.faces.selSetNames do
 			(
-				ExportSelSet obj ss basePath
+				local selFaces = obj.Faces[ss] as bitArray
+				ExportSelSet obj ss selFaces basePath
+				covered += selFaces
+				totalSections += 1
+			)
+			local other = #{1..obj.numFaces} - covered			
+			if not other.isEmpty then
+			(
+				ExportSelSet obj "OTHER" other basePath
 				totalSections += 1
 			)
 		)
@@ -66,9 +75,8 @@ function ExportUVSections basePath =
 	format "Done! Exported sections: %\n" totalSections
 )
 
-function ExportSelSet EditPolyObj NamedSelSet basePath =
-(
-	local SelSet = EditPolyObj.Faces[NamedSelSet]
+function ExportSelSet EditPolyObj SelSetName SelSet basePath =
+(	
 	if SelSet == undefined then 
 	(
 		print "Selection set not found"
@@ -81,16 +89,19 @@ function ExportSelSet EditPolyObj NamedSelSet basePath =
 	
 	if sel.count > 0 then
 	(
-		local outFileName = basePath + maxFileName+"@" +EditPolyObj.name + "@" + NamedSelSet + ".txt"
-		local f = createFile outFileName 
-		for face in sel do 
+		local outFileName = basePath + maxFileName+"@" +EditPolyObj.name + "@" + SelSetName + ".txt"
+		try 
 		(
-			local mapFace = polyop.getMapFace EditPolyObj 1 face
-			local uv = polyop.getMapVert EditPolyObj 1 mapFace[1]
-			local col = UVtoColor uv diffbmp
-			format "% % %\n" face uv col to:f 
-		)
-		close f		
+			local f = createFile outFileName 
+			for face in sel do 
+			(
+				local mapFace = polyop.getMapFace EditPolyObj 1 face
+				local uv = polyop.getMapVert EditPolyObj 1 mapFace[1]
+				local col = UVtoColor uv diffbmp
+				format "% % %\n" face uv col to:f 
+			)
+		) catch()
+		try (close f) catch()
 	) else print "You need to select some faces to make an UV section"
 )
 
