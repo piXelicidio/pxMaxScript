@@ -62,19 +62,23 @@ function getInfo objs =
 		)
 		if (classof obj)==Editable_mesh then eMesh = eMesh + 1
 	)
-	format "num ePOlys: %\n" ePolys
-	format "num eMeshes: %\n" eMesh
 	
-	format "triangles MIN: % MAX: % \n"  minTriangles maxTriangles
-	format "quads  MIN: % MAX: % \n" minQuads maxQuads totalQuads
-	format "finalTris MIN: % MAX: % \n"  minFinalTriangles maxFinalTriangles
-	format "NGons MIN: % MAX: % NGonsCriminal:% \n" minNGons maxNGons maxNGonsCriminal
-	format "verts MIN: % MAX: % \n" minVerts maxVerts	
+	if ePolys > 0 then
+	(
+	
+	
+	
+	format "Triangles % % \t Quads % % \t Polygons % %\n"  minTriangles maxTriangles minQuads maxQuads minNGons maxNGons
+	--if maxNGons > 0 then format "(NGon Criminal: %)\n" maxNGonsCriminal
+	format "Total triangles % % Vertices % % \n"  minFinalTriangles maxFinalTriangles minVerts maxVerts				
+	format "Unique meshes %\n" (ePolys + eMesh)
 	format "\n"
-	format "NGons %\n" totalNGOns
-	format "average triangles % (total %)\n " (totalTriangles /  ePolys)  totalTriangles
 	format "average quads %  (total %)\n" (totalQuads / ePolys ) totalQuads
 	format "average finalTris %  (total %)\n" (finalTriangles / ePolys ) finalTriangles
+	) else
+	(
+		print "No objects"
+	)
 	
 )
 clearListener()
