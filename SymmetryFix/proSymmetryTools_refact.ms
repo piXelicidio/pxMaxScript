@@ -30,7 +30,7 @@
 	local DialogHeight = 600
 	local maxBWidth = DialogWidth - 30
 	--settings
-	usingDllManager = true
+	usingDllManager = false
     dllFuncs = undefined
     -- common functions			
 	
@@ -644,7 +644,8 @@
 				baseObject = obj
 				tt = timeStamp()
 				Print "Finding symmetrical pairs..."
-				FindPairs_dotNet baseObject				
+				--FindPairs_dotNet baseObject				
+				FindPairs baseObject				
 				Format "Processing time: %\n" (timeStamp()-tt)
 				btnPickObject.text = obj.name	
 			) else messageBox "Pick an Editable Poly object" title:"Pro Symmetry Tools"

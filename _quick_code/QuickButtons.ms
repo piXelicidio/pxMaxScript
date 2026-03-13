@@ -5,11 +5,16 @@ macroscript QuickButtons tooltip:"Quick Buttons" category:"pX Tools"
 		button btnPosToZero "Pos to (0,0,0)"
 		button btnScaleToOne "Scale to (1,1,1)"
 		button btnRotationToZero "Rot. to (0,0,0)"
-		group "" (
+		group "select" (
 			button btnSelInvert "Select Invert"
 			button btnSelAll "Select All"
 			button btnSelNone "Select None"			
 		)
+		group "viewport" 
+		(
+			button btnToggleTextures "Toggle Textures"
+		)
+		
 			
 		on btnPosToZero pressed do
 		(
@@ -65,10 +70,16 @@ macroscript QuickButtons tooltip:"Quick Buttons" category:"pX Tools"
 			DestroyDialog Actions 
 		)		
 			
+		on btnToggleTextures pressed do
+		(
+			local view = NitrousGraphicsManager.GetActiveViewportSetting()
+			view.useTextureEnabled = (not view.useTextureEnabled)
+			DestroyDialog Actions
+		)
 	)
 	
 	on execute do	 
 	(
-		CreateDialog Actions 150 200 pos:mouse.screenpos
+		CreateDialog Actions 150 250 pos:mouse.screenpos
 	)
 )
