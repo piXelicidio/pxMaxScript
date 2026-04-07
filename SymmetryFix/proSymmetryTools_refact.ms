@@ -761,12 +761,9 @@
 			api.init $
 			if api.obj != undefined then
 			(
-				ClipboardIndexes = (api.getVertSelection()) as array
-				ClipboardVerts.count = ClipboardIndexes.count
-				for i=1 to ClipboardIndexes.count do in coordsys local
-				(
-					ClipboardVerts[i] = (api.getVert ClipboardIndexes[i])
-				)
+				local vertSel = api.getVertSelection()
+				ClipboardIndexes = vertSel as array
+				ClipboardVerts = api.getVerts vertSel
 				btnPaste.text = ("Paste (" + (ClipboardVerts.count as string) + ") ")
 			)
 		)
@@ -786,22 +783,32 @@
 			(
 				api.init $
 				if api.obj != undefined then (
+					local targetIndices = #{}
+					local targetPairs = #() -- Array to store #(index, mirroredPos)
+					local maxverts = api.getNumVerts()
+					
 					for i=1 to ClipboardIndexes.count do
 					(
-						local maxverts = api.getNumVerts()
 						if ClipboardIndexes[i]<=maxverts then
 						(
 							local opposite = vertsInfo_PairedWith[ ClipboardIndexes[i] ]
-							if opposite != undefined then
+							if opposite != undefined and opposite <= maxverts then
 							(
-								if opposite <= maxverts then
-								(
-									local opvert = copy ClipboardVerts[i] 
-									opvert.x = -opvert.x
-									api.setVert opposite opvert
-								)
+								local opvert = copy ClipboardVerts[i] 
+								opvert.x = -opvert.x
+								append targetPairs #(opposite, opvert)
+								targetIndices[opposite] = true
 							)
 						)
+					)
+
+					if not targetIndices.isEmpty then (
+						-- Ensure positions match bitarray order (ascending index)
+						fn sortByIndex v1 v2 = if v1[1] < v2[1] then -1 else if v1[1] > v2[1] then 1 else 0
+						qsort targetPairs sortByIndex
+						
+						local targetPosArr = for pair in targetPairs collect pair[2]
+						api.setVerts targetIndices targetPosArr
 					)
 				)
 			)
