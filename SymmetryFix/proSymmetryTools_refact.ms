@@ -32,6 +32,69 @@
 	--settings
 	usingDllManager = false
     dllFuncs = undefined
+	
+	-- API Wrapper to abstract Editable_Poly vs Edit_Poly
+	struct PolyAPI (
+		obj, epMod, isEditPoly,
+		fn init o = (
+			obj = o
+			if (classof o) == Editable_poly then (
+				isEditPoly = false
+			) else if (classof (modPanel.getCurrentObject())) == Edit_poly then (
+				isEditPoly = true
+				epMod = modPanel.getCurrentObject()
+			) else (
+				-- fallback
+				isEditPoly = false 
+			)
+		),
+		fn getNumVerts = (
+			if isEditPoly then epMod.GetNumVertices() else polyop.getNumVerts obj
+		),
+		fn getVert i = (
+			if isEditPoly then (
+				(epMod.GetVertex i node:obj) * (inverse obj.transform)
+			) else polyOp.getVert obj i
+		),
+		fn getVerts bs = (
+			if isEditPoly then (
+				local res = #()
+				local invTM = inverse obj.transform
+				for i in bs do append res ((epMod.GetVertex i node:obj) * invTM)
+				res
+			) else (
+				polyOp.getVerts obj bs
+			)
+		),
+		fn setVerts bs pArr = (
+			if isEditPoly then (
+				local arr = pArr as array
+				local tm = obj.transform
+				local c = 1
+				for i in bs do (
+					epMod.SetVert #{i as integer} (arr[c] * tm)
+					c += 1
+				)
+				epMod.Commit()
+			) else (
+				polyOp.setVert obj bs pArr
+			)
+		),
+		fn setVert i p = (
+			if isEditPoly then (
+				epMod.SetVert #{i as integer} (p * obj.transform)
+				epMod.Commit()
+			) else (
+				polyOp.setVert obj i p
+			)
+		),
+		fn getVertSelection = (
+			if isEditPoly then epMod.GetSelection #Vertex else polyop.getVertSelection obj
+		)
+	)
+	
+	local api = PolyAPI()
+
     -- common functions			
 	
 	function SetVertsInfo_count count =
@@ -155,8 +218,16 @@
         )
         
         --	Fix VertsInfo
-        local newVertsInfo = #()
-        newVertsInfo.count = NewVerts.count
+        local n_RightSide = #()
+        local n_LinkedTo = #()
+        local n_PairedWith = #()
+        local n_vPos = #()
+        
+        n_RightSide.count = NewVerts.count
+        n_LinkedTo.count = NewVerts.count
+        n_PairedWith.count = NewVerts.count
+        n_vPos.count = NewVerts.count
+
         print oldVerts.count
         print NewVerts.count			
         for o = 1 to NewIndex.count do
@@ -165,21 +236,25 @@
             local ni = NewIndex[o]
             if ni != undefined then
             (
-                newVertsInfo[ni] = vertsInfo[o]
+                n_RightSide[ni] = vertsInfo_RightSide[o]
+                n_LinkedTo[ni]  = vertsInfo_LinkedTo[o]
+                n_vPos[ni]      = vertsInfo_vPos[o]
+
                 --Updating pairs				
                 local newPair = vertsInfo_PairedWith[o]
                 if newPair!= undefined then
                 (
                     if newPair <= NewIndex.count then newPair = NewIndex[ newPair ] else newPair = undefined
                 )
-                newvertsInfo_PairedWith[ni] = newPair
-                --Updating linkedTo???
-                -- newvertsInfo_LinkedTo[o] =  --linkedTo is a bitArray, its info gets obsolete now, update it IF NEEDED.
-            
+                n_PairedWith[ni] = newPair
             )
         )
         --replace old with new
-        vertsInfo = newVertsInfo
+        vertsInfo_RightSide = n_RightSide
+        vertsInfo_LinkedTo = n_LinkedTo
+        vertsInfo_PairedWith = n_PairedWith
+        vertsInfo_vPos = n_vPos
+        vertsInfo_count = NewVerts.count
     )
 
     
@@ -590,14 +665,16 @@
 			if Flip == unsupplied then Flip = false			
 				
 			-- copy Positive positions to Negative on selected object
-			if ((classof $)==Editable_Poly) then
+			api.init $
+			if api.obj != undefined then
 			(
-				-- TODO: Find Solution. Currently limited to Editable_Poly objects
-				-- there is a problem with Edit_Poly modifier, I can't set vertices: see: https://forums.cgsociety.org/t/help-me-maxscript-and-editpoly/1026305/7 
-				local allSet =  #{1..(polyOp.getNumVerts $)}
-				local allVerts = polyOp.getVerts $ allSet
+				local allSet =  #{1..(api.getNumVerts())}
+				local allVerts
+				in coordsys local (
+					allVerts = api.getVerts allSet
+				)
 				
-				for i=1 to VertsInfo_count do  in coordsys local
+				for i=1 to VertsInfo_count do 
 				(
 					if vertsInfo_RightSide[i] then 
 					(
@@ -632,7 +709,9 @@
 						)						
 					)
 				)
-				polyOp.setVert $ allSet allVerts
+				in coordsys local (
+					api.setVerts allSet allVerts
+				)
 			)
 			--format "Symm op: %ms\n" (timeStamp()-tt)
 		)
@@ -679,13 +758,14 @@
 		
 		on btnCopySel pressed do
 		(
-			if ((classof $)==Editable_poly) then
+			api.init $
+			if api.obj != undefined then
 			(
-				ClipboardIndexes = (polyop.getVertSelection $) as array
+				ClipboardIndexes = (api.getVertSelection()) as array
 				ClipboardVerts.count = ClipboardIndexes.count
 				for i=1 to ClipboardIndexes.count do in coordsys local
 				(
-					ClipboardVerts[i] = (polyop.getVert $ ClipboardIndexes[i])
+					ClipboardVerts[i] = (api.getVert ClipboardIndexes[i])
 				)
 				btnPaste.text = ("Paste (" + (ClipboardVerts.count as string) + ") ")
 			)
@@ -695,7 +775,8 @@
 		(
 			undo label:"Paste Verts" on
 			(
-			polyOp.setVert $ ClipboardIndexes ClipboardVerts
+				api.init $
+				if api.obj != undefined then api.setVerts ClipboardIndexes ClipboardVerts
 			)
 		)
 		
@@ -703,19 +784,22 @@
 		(
 			undo label:"Paste Opposite" on
 			(
-				for i=1 to ClipboardIndexes.count do
-				(
-					local maxverts = $.numVerts
-					if ClipboardIndexes[i]<=maxverts then
+				api.init $
+				if api.obj != undefined then (
+					for i=1 to ClipboardIndexes.count do
 					(
-						local opposite = vertsInfo_PairedWith[ ClipboardIndexes[i] ]
-						if opposite != undefined then
+						local maxverts = api.getNumVerts()
+						if ClipboardIndexes[i]<=maxverts then
 						(
-							if opposite <= maxverts then
+							local opposite = vertsInfo_PairedWith[ ClipboardIndexes[i] ]
+							if opposite != undefined then
 							(
-								local opvert = copy ClipboardVerts[i] 
-								opvert.x = -opvert.x
-								polyOp.setVert $ opposite opvert
+								if opposite <= maxverts then
+								(
+									local opvert = copy ClipboardVerts[i] 
+									opvert.x = -opvert.x
+									api.setVert opposite opvert
+								)
 							)
 						)
 					)
@@ -725,12 +809,13 @@
         
         on btnSwitchSides pressed do 
         (
-            if ((classof $)==Editable_poly) and (SubobjectLevel == 1) then
+			api.init $
+            if (api.obj != undefined) and (SubobjectLevel == 1) then
             (
-                verts = (polyop.getVertSelection $) as array
+                verts = (api.getVertSelection()) as array
                 for i=1 to verts.count do
                 (
-                    if verts[i] < VertsInfo_count then
+                    if verts[i] <= VertsInfo_count then
                     (
                         vertsInfo_RightSide[verts[i]] = not vertsInfo_RightSide[verts[i]]
                     )
