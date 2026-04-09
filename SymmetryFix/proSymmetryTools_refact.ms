@@ -11,9 +11,9 @@
 
 
 --future macro
-struct TpxSymmetryCache (count=0, RightSide=#(), LinkedTo=#(), PairedWith=#(), vPos=#())
+struct TpxSymmetryCache (count=0, RightSide=#(), LinkedTo=#(), PairedWith=#(), vPos=#(), objName="")
 global pxSymmetryGlobalCache
-if pxSymmetryGlobalCache == undefined do pxSymmetryGlobalCache = TpxSymmetryCache()
+if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #objName) do pxSymmetryGlobalCache = TpxSymmetryCache()
 
 (
 	local g_vertsInfo = pxSymmetryGlobalCache
@@ -317,7 +317,7 @@ if pxSymmetryGlobalCache == undefined do pxSymmetryGlobalCache = TpxSymmetryCach
 			button btnNegToPos "R >> L" height:26 width:70  offset:[0,-31] align:#right tooltip:"Mirror from Right to Left"
 			checkbox chkRelative "Relative translation" checked:false tooltip:"Keeps the original position mirroring the offset translation"
 			button btnFlip " Flip Symmetry " width:maxBWidth 
-			button btnRestore "Restore Original" width:maxBWidth
+			button btnRestore "Restore Original" width:maxBWidth tooltip:"Restore selected vertices to their original state. If nothing is selected, restores the entire object."
 		)
 		
 		group "Vertex operations"
@@ -326,7 +326,34 @@ if pxSymmetryGlobalCache == undefined do pxSymmetryGlobalCache = TpxSymmetryCach
 			button btnPaste "Paste" width:maxBWidth
 			button btnPasteMultiple "Paste Multiple" width:maxBWidth
 			button btnPasteOpposite "Paste Opposite" width:maxBWidth
-		)		
+		)
+		
+		function UpdateUISelectionState =
+		(
+			if g_vertsInfo == undefined or g_vertsInfo.count == 0 then (
+				proBar.color = [200,0,0] -- Red
+			) else (
+				local matchingCount = 0
+				local sel = selection as array
+				if sel.count > 0 then (
+					for obj in sel do (
+						local vCount = -1
+						try (
+							if (classof obj.baseObject == Editable_Poly) then vCount = polyop.getNumVerts obj.baseObject
+							else if (isProperty obj #GetNumVertices) then vCount = obj.GetNumVertices()
+						) catch ( vCount = -1 )
+						
+						if vCount == g_vertsInfo.count do matchingCount += 1
+					)
+					
+					if matchingCount == sel.count then proBar.color = [0,255,0] -- Green
+					else if matchingCount > 0 then proBar.color = [255,255,0] -- Yellow
+					else proBar.color = [255,165,0] -- Orange
+				) else (
+					proBar.color = [255,165,0] -- Orange (data exists but nothing selected)
+				)
+			)
+		)
 
 		/*----------  Advanced FindPairs Algorithm  -----------------		 
 		 
@@ -729,7 +756,9 @@ if pxSymmetryGlobalCache == undefined do pxSymmetryGlobalCache = TpxSymmetryCach
 				--FindPairs_dotNet baseObject				
 				FindPairs baseObject				
 				Format "Processing time: %\n" (timeStamp()-tt)
-				btnPickObject.text = obj.name	
+				btnPickObject.text = obj.name
+				g_vertsInfo.objName = obj.name
+				UpdateUISelectionState()
 			) else messageBox "Pick an Editable Poly object" title:"Pro Symmetry Tools"
 		)
 		
@@ -756,6 +785,26 @@ if pxSymmetryGlobalCache == undefined do pxSymmetryGlobalCache = TpxSymmetryCach
 			undo label:"Symmetry Flip" on
 			(
 			MakeSymmetrical Flip:true Axis:"x"
+			)
+		)
+		
+		on btnRestore pressed do in coordsys local
+		(
+			undo label:"Restore Original" on
+			(
+				api.init $
+				if api.obj != undefined then
+				(
+					local vertSel = api.getVertSelection()
+					if vertSel.isEmpty do vertSel = #{1..(api.getNumVerts())}
+					
+					if not vertSel.isEmpty then
+					(
+						local posArr = for i in vertSel collect g_vertsInfo.vPos[i]
+						api.setVerts vertSel posArr
+						format "Restored % vertices to original positions.\n" vertSel.numberSet
+					)
+				)
 			)
 		)
 		
@@ -852,6 +901,19 @@ if pxSymmetryGlobalCache == undefined do pxSymmetryGlobalCache = TpxSymmetryCach
                 )
             )
         )
+		
+		on roll_proSymmetryTools open do
+		(
+			if g_vertsInfo.objName != "" do btnPickObject.text = g_vertsInfo.objName
+			UpdateUISelectionState()
+			callbacks.removeScripts id:#pxSymmetryCallbacks
+			callbacks.addScript #selectionSetChanged roll_proSymmetryTools.UpdateUISelectionState id:#pxSymmetryCallbacks
+		)
+		
+		on roll_proSymmetryTools close do
+		(
+			callbacks.removeScripts id:#pxSymmetryCallbacks
+		)
 		
 		
 	)--rollout roll_proSymmetryTools ---------
