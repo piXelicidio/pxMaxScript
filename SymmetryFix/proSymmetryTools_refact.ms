@@ -70,14 +70,23 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 		),
 		fn setVerts bs pArr = (
 			if isEditPoly then (
-				local arr = pArr as array
+				-- Simple optimizations: pre-calculate transforms and reuse a bitarray
 				local tm = obj.transform
+				local worldPosArr = for p in pArr collect p * tm
 				local c = 1
-				for i in bs do (
-					epMod.SetVert #{i as integer} (arr[c] * tm)
-					c += 1
+				local theMod = epMod
+				local vBit = #{}
+				
+				max modify mode -- Basic requirement for Edit_Poly commands to land
+				with redraw off (
+					for i in bs do (
+						vBit[i] = true
+						theMod.SetVert vBit worldPosArr[c]
+						vBit[i] = false
+						c += 1
+					)
+					theMod.Commit()
 				)
-				epMod.Commit()
 			) else (
 				polyOp.setVert obj bs pArr
 			)
@@ -97,10 +106,10 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 			if isEditPoly then (
 				-- SetSelection successfully clears, but is broken for adding bits.
 				-- We clear it first, then use the proven .Select method to apply the new bits.
+				 if subObjectLevel == 0 then subObjectLevel = 1
 				epMod.SetSelection #Vertex #{}
 				epMod.Select #Vertex bs
 				
-				if subObjectLevel == 0 then subObjectLevel = 1
 			) else (
 				polyop.setVertSelection obj bs
 			)
