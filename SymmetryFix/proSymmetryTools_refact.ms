@@ -977,7 +977,7 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 		checkbox chkEnabledSym "Enabled Sym. Op." checked:true tooltip:"When disabled the Edits are not mirrored."
 		button btnDelete "Delete" 
 		button btnConnect "Connect"
-		button btn3 "btn1"
+		button btnCollapse "Collapse"
 		button btn4 "btn1"
 		button btn5 "btn1"
 		button btn6 "btn1"		
@@ -1128,6 +1128,80 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 				)
 			)			
 		)--on btnConnect pressed
+		
+		on btnCollapse pressed do in coordsys local undo on
+		(
+			if ((classof $) == Editable_Poly) then
+			(
+				if SubObjectLevel == 1 then
+				(
+					local vertSel = polyOp.getVertSelection $
+					local verts = vertSel as array
+					
+					if verts.count == 2 then
+					(
+						local v1 = verts[1]
+						local v2 = verts[2]
+						local p1 = polyOp.getVert $ v1
+						local p2 = polyOp.getVert $ v2
+						local midPos = (p1 + p2) / 2.0
+						
+						local weldSet = #{v1, v2}
+						
+						-- Move primary pair to midpoint
+						polyOp.setVert $ v1 midPos
+						polyOp.setVert $ v2 midPos
+						
+						-- Address Symmetry Mirrors
+						if chkEnabledSym.checked then
+						(
+							local v3 = g_vertsInfo.PairedWith[v1]
+							local v4 = g_vertsInfo.PairedWith[v2]
+							
+							if (v3 != undefined) and (v4 != undefined) and (v3 != v1) and (v4 != v2) then
+							(
+								local midPosMirr = copy midPos
+								midPosMirr.x = -midPosMirr.x
+								
+								polyOp.setVert $ v3 midPosMirr
+								polyOp.setVert $ v4 midPosMirr
+								
+								weldSet[v3] = true
+								weldSet[v4] = true
+							)
+						)
+						
+						-- Update the "Original" position to be the new merged location
+						g_vertsInfo.vPos[v1] = midPos
+						if (chkEnabledSym.checked and (v3 != undefined)) do g_vertsInfo.vPos[v3] = midPosMirr
+
+						-- Setup spatial snapshot NOW (after moves, before topology break) 
+						-- to recover indexes after survivors shift
+						local vCount = polyOp.getNumVerts $
+						local oldVerts = #()
+						oldVerts.count = vCount
+						for i=1 to vCount do oldVerts[i] = polyOp.getVert $ i
+						
+						-- Execute Max Native Rewiring
+						$.weldThreshold = 0.001
+						polyOp.weldVertsByThreshold $ weldSet
+						
+						-- Restore logic structures
+						local newCount = polyOp.getNumVerts $
+						local newVerts = #()
+						newVerts.count = newCount
+						for i=1 to newCount do newVerts[i] = polyOp.getVert $ i
+						
+						DetectNewVertsOrder oldVerts newVerts
+						
+						-- Update interface
+						polyOp.setVertSelection $ #{}
+						update $
+					) 
+					else messageBox "Please, select exactly 2 vertices."
+				)
+			)
+		)--on btnCollapse
 		
 	)--rollout roll_EditGeometry ---end --
 	
