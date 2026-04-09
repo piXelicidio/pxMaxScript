@@ -92,6 +92,38 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 		),
 		fn getVertSelection = (
 			if isEditPoly then epMod.GetSelection #Vertex else polyop.getVertSelection obj
+		),
+		fn setVertSelection bs = (
+			if isEditPoly then (
+				-- SetSelection successfully clears, but is broken for adding bits.
+				-- We clear it first, then use the proven .Select method to apply the new bits.
+				epMod.SetSelection #Vertex #{}
+				epMod.Select #Vertex bs
+				
+				if subObjectLevel == 0 then subObjectLevel = 1
+			) else (
+				polyop.setVertSelection obj bs
+			)
+		),
+		fn selectModified pArr tolerance = (
+			local num = getNumVerts()
+			local diffBS = #{}
+			if isEditPoly then (
+				local invTM = inverse obj.transform
+				for i = 1 to num do (
+					local p = (epMod.GetVertex i node:obj) * invTM
+					if (i <= pArr.count) and ((distance p pArr[i]) > tolerance) do diffBS[i] = true
+				)
+			) else (
+				-- Optimized for Editable_Poly
+				local currentPosArr
+				in coordsys local ( currentPosArr = polyop.getVerts obj #{1..num} )
+				for i = 1 to num do (
+					if (i <= pArr.count) and ((distance currentPosArr[i] pArr[i]) > tolerance) do diffBS[i] = true
+				)
+			)
+			setVertSelection diffBS
+			diffBS
 		)
 	)
 	
@@ -326,6 +358,7 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 			button btnPaste "Paste" width:maxBWidth
 			button btnPasteMultiple "Paste Multiple" width:maxBWidth
 			button btnPasteOpposite "Paste Opposite" width:maxBWidth
+			button btnSelectDiff "Select Diff" width:maxBWidth
 		)
 		
 		function UpdateUISelectionState =
@@ -753,8 +786,8 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 				baseObject = obj
 				tt = timeStamp()
 				Print "Finding symmetrical pairs..."
-				--FindPairs_dotNet baseObject				
-				FindPairs baseObject				
+				FindPairs_dotNet baseObject				
+				--FindPairs baseObject				
 				Format "Processing time: %\n" (timeStamp()-tt)
 				btnPickObject.text = obj.name
 				g_vertsInfo.objName = obj.name
@@ -883,6 +916,17 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 						api.setVerts targetIndices targetPosArr
 					)
 				)
+			)
+		)
+
+		on btnSelectDiff pressed do 
+		(
+			api.init $
+			if g_vertsInfo.count > 0 and api.obj != undefined then (
+				local diff = api.selectModified g_vertsInfo.vPos Tolerance
+				format "Select Diff: % vertices found.\n" diff.numberSet
+				--UpdateUISelectionState()
+				--forceCompleteRedraw()
 			)
 		)
         
