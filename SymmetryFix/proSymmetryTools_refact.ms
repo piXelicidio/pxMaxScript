@@ -28,8 +28,8 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 	local ClipboardIndexes = #() --array of indices;
 	local ClipboardVerts = #() --array of verts
 	
-	local DialogWidth = 200
-	local DialogHeight = 600
+	local DialogWidth = 250
+	local DialogHeight = 800
 	local maxBWidth = DialogWidth - 30
 	--settings
 	usingDllManager = false
@@ -974,63 +974,80 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 		
 	rollout roll_EditGeometry "Edit Geometry Symmetrical" ----------------------------------
 	(
-		checkbox chkEnabledSym "Enabled Sym. Op." checked:true tooltip:"When disabled the Edits are not mirrored."
+		checkbox chkEnabledSym "Enabled Sym. Ops." checked:true tooltip:"Mirror edit operations"
 		button btnDelete "Delete" 
 		button btnConnect "Connect"
 		button btnCollapse "Collapse"
-		button btn4 "btn1"
-		button btn5 "btn1"
-		button btn6 "btn1"		
+		local targetObjects = #()
+		group "Batch Operations" (
+			checkbox chkApplyToTargets "Apply Edits to Targets" checked:false
+			button btnPickTargets "Pick Targets..." tooltip:"Select objects to apply geometry Ops. to." width:maxBWidth
+			listbox lstTargets "Target Objects:" height:3
+		)
+		
+		fn getObjectsToProcess masterObj = (
+			local list = #(masterObj)
+			if chkApplyToTargets.checked then (
+				for t in targetObjects where isValidNode t and (classOf t.baseObject == Editable_Poly) do (
+					appendIfUnique list t
+				)
+			)
+			list
+		)
+		
+		on btnPickTargets pressed do (
+			local selectionList = selectByName title:"Select Target Objects (Matching Topology)" filter:(fn pFilter o = classOf o.baseObject == Editable_Poly)
+			if selectionList != undefined then (
+				targetObjects = selectionList as array
+				lstTargets.items = for o in targetObjects collect o.name
+			)
+		)
 		
 		on btnDelete pressed do undo on
 		(
 			if ( (classof $ ) == Editable_Poly) then
 			(
-				--Vertices?
+				local masterO = $
+				local objs = getObjectsToProcess masterO
+				local vertSel = polyOp.getVertSelection masterO
+				local oldVerts = #()
+				local oldVertCount = polyOp.getNumVerts masterO
 				
-					local vertSel = polyOp.getVertSelection $
-					local oldVerts = #()
-					local newVerts = #()
-					
-					--saving old estate
-					oldVerts.count = polyOp.getNumVerts $
-					for i=1 to oldVerts.count do
+				-- saving old state of master Object
+				oldVerts.count = oldVertCount
+				for i=1 to oldVertCount do oldVerts[i] = polyOp.getVert masterO i
+				
+				-- destructive operation
+				if SubObjectLevel == 1 then
+				(
+					if chkEnabledSym.checked then
 					(
-						oldVerts[i] = polyOp.getVert $ i
+						local mirrSel = mirrorVertSel vertSel
+						vertSel = vertSel + mirrSel
 					)
-					
-					-- destructive operation
-                    if SubObjectLevel == 1 then
-                    (
-                        if chkEnabledSym.checked then
-                        (
-                            local mirrSel = mirrorVertSel vertSel
-                            vertSel = vertSel + mirrSel
-                        )
-                        polyOp.deleteVerts $ vertSel
-                   ) else if SubObjectLevel == 4 then
-                   (
-                       local faceSel = polyOp.getFaceSelection $
-                       if chkEnabledSym.checked then
-                       (
-                           local mirrSel = mirrorFaceSel $ faceSel
-                           faceSel = faceSel + mirrSel
-                       )
-                       polyOp.deleteFaces $ faceSel                       
-                   )
-                   
-                   
-					
-					-- restoring the order verts info
-					newVerts.count = polyOp.getNumVerts $
-					for i=1 to newVerts.count do
+					for o in objs where (polyOp.getNumVerts o.baseObject == oldVertCount) do (
+						polyOp.deleteVerts o.baseObject vertSel
+					)
+				) else if SubObjectLevel == 4 then
+				(
+					local faceSel = polyOp.getFaceSelection masterO
+					if chkEnabledSym.checked then
 					(
-						newVerts[i] = polyOp.getVert $ i
-					)                    
-                    
-					DetectNewVertsOrder OldVerts NewVerts
-					
+						local mirrSel = mirrorFaceSel masterO faceSel
+						faceSel = faceSel + mirrSel
+					)
+					for o in objs where (polyOp.getNumVerts o.baseObject == oldVertCount) do (
+						polyOp.deleteFaces o.baseObject faceSel
+					)
+				)
 				
+				-- restoring the order verts info based on master
+				local newVertCount = polyOp.getNumVerts masterO
+				local newVerts = #()
+				newVerts.count = newVertCount
+				for i=1 to newVertCount do newVerts[i] = polyOp.getVert masterO i
+				
+				DetectNewVertsOrder oldVerts newVerts
 			)
 		)--on btnDelete
 		
@@ -1038,88 +1055,98 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 		(
 			if ( (classof $ ) == Editable_Poly) then
 			(
-				--Vertices?
+				local masterO = $
+				local objs = getObjectsToProcess masterO
+				local oldVertCount = polyOp.getNumVerts masterO
+
 				if SubObjectLevel == 1 then
 				(
-					local vertSel = polyOp.getVertSelection $					
+					local vertSel = polyOp.getVertSelection masterO					
 					local verts = vertSel as array
 					
 					if verts.count == 2 then
 					(
-						polyOp.createEdge $ verts[1] verts[2]
+						for o in objs where (polyOp.getNumVerts o.baseObject == oldVertCount) do (
+							polyOp.createEdge o.baseObject verts[1] verts[2]
+						)
+						
 						if chkEnabledSym.checked then
 						(
 							local mirrSel = mirrorVertSel vertSel						
-							verts =mirrSel as array
-							polyOp.createEdge $ verts[1] verts[2]
+							local mirrVerts = mirrSel as array
+							if mirrVerts.count == 2 then (
+								for o in objs where (polyOp.getNumVerts o.baseObject == oldVertCount) do (
+									polyOp.createEdge o.baseObject mirrVerts[1] mirrVerts[2]
+								)
+							)
 						)
-						update $
+						for o in objs do update o
 					) else messageBox "Please, select 2 vertices."
 					
 				) else if SubObjectLevel == 2 then
 				( 
 					-- edges
-					local edgeSel = polyOp.getEdgeSelection $
+					local edgeSel = polyOp.getEdgeSelection masterO
 					local edges = edgeSel as array
 					if edges.count == 2 then 
 					(
-						if AreEdgesOnSameFace $ edges then
+						if AreEdgesOnSameFace masterO edges then
 						(			
+							local edgeVerts1 = polyop.getEdgeVerts masterO edges[1]
+							local edgeVerts2 = polyop.getEdgeVerts masterO edges[2]
 							
-							--  store the original verts of each edge
-							local edgeVerts1 = polyop.getEdgeVerts $ edges[1]
-							local edgeVerts2 = polyop.getEdgeVerts $ edges[2]
-							
-							-- divide the edges, connect the two new vertices
-							local v1 = polyop.divideEdge $ edges[1] 0.5
-							local v2 = polyop.divideEdge $ edges[2] 0.5
-							local v3 = undefined
-							local v4 = undefined
-							polyOp.createEdge $ v1 v2
-							
-							-- find the Symmetrical EdgeVerts
-							edgeVerts1[1] = g_vertsInfo.PairedWith[ edgeVerts1[1] ]
-							edgeVerts1[2] = g_vertsInfo.PairedWith[ edgeVerts1[2] ]
-							edgeVerts2[1] = g_vertsInfo.PairedWith[ edgeVerts2[1] ]
-							edgeVerts2[2] = g_vertsInfo.PairedWith[ edgeVerts2[2] ]
-							
-							--if any of them are undefined end of story
-							if (edgeVerts1[1] != undefined) and (edgeVerts1[2] != undefined) and
-							   (edgeVerts2[1] != undefined) and (edgeVerts2[2] != undefined) then
-							(
-								--get the correspondant edges
-								local edge1 = getEdgeByVerts $ edgeVerts1
-								local edge2 = getEdgeByVerts $ edgeVerts2						
-								if (edge1 != undefined) and (edge2 != undefined) then
-								(
-									v3 = polyop.divideEdge $ edge1 0.5
-									v4 = polyop.divideEdge $ edge2 0.5
-									polyop.createEdge $ v3 v4
+							local mEdges = undefined
+							if chkEnabledSym.checked then (
+								local me1v = mirrorVerts edgeVerts1
+								local me2v = mirrorVerts edgeVerts2
+								if me1v.count == 2 and me2v.count == 2 then (
+									local me1 = getEdgeByVerts masterO me1v
+									local me2 = getEdgeByVerts masterO me2v
+									if me1 != undefined and me2 != undefined then mEdges = #(me1, me2)
 								)
-							)						  
+							)
 							
-							--TODO: update/add the new vertices to VertsInfo data
-							-- because potato we know the new vertices are added to the end, so expand arrays
-							SetGVertsInfo_count (polyOp.getNumVerts $)							
-							local v1Pos = polyOp.getVert $ v1
-							local v2Pos = polyOp.getVert $ v2
-							g_vertsInfo.RightSide[v1] = (v1Pos.x >= 0)
-							g_vertsInfo.RightSide[v2] = (v2Pos.x >= 0)
-							g_vertsInfo.vPos[v1] = v1Pos
-							g_vertsInfo.vPos[v2] = v2Pos						
-							if (v3 != undefined) and (v3 != undefined) then 
-							(								
-								local v3Pos = polyOp.getVert $ v3
-								local v4Pos = polyOp.getVert $ v4
-								g_vertsInfo.RightSide[ v3 ] = (v3Pos.x >= 0 );
-								g_vertsInfo.RightSide[ v4 ] = (V4Pos.x >= 0);
-								g_vertsInfo.vPos[v3] = v3Pos
-								g_vertsInfo.vPos[v4] = v4Pos
-								-- pairing
-								g_vertsInfo.PairedWith[v1] = v3
-								g_vertsInfo.PairedWith[v3] = v1
-								g_vertsInfo.PairedWith[v2] = v4
-								g_vertsInfo.PairedWith[v4] = v2
+							local v1_master, v2_master, v3_master, v4_master
+							
+							for o in objs where (polyOp.getNumVerts o.baseObject == oldVertCount) do (
+								local v1 = polyop.divideEdge o.baseObject edges[1] 0.5
+								local v2 = polyop.divideEdge o.baseObject edges[2] 0.5
+								polyOp.createEdge o.baseObject v1 v2
+								
+								if o == masterO then (v1_master = v1 ; v2_master = v2)
+								
+								if mEdges != undefined then (
+									local v3 = polyop.divideEdge o.baseObject mEdges[1] 0.5
+									local v4 = polyop.divideEdge o.baseObject mEdges[2] 0.5
+									polyOp.createEdge o.baseObject v3 v4
+									if o == masterO then (v3_master = v3 ; v4_master = v4)
+								)
+								update o
+							)
+							
+							-- Update Master Symmetry Info
+							if v1_master != undefined and v2_master != undefined then (
+								SetGVertsInfo_count (polyOp.getNumVerts masterO)
+								local v1Pos = polyOp.getVert masterO v1_master
+								local v2Pos = polyOp.getVert masterO v2_master
+								g_vertsInfo.RightSide[v1_master] = (v1Pos.x >= 0)
+								g_vertsInfo.RightSide[v2_master] = (v2Pos.x >= 0)
+								g_vertsInfo.vPos[v1_master] = v1Pos
+								g_vertsInfo.vPos[v2_master] = v2Pos
+								
+								if v3_master != undefined and v4_master != undefined then (
+									local v3Pos = polyOp.getVert masterO v3_master
+									local v4Pos = polyOp.getVert masterO v4_master
+									g_vertsInfo.RightSide[v3_master] = (v3Pos.x >= 0)
+									g_vertsInfo.RightSide[v4_master] = (v4Pos.x >= 0)
+									g_vertsInfo.vPos[v3_master] = v3Pos
+									g_vertsInfo.vPos[v4_master] = v4Pos
+									
+									g_vertsInfo.PairedWith[v1_master] = v3_master
+									g_vertsInfo.PairedWith[v3_master] = v1_master
+									g_vertsInfo.PairedWith[v2_master] = v4_master
+									g_vertsInfo.PairedWith[v4_master] = v2_master
+								)
 							)
 							
 						) else messageBox "Please, select 2 edges on the same face."
@@ -1133,70 +1160,76 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 		(
 			if ((classof $) == Editable_Poly) then
 			(
+				local masterO = $
+				local objs = getObjectsToProcess masterO
+				local oldVertCount = polyOp.getNumVerts masterO
+
 				if SubObjectLevel == 1 then
 				(
-					local vertSel = polyOp.getVertSelection $
+					local vertSel = polyOp.getVertSelection masterO
 					local verts = vertSel as array
 					
 					if verts.count == 2 then
 					(
 						local v1 = verts[1]
 						local v2 = verts[2]
-						local p1 = polyOp.getVert $ v1
-						local p2 = polyOp.getVert $ v2
+						local p1 = polyOp.getVert masterO v1
+						local p2 = polyOp.getVert masterO v2
 						local midPos = (p1 + p2) / 2.0
 						
+						local v3 = undefined
+						local v4 = undefined
+						local midPosMirr = undefined
 						local weldSet = #{v1, v2}
 						
-						-- Move primary pair to midpoint
-						polyOp.setVert $ v1 midPos
-						polyOp.setVert $ v2 midPos
-						
-						-- Address Symmetry Mirrors
 						if chkEnabledSym.checked then
 						(
-							local v3 = g_vertsInfo.PairedWith[v1]
-							local v4 = g_vertsInfo.PairedWith[v2]
+							v3 = g_vertsInfo.PairedWith[v1]
+							v4 = g_vertsInfo.PairedWith[v2]
 							
 							if (v3 != undefined) and (v4 != undefined) and (v3 != v1) and (v4 != v2) then
 							(
-								local midPosMirr = copy midPos
+								midPosMirr = copy midPos
 								midPosMirr.x = -midPosMirr.x
-								
-								polyOp.setVert $ v3 midPosMirr
-								polyOp.setVert $ v4 midPosMirr
-								
 								weldSet[v3] = true
 								weldSet[v4] = true
 							)
 						)
-						
-						-- Update the "Original" position to be the new merged location
-						g_vertsInfo.vPos[v1] = midPos
-						if (chkEnabledSym.checked and (v3 != undefined)) do g_vertsInfo.vPos[v3] = midPosMirr
 
-						-- Setup spatial snapshot NOW (after moves, before topology break) 
-						-- to recover indexes after survivors shift
-						local vCount = polyOp.getNumVerts $
-						local oldVerts = #()
-						oldVerts.count = vCount
-						for i=1 to vCount do oldVerts[i] = polyOp.getVert $ i
+						-- Batch reposition and capture snapshot for Master BEFORE weld
+						-- but we move everyone to target first
+						for o in objs where (polyOp.getNumVerts o.baseObject == oldVertCount) do (
+							local base = o.baseObject
+							polyOp.setVert base v1 midPos
+							polyOp.setVert base v2 midPos
+							if midPosMirr != undefined then (
+								polyOp.setVert base v3 midPosMirr
+								polyOp.setVert base v4 midPosMirr
+							)
+						)
+
+						-- Update "Original" position for Master before snapshot
+						g_vertsInfo.vPos[v1] = midPos
+						if (midPosMirr != undefined and v3 != undefined) do g_vertsInfo.vPos[v3] = midPosMirr
+
+						-- Spatial Snapshot of Master
+						local oldVerts = for i=1 to oldVertCount collect (polyOp.getVert masterO i)
 						
-						-- Execute Max Native Rewiring
-						$.weldThreshold = 0.001
-						polyOp.weldVertsByThreshold $ weldSet
+						-- Execute Max Native Rewiring for all
+						for o in objs where (polyOp.getNumVerts o.baseObject == oldVertCount) do (
+							o.weldThreshold = 0.001
+							polyOp.weldVertsByThreshold o.baseObject weldSet
+							update o
+						)
 						
-						-- Restore logic structures
-						local newCount = polyOp.getNumVerts $
-						local newVerts = #()
-						newVerts.count = newCount
-						for i=1 to newCount do newVerts[i] = polyOp.getVert $ i
+						-- Restore logic structures based on master survivors
+						local newCount = polyOp.getNumVerts masterO
+						local newVerts = for i=1 to newCount collect (polyOp.getVert masterO i)
 						
 						DetectNewVertsOrder oldVerts newVerts
 						
 						-- Update interface
-						polyOp.setVertSelection $ #{}
-						update $
+						polyOp.setVertSelection masterO #{}
 					) 
 					else messageBox "Please, select exactly 2 vertices."
 				)
