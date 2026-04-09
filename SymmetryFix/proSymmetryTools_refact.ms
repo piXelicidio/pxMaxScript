@@ -1,9 +1,10 @@
 -- Pro Symmetry Tools 
 -- Denys Almaral
 
--- Iplement similar funcionality of 3ds Max symmetry tool and extends with useful advanced features..
+-- Implement similar funcionality of 3ds Max Symmetry Tool and extends with useful advanced features..
 
 --TODO:
+-- ISSUE: paste vertices from Editable_Poly to Edit_Poly modifier has syscoord issues
 -- collapse vertices, weld
 -- Symmetry attach! Powerful thingy (think about UV mapping)
 -- extrude face, edge
@@ -311,8 +312,8 @@
 		
 		group "Make Symmetrical"
 		(
-			button btnPosToNeg "+ to -"  height:26 width:70 align:#left
-			button btnNegToPos "- to +" height:26 width:70  offset:[0,-31] align:#right
+			button btnPosToNeg "R << L"  height:26 width:70 align:#left tooltip:"Mirror from Left to Right"
+			button btnNegToPos "R >> L" height:26 width:70  offset:[0,-31] align:#right tooltip:"Mirror from Right to Left"
 			checkbox chkRelative "Relative translation" checked:false tooltip:"Keeps the original position mirroring the offset translation"
 			button btnFlip " Flip Symmetry " width:maxBWidth 
 			button btnRestore "Restore Original" width:maxBWidth
@@ -322,6 +323,7 @@
 		(
 			button btnCopySel "Copy Selected" width:maxBWidth
 			button btnPaste "Paste" width:maxBWidth
+			button btnPasteMultiple "Paste Multiple" width:maxBWidth
 			button btnPasteOpposite "Paste Opposite" width:maxBWidth
 		)		
 
@@ -756,7 +758,7 @@
 			)
 		)
 		
-		on btnCopySel pressed do
+		on btnCopySel pressed do in coordsys local
 		(
 			api.init $
 			if api.obj != undefined then
@@ -774,6 +776,26 @@
 			(
 				api.init $
 				if api.obj != undefined then api.setVerts ClipboardIndexes ClipboardVerts
+			)
+		)
+
+		on btnPasteMultiple pressed do in coordsys local
+		(
+			undo label:"Paste Multiple Verts" on
+			(
+				for obj in selection do
+				(
+					if classof obj.baseObject == Editable_Poly then
+					(
+						try (
+							polyOp.setVert obj.baseObject ClipboardIndexes ClipboardVerts
+						) catch (
+							format "Warning: Paste Multiple failed on object: %\n" obj.name
+						)
+						update obj
+					)
+				)
+				redrawViews()				
 			)
 		)
 		
