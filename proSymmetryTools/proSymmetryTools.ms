@@ -694,6 +694,7 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 			if usingDllManager and (dllManager!=undefined) then
 			(
 				result = dllManager.callMethod "Symmetry.Functions.FindPairs" args:#(csVerts, csVertConnections)
+				print "DLL functions vis DLL Manager"
 			) else
 			(
 				--standard call to .net functions

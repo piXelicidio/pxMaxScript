@@ -1,0 +1,6 @@
+F:\_px\3D\MaxScripts\proSymmetryTools\dotnet\symmetry\obj\Debug\symmetry.csproj.AssemblyReference.cache
+F:\_px\3D\MaxScripts\proSymmetryTools\dotnet\symmetry\obj\Debug\symmetry.csproj.CoreCompileInputs.cache
+F:\_px\3D\MaxScripts\proSymmetryTools\dotnet\symmetry\obj\Debug\symmetry.dll
+F:\_px\3D\MaxScripts\proSymmetryTools\dotnet\symmetry\obj\Debug\symmetry.pdb
+F:\_px\3D\MaxScripts\proSymmetryTools\dotnet\symmetry\symmetry.dll
+F:\_px\3D\MaxScripts\proSymmetryTools\dotnet\symmetry\symmetry.pdb

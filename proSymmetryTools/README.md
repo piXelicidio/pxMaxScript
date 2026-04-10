@@ -1,6 +1,6 @@
 # pX proSymmetryTools
 
-![preview](https://github.com/piXelicidio/pxMaxScript/raw/master/SymmetryFix/preview_SymmetryFixTool.gif)
+![preview](preview_SymmetryFixTool.gif)
 
 Advanced symmetry tool that can fix the broken symmetry of a model. And do additional symmetrical edit operations.
 
