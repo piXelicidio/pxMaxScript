@@ -32,8 +32,52 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 	local DialogHeight = 800
 	local maxBWidth = DialogWidth - 30
 	--settings
-	usingDllManager = false
+	usingDllManager = true
     dllFuncs = undefined
+
+	fn SetEditPolyVerts_DotNet node epModifier vertSet posArray =
+	(
+		local indexArr = if (isKindOf vertSet BitArray) then (vertSet as array) else vertSet
+		if indexArr.count != posArray.count then return false
+
+		local TIntArray = dotNetClass "System.Int32[]"
+		local TArrayArrayFloat = dotNetClass "System.Single[][]"
+		local TUInt64 = dotNetClass "System.UInt64"
+
+		local csIndices = dotNet.valueToDotNetObject indexArr TIntArray
+		local csPositions = dotNet.valueToDotNetObject posArray TArrayArrayFloat
+		local modifierHandle = dotNet.valueToDotNetObject (getHandleByAnim epModifier) TUInt64
+		local nodeHandle = dotNet.valueToDotNetObject (getHandleByAnim node) TUInt64
+
+		if usingDllManager then
+		(
+			if dllManager == undefined then
+			(
+				format "DLLManager mode is enabled but dllManager is undefined.\n"
+				return false
+			)
+			try (
+				dllManager.callMethod "Symmetry.Functions.SetEditPolyVerts" args:#(modifierHandle, nodeHandle, csIndices, csPositions)
+			) catch (
+				format "DLLManager SetEditPolyVerts failed: %\n" (getCurrentException())
+				false
+			)
+		) else
+		(
+			if dllFuncs == undefined do LoadDLL()
+			if dllFuncs == undefined then
+			(
+				format "Direct DLL mode failed: Symmetry.Functions is not loaded.\n"
+				return false
+			)
+			try (
+				dllFuncs.SetEditPolyVerts modifierHandle nodeHandle csIndices csPositions
+			) catch (
+				format "Direct SetEditPolyVerts call failed: %\n" (getCurrentException())
+				false
+			)
+		)
+	)
 	
 	-- API Wrapper to abstract Editable_Poly vs Edit_Poly
 	struct PolyAPI (
@@ -70,22 +114,9 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 		),
 		fn setVerts bs pArr = (
 			if isEditPoly then (
-				-- Simple optimizations: pre-calculate transforms and reuse a bitarray
-				local tm = obj.transform
-				local worldPosArr = for p in pArr collect p * tm
-				local c = 1
-				local theMod = epMod
-				local vBit = #{}
-				
-				max modify mode -- Basic requirement for Edit_Poly commands to land
-				with redraw off (
-					for i in bs do (
-						vBit[i] = true
-						theMod.SetVert vBit worldPosArr[c]
-						vBit[i] = false
-						c += 1
-					)
-					theMod.Commit()
+				if not (SetEditPolyVerts_DotNet obj epMod bs pArr) do
+				(
+					format "SetEditPolyVerts failed for object: %\n" obj.name
 				)
 			) else (
 				polyOp.setVert obj bs pArr
@@ -93,8 +124,10 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 		),
 		fn setVert i p = (
 			if isEditPoly then (
-				epMod.SetVert #{i as integer} (p * obj.transform)
-				epMod.Commit()
+				if not (SetEditPolyVerts_DotNet obj epMod #(i) #(p)) do
+				(
+					format "SetEditPolyVerts failed for object: %\n" obj.name
+				)
 			) else (
 				polyOp.setVert obj i p
 			)
@@ -151,7 +184,7 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 	
     function LoadDLL =
 	(
-		if (usingDllManager==false) or (dllManager==undefined) then
+		if (usingDllManager==false)  then
 		(
 			thisFile = getThisScriptFilename()
 			dir = pathConfig.removePathLeaf thisFile 
@@ -1246,4 +1279,3 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 	--createDialog roll_proSymmetryTools DialogWidth 500
 
 )
-

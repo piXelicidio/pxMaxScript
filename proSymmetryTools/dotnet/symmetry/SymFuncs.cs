@@ -5,10 +5,13 @@ using System.Diagnostics;
 using System.Numerics;
 using System.Linq;
 using System.Reflection;
+using Autodesk.Max;
 namespace Symmetry
 {
     public static class Functions
     {
+        private const uint EPolyMod13InterfaceA = 0x1a4cc8f2;
+        private const uint EPolyMod13InterfaceB = 0x71682518;
 
         public static TResult FindPairs(float[][] positions, int[][] edges)
         {
@@ -21,7 +24,7 @@ namespace Symmetry
             // initializing verts information
             var sw = Stopwatch.StartNew();
             (var positiveVerts, var negativeVerts) = Initialize(verts, tolerance, UnpairedSet);
-            Debug.WriteLine($"\nbuild-22\nInitializing {verts.NumVerts} verts");
+            Debug.WriteLine($"\nbuild-34\nInitializing {verts.NumVerts} verts");
 
             sw.Restart();
             //finding pairs by position
@@ -68,6 +71,246 @@ namespace Symmetry
             
             
             return res;
+        }
+
+        public static bool SetEditPolyVerts_Explore(ulong modifierHandle, ulong nodeHandle, int[] indices, float[][] positions)
+        {
+            Action<string> log = message => Debug.WriteLine(message);
+            log("SetEditPolyVerts exploration begin");
+
+            try
+            {
+                var global = GlobalInterface.Instance;
+                log("GlobalInterface: " + (global != null ? "ok" : "null"));
+                if (global == null)
+                {
+                    log("SetEditPolyVerts exploration end");
+                    return false;
+                }
+
+                log("modifierHandle: " + modifierHandle);
+                log("nodeHandle: " + nodeHandle);
+                log("indices length: " + (indices != null ? indices.Length.ToString() : "null"));
+                log("positions length: " + (positions != null ? positions.Length.ToString() : "null"));
+
+                var modifierAnim = TryGetAnimByHandle(global, modifierHandle, "modifier", log);
+                var modifier = modifierAnim as IModifier;
+                log("modifier as IModifier: " + (modifier != null));
+
+                if (modifier != null)
+                {
+                    TryDescribeModifier(modifier, log);
+                }
+
+                var nodeAnim = nodeHandle != 0 ? TryGetAnimByHandle(global, nodeHandle, "node", log) : null;
+                var explicitNode = nodeAnim as IINode;
+                log("explicit node as IINode: " + (explicitNode != null));
+                if (explicitNode != null)
+                {
+                    log("explicit node name: " + explicitNode.Name);
+                    log("explicit node handle: " + explicitNode.Handle);
+                }
+
+                if (modifier == null)
+                {
+                    log("SetEditPolyVerts exploration end");
+                    return false;
+                }
+
+                var directCast = modifier as IEPolyMod13;
+                log("modifier direct cast to IEPolyMod13: " + (directCast != null));
+
+                var epolyMod = ResolveEPolyMod13(global, modifier);
+                log("ResolveEPolyMod13: " + (epolyMod != null));
+                if (epolyMod == null)
+                {
+                    log("SetEditPolyVerts exploration end");
+                    return false;
+                }
+
+                IINode targetNode = explicitNode;
+                if (targetNode == null)
+                {
+                    TryRunStep("EpModGetPrimaryNode", log, () =>
+                    {
+                        targetNode = epolyMod.EpModGetPrimaryNode;
+                        log("EpModGetPrimaryNode null: " + (targetNode == null));
+                    });
+                }
+                log("targetNode null: " + (targetNode == null));
+                if (targetNode == null)
+                {
+                    log("SetEditPolyVerts exploration end");
+                    return false;
+                }
+
+                log("targetNode name: " + targetNode.Name);
+                log("targetNode handle: " + targetNode.Handle);
+
+                var time = global.COREInterface.Time;
+                log("time: " + time);
+                IMatrix3 nodeTm = null;
+
+                TryRunStep("GetNodeTM", log, () =>
+                {
+                    var valid = global.Interval.Create(time, time);
+                    nodeTm = targetNode.GetNodeTM(time, valid);
+                    log("GetNodeTM null: " + (nodeTm == null));
+                });
+
+                TryRunStep("EpModSetPrimaryNode", log, () =>
+                {
+                    epolyMod.EpModSetPrimaryNode(targetNode);
+                    log("EpModSetPrimaryNode: ok");
+                });
+
+                log("About to call EpMeshGetNumVertices");
+                var numVerts = epolyMod.EpMeshGetNumVertices(targetNode);
+                log("numVerts: " + numVerts);
+                var didWrite = false;
+
+                if (numVerts > 0 && nodeTm != null)
+                {
+                    var testSlot = -1;
+                    for (var i = 0; i < indices.Length; i++)
+                    {
+                        if (positions[i] == null || positions[i].Length != 3)
+                        {
+                            continue;
+                        }
+                        if (indices[i] < 1 || indices[i] > numVerts)
+                        {
+                            continue;
+                        }
+                        testSlot = i;
+                        break;
+                    }
+
+                    if (testSlot >= 0)
+                    {
+                        var testIndex = indices[testSlot];
+                        var currentPoint = default(IPoint3);
+                        var targetLocalPoint = global.Point3.Create(positions[testSlot][0], positions[testSlot][1], positions[testSlot][2]);
+                        var targetWorldPoint = nodeTm.PointTransform(targetLocalPoint);
+
+                        log("testIndex: " + testIndex);
+                        log("target local: [" + targetLocalPoint.X + ", " + targetLocalPoint.Y + ", " + targetLocalPoint.Z + "]");
+                        log("target world: [" + targetWorldPoint.X + ", " + targetWorldPoint.Y + ", " + targetWorldPoint.Z + "]");
+
+                        TryRunStep("EpMeshGetVertex(testIndex)", log, () =>
+                        {
+                            currentPoint = epolyMod.EpMeshGetVertex(testIndex, targetNode);
+                            log("vertex before: [" + currentPoint.X + ", " + currentPoint.Y + ", " + currentPoint.Z + "]");
+                        });
+
+                        TryRunStep("EPMeshStartSetVertices", log, () =>
+                        {
+                            epolyMod.EPMeshStartSetVertices(targetNode);
+                            log("EPMeshStartSetVertices: ok");
+                        });
+
+                        TryRunStep("EPMeshSetVert target value", log, () =>
+                        {
+                            epolyMod.EPMeshSetVert(testIndex, targetWorldPoint, targetNode);
+                            log("EPMeshSetVert target value: ok");
+                        });
+
+                        TryRunStep("EPMeshEndSetVertices", log, () =>
+                        {
+                            epolyMod.EPMeshEndSetVertices(targetNode);
+                            log("EPMeshEndSetVertices: ok");
+                        });
+
+                        TryRunStep("EpMeshGetVertex(testIndex) after", log, () =>
+                        {
+                            var afterPoint = epolyMod.EpMeshGetVertex(testIndex, targetNode);
+                            log("vertex after: [" + afterPoint.X + ", " + afterPoint.Y + ", " + afterPoint.Z + "]");
+                        });
+
+                        TryRunStep("EpModRefreshScreen", log, () =>
+                        {
+                            epolyMod.EpModRefreshScreen();
+                            log("EpModRefreshScreen: ok");
+                        });
+
+                        didWrite = true;
+                    }
+                }
+
+                log("SetEditPolyVerts exploration end");
+                return didWrite;
+            }
+            catch (Exception ex)
+            {
+                log("SetEditPolyVerts exploration threw: " + ex.GetType().FullName + ": " + ex.Message);
+            }
+
+            log("SetEditPolyVerts exploration end");
+            return false;
+        }
+
+        public static bool SetEditPolyVerts(ulong modifierHandle, ulong nodeHandle, int[] indices, float[][] positions)
+        {
+            try
+            {
+                var global = GlobalInterface.Instance;
+                if (!TryPrepareSetEditPolyVerts(global, modifierHandle, nodeHandle, indices, positions, out var modifier, out var epolyMod, out var node, out var numVerts))
+                {
+                    return false;
+                }
+
+                epolyMod.EpModSetPrimaryNode(node);
+
+                var applied = 0;
+                var started = false;
+
+                try
+                {
+                    for (var i = 0; i < indices.Length; i++)
+                    {
+                        if (positions[i] == null || positions[i].Length != 3)
+                        {
+                            continue;
+                        }
+
+                        var vertIndex = indices[i];
+                        if (vertIndex < 1 || vertIndex > numVerts)
+                        {
+                            continue;
+                        }
+
+                        if (!started)
+                        {
+                            epolyMod.EPMeshStartSetVertices(node);
+                            started = true;
+                        }
+
+                        var objectPoint = global.Point3.Create(positions[i][0], positions[i][1], positions[i][2]);
+                        epolyMod.EPMeshSetVert(vertIndex - 1, objectPoint, node);
+                        applied++;
+                    }
+                }
+                finally
+                {
+                    if (started)
+                    {
+                        epolyMod.EPMeshEndSetVertices(node);
+                    }
+                }
+
+                if (applied == 0)
+                {
+                    return false;
+                }
+
+                epolyMod.EpModRefreshScreen();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("SetEditPolyVerts failed: " + ex);
+                return false;
+            }
         }
 
         public static int[][] ConvertEdgesToLinks(int vertCount, int[][] edges)
@@ -274,6 +517,183 @@ namespace Symmetry
                 if (bits[i]) list.Add(i); 
             }
             return list.ToArray();
+        }
+
+        private static IModifier ResolveModifier(IGlobal global, ulong modifierHandle)
+        {
+            var anim = global.Animatable.GetAnimByHandle(new UIntPtr(modifierHandle));
+            return anim as IModifier;
+        }
+
+        private static IAnimatable TryGetAnimByHandle(IGlobal global, ulong handleValue, string label, Action<string> log)
+        {
+            try
+            {
+                var anim = global.Animatable.GetAnimByHandle(new UIntPtr(handleValue));
+                log(label + " handle resolves: " + (anim != null));
+                if (anim != null)
+                {
+                    log(label + " anim type: " + anim.GetType().FullName);
+                }
+                return anim;
+            }
+            catch (Exception ex)
+            {
+                log("GetAnimByHandle(" + label + ") threw: " + ex.GetType().Name + ": " + ex.Message);
+                return null;
+            }
+        }
+
+        private static void TryDescribeModifier(IModifier modifier, Action<string> log)
+        {
+            try
+            {
+                log("modifier name: " + modifier.GetName(false));
+            }
+            catch (Exception ex)
+            {
+                log("modifier.GetName threw: " + ex.GetType().Name + ": " + ex.Message);
+            }
+
+            try
+            {
+                var classId = modifier.ClassID;
+                log("modifier classID: (" + classId.PartA + ", " + classId.PartB + ")");
+            }
+            catch (Exception ex)
+            {
+                log("modifier.ClassID threw: " + ex.GetType().Name + ": " + ex.Message);
+            }
+
+            try
+            {
+                log("modifier superClassID: " + modifier.SuperClassID);
+            }
+            catch (Exception ex)
+            {
+                log("modifier.SuperClassID threw: " + ex.GetType().Name + ": " + ex.Message);
+            }
+        }
+
+        private static void TryRunStep(string label, Action<string> log, Action action)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                log(label + " threw: " + ex.GetType().Name + ": " + ex.Message);
+            }
+        }
+
+        private static bool TryPrepareSetEditPolyVerts(
+            IGlobal global,
+            ulong modifierHandle,
+            ulong nodeHandle,
+            int[] indices,
+            float[][] positions,
+            out IModifier modifier,
+            out IEPolyMod13 epolyMod,
+            out IINode node,
+            out int numVerts)
+        {
+            modifier = null;
+            epolyMod = null;
+            node = null;
+            numVerts = 0;
+
+            if (modifierHandle == 0 || indices == null || positions == null)
+            {
+                return false;
+            }
+
+            if (indices.Length != positions.Length)
+            {
+                return false;
+            }
+
+            if (global == null)
+            {
+                return false;
+            }
+
+            modifier = ResolveModifier(global, modifierHandle);
+            if (modifier == null)
+            {
+                return false;
+            }
+
+            epolyMod = ResolveEPolyMod13(global, modifier);
+            if (epolyMod == null)
+            {
+                return false;
+            }
+
+            node = ResolveNode(global, epolyMod, nodeHandle);
+            if (node == null)
+            {
+                return false;
+            }
+
+            numVerts = epolyMod.EpMeshGetNumVertices(node);
+            return numVerts > 0;
+        }
+
+        private static IINode ResolveNode(IGlobal global, IEPolyMod13 epolyMod, ulong nodeHandle)
+        {
+            if (nodeHandle != 0)
+            {
+                var anim = global.Animatable.GetAnimByHandle(new UIntPtr(nodeHandle));
+                var node = anim as IINode;
+                if (node != null)
+                {
+                    return node;
+                }
+            }
+
+            return epolyMod.EpModGetPrimaryNode;
+        }
+
+        private static IEPolyMod13 ResolveEPolyMod13(IGlobal global, IModifier modifier)
+        {
+            if (modifier is IEPolyMod13 direct)
+            {
+                return direct;
+            }
+
+            var interfaceServer = modifier as IInterfaceServer;
+            if (interfaceServer == null)
+            {
+                return null;
+            }
+
+            var interfaceId = global.Interface_ID.Create(EPolyMod13InterfaceA, EPolyMod13InterfaceB);
+            var baseInterface = interfaceServer.GetInterface(interfaceId);
+            if (baseInterface == null)
+            {
+                return null;
+            }
+
+            if (baseInterface is IEPolyMod13 typed)
+            {
+                return typed;
+            }
+
+            var native = baseInterface as INativeObject;
+            if (native == null || native.NativePointer == IntPtr.Zero)
+            {
+                return null;
+            }
+
+            try
+            {
+            return global.EPolyMod13.Marshal(native.NativePointer);
+        }
+            catch
+            {
+                return null;
+            }
         }
     }
 
