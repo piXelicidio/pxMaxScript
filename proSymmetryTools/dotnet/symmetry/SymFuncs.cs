@@ -24,7 +24,7 @@ namespace Symmetry
             // initializing verts information
             var sw = Stopwatch.StartNew();
             (var positiveVerts, var negativeVerts) = Initialize(verts, tolerance, UnpairedSet);
-            Debug.WriteLine($"\nbuild-36\nInitializing {verts.NumVerts} verts");
+            Debug.WriteLine($"\nbuild-37\nInitializing {verts.NumVerts} verts");
 
             sw.Restart();
             //finding pairs by position
@@ -302,7 +302,8 @@ namespace Symmetry
                 {
                     return false;
                 }
-
+                var t = global.COREInterface.Time;
+                epolyMod.EpModCommit(t);
                 epolyMod.EpModRefreshScreen();
                 return true;
             }

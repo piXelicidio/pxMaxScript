@@ -49,49 +49,50 @@ macroScript pxSymmetryTools buttonText:"pX Symmetry Tools" category:"pX Tools" t
 
 	fn SetEditPolyVerts_DotNet node epModifier vertSet posArray =
 	(
+		local result = false
 		local indexArr = if (isKindOf vertSet BitArray) then (vertSet as array) else vertSet
-		if indexArr.count != posArray.count then return false
-
-		local TIntArray = dotNetClass "System.Int32[]"
-		local TArrayArrayFloat = dotNetClass "System.Single[][]"
-		local TUInt64 = dotNetClass "System.UInt64"
-
-		local csIndices = dotNet.valueToDotNetObject indexArr TIntArray
-		local csPositions = dotNet.valueToDotNetObject posArray TArrayArrayFloat
-		local modifierHandle = dotNet.valueToDotNetObject (getHandleByAnim epModifier) TUInt64
-		local nodeHandle = dotNet.valueToDotNetObject (getHandleByAnim node) TUInt64
-
-		if usingDllManager then
+		if indexArr.count == posArray.count then
 		(
-			if dllManager == undefined then
+			local TIntArray = dotNetClass "System.Int32[]"
+			local TArrayArrayFloat = dotNetClass "System.Single[][]"
+			local TUInt64 = dotNetClass "System.UInt64"
+
+			local csIndices = dotNet.valueToDotNetObject indexArr TIntArray
+			local csPositions = dotNet.valueToDotNetObject posArray TArrayArrayFloat
+			local modifierHandle = dotNet.valueToDotNetObject (getHandleByAnim epModifier) TUInt64
+			local nodeHandle = dotNet.valueToDotNetObject (getHandleByAnim node) TUInt64
+
+			if usingDllManager then
 			(
-				format "DLLManager mode is enabled but dllManager is undefined.\n"
-				return false
-			)
-			try (
-				local result = dllManager.callMethod "Symmetry.Functions.SetEditPolyVerts" args:#(modifierHandle, nodeHandle, csIndices, csPositions)				
-				epModifier.Commit()
-				result
-			) catch (
-				format "DLLManager SetEditPolyVerts failed: %\n" (getCurrentException())
-				false
-			)
-		) else
-		(			
-			if dllFuncs == undefined then
+				if dllManager == undefined then
+				(
+					format "DLLManager mode is enabled but dllManager is undefined.\n"
+				) else
+				(
+					try (
+						result = dllManager.callMethod "Symmetry.Functions.SetEditPolyVerts" args:#(modifierHandle, nodeHandle, csIndices, csPositions)
+					) catch (
+						format "DLLManager SetEditPolyVerts failed: %\n" (getCurrentException())
+						result = false
+					)
+				)
+			) else
 			(
-				format "Direct DLL mode failed: Symmetry.Functions is not loaded.\n"
-				return false
-			)
-			try (
-				local result = dllFuncs.SetEditPolyVerts modifierHandle nodeHandle csIndices csPositions
-				epModifier.Commit()
-				result
-			) catch (
-				format "Direct SetEditPolyVerts call failed: %\n" (getCurrentException())
-				false
+				if dllFuncs == undefined then
+				(
+					format "Direct DLL mode failed: Symmetry.Functions is not loaded.\n"
+				) else
+				(
+					try (
+						result = dllFuncs.SetEditPolyVerts modifierHandle nodeHandle csIndices csPositions
+					) catch (
+						format "Direct SetEditPolyVerts call failed: %\n" (getCurrentException())
+						result = false
+					)
+				)
 			)
 		)
+		result
 	)
 	
 	-- API Wrapper to abstract Editable_Poly vs Edit_Poly
