@@ -1,21 +1,33 @@
--- Pro Symmetry Tools 
+-- pX Symmetry Tools 
 -- Denys Almaral
 
 -- Implement similar funcionality of 3ds Max Symmetry Tool and extends with useful advanced features..
 
+-- FEATURES:
+--   * Topological Analysis: Identifies symmetry via connectivity, even on deformed meshes.
+--   * C# .NET Integration: Rapid vertex pairing and high-speed geometry analysis.
+--   * Modifier Support: Seamlessly handles both Editable_Poly and Edit_Poly modifiers.
+--   * Global Cache: Persistent symmetry data for easy switching between objects.
+--   * Visual Feedback: Color-coded UI for real-time compatibility and health status.
+--   * Symmetrical Ops: Mirror destructive edits (Delete, Connect, Collapse).
+--   * Batch Processing: Sync geometry and vertex data across multiple targets.
+--   * Advanced Tools: Select Diff, Restore Original, and cross-object Copy/Paste.
+
 --TODO:
 -- ISSUE: paste vertices from Editable_Poly to Edit_Poly modifier has syscoord issues
--- collapse vertices, weld
 -- Symmetry attach! Powerful thingy (think about UV mapping)
 -- extrude face, edge
 
 
 --future macro
-struct TpxSymmetryCache (count=0, RightSide=#(), LinkedTo=#(), PairedWith=#(), vPos=#(), objName="")
-global pxSymmetryGlobalCache
-if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #objName) do pxSymmetryGlobalCache = TpxSymmetryCache()
 
+macroScript pxSymmetryTools buttonText:"pX Symmetry Tools" category:"pX Tools" tooltip:"pX Symmetry Tools"
 (
+	struct TpxSymmetryCache (count=0, RightSide=#(), LinkedTo=#(), PairedWith=#(), vPos=#(), objName="")
+	global pxSymmetryGlobalCache
+	if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #objName) do pxSymmetryGlobalCache = TpxSymmetryCache()
+	
+	
 	local g_vertsInfo = pxSymmetryGlobalCache
 
 
@@ -32,7 +44,7 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 	local DialogHeight = 800
 	local maxBWidth = DialogWidth - 30
 	--settings
-	usingDllManager = true
+	usingDllManager = false
     dllFuncs = undefined
 
 	fn SetEditPolyVerts_DotNet node epModifier vertSet posArray =
@@ -373,7 +385,7 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
     )    
 
     --rollouts
-	rollout roll_proSymmetryTools "Pro Symmetry Tools"
+	rollout roll_proSymmetryTools "pX Symmetry Tools"
 	(
         group "Symmetry Data"
         (
@@ -673,7 +685,7 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 			proBar.value = 100;
 			proBar.color = [0,255,0]
 			
-			EPolyObj.selectedVerts = Result
+			polyop.setVertSelection EPolyObj Result
 			Result
 		) -- FindPairs funciton END
 		
@@ -691,6 +703,8 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 		function FindPairs_dotNet ePoly =
 		(			
 			--vertices
+			proBar.color = [0,255,255]
+			proBar.Value = 25
 			tt = timeStamp()
 			if (classOf ePoly) != Editable_poly then return undefined;
 			numVerts = polyop.getNumVerts ePoly
@@ -705,14 +719,6 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 			numEdges = polyop.getNumEdges ePoly
 			vertConnections = polyop.getEdgesVerts ePoly #{1..numEdges}				
 		
--- 				vertConnections.count = numVerts
--- 				ttt = timeStamp()
--- 				for i = 1 to numVerts do
--- 				(
--- 					vertConnections[i] = (GetVertsConnected ePoly i) as array
--- 				)
--- 				Format "Getting connections: %ms\n" (timeStamp()-tt)
-		
 			
 			TArrayArrayFloat = dotNetClass "System.single[][]"
 			TArrayArrayInt = dotNetClass "System.int32[][]"
@@ -723,8 +729,9 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 			Format "Preparing data: %ms\n" (timeStamp()-tt)
 			
 			--.net calls
+			proBar.value = 50
 			result = undefined
-			if usingDllManager and (dllManager!=undefined) then
+			if usingDllManager then
 			(
 				result = dllManager.callMethod "Symmetry.Functions.FindPairs" args:#(csVerts, csVertConnections)
 				print "DLL functions vis DLL Manager"
@@ -742,7 +749,7 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 			vertConnections = result.connections
 			
 			pairedWith = result.pairedWith	
-			
+			proBar.value = 75
 			for i=1 to numVerts do 
 			(							
 				pw = pairedWith[i]+1
@@ -756,8 +763,9 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 			unpaired = result.unpaired as bitArray
 			
 			--return
-			ePoly.selectedVerts = unpaired			
+			polyop.setVertSelection ePoly unpaired			
 			Format "Parsing result: %\n" (timeStamp()-tt)
+			proBar.value = 100	
 			(unpaired)
 		)
 	
@@ -824,18 +832,26 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 		
 		on btnPickObject picked obj do
 		(
-			if (classof obj)==Editable_poly then 
+			if ((classof obj.baseObject)==Editable_poly)  then 
 			(				
-				baseObject = obj
+				baseObject = obj.baseObject
 				tt = timeStamp()
 				Print "Finding symmetrical pairs..."
-				FindPairs_dotNet baseObject				
-				--FindPairs baseObject				
+				max modify mode
+    			modPanel.setCurrentObject baseObject
+				subObjectLevel = 1
+				if (dllFuncs!= undefined) then
+				(
+					FindPairs_dotNet baseObject				
+				) else
+				(
+					FindPairs baseObject				
+				)
 				Format "Processing time: %\n" (timeStamp()-tt)
 				btnPickObject.text = obj.name
 				g_vertsInfo.objName = obj.name
 				UpdateUISelectionState()
-			) else messageBox "Pick an Editable Poly object" title:"Pro Symmetry Tools"
+			) else messageBox "Pick an Editable Poly object" title:"pX Symmetry Tools"
 		)
 		
 		
@@ -1273,7 +1289,7 @@ if pxSymmetryGlobalCache == undefined or not (isProperty pxSymmetryGlobalCache #
 	)--rollout roll_EditGeometry ---end --
 	
 	loadDll()
-	rf = newRolloutFloater "Pro Symmetry Tools"  DialogWidth DialogHeight
+	rf = newRolloutFloater "pX Symmetry Tools"  DialogWidth DialogHeight
 	addrollout roll_proSymmetryTools rf
 	addrollout roll_EditGeometry rf
 	--createDialog roll_proSymmetryTools DialogWidth 500
