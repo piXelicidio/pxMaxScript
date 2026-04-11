@@ -194,7 +194,7 @@ macroScript pxSymmetryTools buttonText:"pX Symmetry Tools" category:"pX Tools" t
 		g_vertsInfo.count = count
 	)
 	
-    function LoadDLL =
+	function LoadDLL =
 	(
 		if (usingDllManager==false)  then
 		(
