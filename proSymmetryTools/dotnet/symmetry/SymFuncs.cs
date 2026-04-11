@@ -24,7 +24,7 @@ namespace Symmetry
             // initializing verts information
             var sw = Stopwatch.StartNew();
             (var positiveVerts, var negativeVerts) = Initialize(verts, tolerance, UnpairedSet);
-            Debug.WriteLine($"\nbuild-35-hotfix\nInitializing {verts.NumVerts} verts");
+            Debug.WriteLine($"\nbuild-36\nInitializing {verts.NumVerts} verts");
 
             sw.Restart();
             //finding pairs by position
@@ -260,11 +260,6 @@ namespace Symmetry
                 }
 
                 epolyMod.EpModSetPrimaryNode(node);
-                var nodeTm = GetNodeTransform(global, node);
-                if (nodeTm == null)
-                {
-                    return false;
-                }
 
                 var applied = 0;
                 var started = false;
@@ -291,8 +286,7 @@ namespace Symmetry
                         }
 
                         var objectPoint = global.Point3.Create(positions[i][0], positions[i][1], positions[i][2]);
-                        var worldPoint = nodeTm.PointTransform(objectPoint);
-                        epolyMod.EPMeshSetVert(vertIndex - 1, worldPoint, node);
+                        epolyMod.EPMeshSetVert(vertIndex - 1, objectPoint, node);
                         applied++;
                     }
                 }
@@ -659,18 +653,6 @@ namespace Symmetry
             }
 
             return epolyMod.EpModGetPrimaryNode;
-        }
-
-        private static IMatrix3 GetNodeTransform(IGlobal global, IINode node)
-        {
-            if (global == null || node == null)
-            {
-                return null;
-            }
-
-            var time = global.COREInterface.Time;
-            var valid = global.Interval.Create(time, time);
-            return node.GetNodeTM(time, valid);
         }
 
         private static IEPolyMod13 ResolveEPolyMod13(IGlobal global, IModifier modifier)
