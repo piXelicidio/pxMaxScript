@@ -19,7 +19,49 @@
 -- extrude face, edge
 
 
---future macro
+
+fn pxSymmetryTools_GetSourceDir =
+(
+	local sourceFile = getThisScriptFilename()
+	if sourceFile == undefined or sourceFile == "" then
+		undefined
+	else
+		pathConfig.removePathLeaf sourceFile
+)
+
+fn pxSymmetryTools_CopyDependencyAssembly =
+(
+	local userMacroDir = getDir #userMacros
+	local targetDll = userMacroDir + "\\pX Tools-pxSymmetryTools_symmetry.dll"
+
+	if doesFileExist targetDll then
+		true
+	else
+	(
+		local sourceDir = pxSymmetryTools_GetSourceDir()
+		if sourceDir == undefined then
+		(
+			format "pX Symmetry Tools: source file path is unavailable, cannot copy dependency assembly.\n"
+			false
+		)
+		else
+		(
+			local sourceDll = sourceDir + "\\dotnet\\symmetry\\symmetry.dll"
+			if not doesFileExist sourceDll then
+			(
+				format "pX Symmetry Tools: source dependency assembly not found: %\n" sourceDll
+				false
+			)
+			else
+			(
+				messageBox ("pX Symmetry Tools is copying its dependency assembly to the user macros folder.\n\nFrom:\n" + sourceDll + "\n\nTo:\n" + targetDll) title:"pX Symmetry Tools"
+				copyFile sourceDll targetDll
+			)
+		)
+	)
+)
+
+pxSymmetryTools_CopyDependencyAssembly()
 
 macroScript pxSymmetryTools buttonText:"pX Symmetry Tools" category:"pX Tools" tooltip:"pX Symmetry Tools"
 (
@@ -202,20 +244,31 @@ macroScript pxSymmetryTools buttonText:"pX Symmetry Tools" category:"pX Tools" t
 	(
 		if (usingDllManager==false)  then
 		(
-			thisFile = getThisScriptFilename()
-			dir = pathConfig.removePathLeaf thisFile 
-			dllFile =  @"F:\_px\3D\MaxScripts\proSymmetryTools\dotnet\symmetry\symmetry.dll"
+			dllFile = (getDir #userMacros) + "\\pX Tools-pxSymmetryTools_symmetry.dll"
+			if not doesFileExist dllFile then
+			(
+				format "pX Symmetry Tools: dependency assembly is missing from user macros: %\n" dllFile
+				messageBox ("pX Symmetry Tools cannot find its dependency assembly.\n\nExpected here:\n" + dllFile) title:"pX Symmetry Tools"
+				return false
+			)
+
 			Format "Loading assembly: %\n" dllFile
 			dotNet.loadAssembly dllFile
 			dllFuncs = dotNetClass "Symmetry.Functions"
 			if dllFuncs==undefined then
 			(
 				print "Loading assembly failed"
+				false
 			) else
 			(
 				print "Assembly loading success"
+				true
 			)
 			--print dllFuncs
+		)
+		else
+		(
+			true
 		)
 	)
 	
@@ -1292,10 +1345,12 @@ macroScript pxSymmetryTools buttonText:"pX Symmetry Tools" category:"pX Tools" t
 		
 	)--rollout roll_EditGeometry ---end --
 	
-	loadDll()
-	rf = newRolloutFloater "pX Symmetry Tools"  DialogWidth DialogHeight
-	addrollout roll_proSymmetryTools rf
-	addrollout roll_EditGeometry rf
-	--createDialog roll_proSymmetryTools DialogWidth 500
+	if loadDll() then
+	(
+		rf = newRolloutFloater "pX Symmetry Tools"  DialogWidth DialogHeight
+		addrollout roll_proSymmetryTools rf
+		addrollout roll_EditGeometry rf
+		--createDialog roll_proSymmetryTools DialogWidth 500
+	)
 
 )
