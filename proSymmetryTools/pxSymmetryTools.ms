@@ -69,21 +69,24 @@ macroScript pxSymmetryTools buttonText:"pX Symmetry Tools" category:"pX Tools" t
 				return false
 			)
 			try (
-				dllManager.callMethod "Symmetry.Functions.SetEditPolyVerts" args:#(modifierHandle, nodeHandle, csIndices, csPositions)
+				local result = dllManager.callMethod "Symmetry.Functions.SetEditPolyVerts" args:#(modifierHandle, nodeHandle, csIndices, csPositions)				
+				epModifier.Commit()
+				result
 			) catch (
 				format "DLLManager SetEditPolyVerts failed: %\n" (getCurrentException())
 				false
 			)
 		) else
-		(
-			if dllFuncs == undefined do LoadDLL()
+		(			
 			if dllFuncs == undefined then
 			(
 				format "Direct DLL mode failed: Symmetry.Functions is not loaded.\n"
 				return false
 			)
 			try (
-				dllFuncs.SetEditPolyVerts modifierHandle nodeHandle csIndices csPositions
+				local result = dllFuncs.SetEditPolyVerts modifierHandle nodeHandle csIndices csPositions
+				epModifier.Commit()
+				result
 			) catch (
 				format "Direct SetEditPolyVerts call failed: %\n" (getCurrentException())
 				false
@@ -200,7 +203,7 @@ macroScript pxSymmetryTools buttonText:"pX Symmetry Tools" category:"pX Tools" t
 		(
 			thisFile = getThisScriptFilename()
 			dir = pathConfig.removePathLeaf thisFile 
-			dllFile = pathConfig.appendPath dir @"dotnet\symmetry\symmetry.dll"
+			dllFile =  @"F:\_px\3D\MaxScripts\proSymmetryTools\dotnet\symmetry\symmetry.dll"
 			Format "Loading assembly: %\n" dllFile
 			dotNet.loadAssembly dllFile
 			dllFuncs = dotNetClass "Symmetry.Functions"
