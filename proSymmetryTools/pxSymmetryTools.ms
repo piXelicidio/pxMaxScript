@@ -34,29 +34,25 @@ fn pxSymmetryTools_CopyDependencyAssembly =
 	local userMacroDir = getDir #userMacros
 	local targetDll = userMacroDir + "\\pX Tools-pxSymmetryTools_symmetry.dll"
 
-	if doesFileExist targetDll then
-		true
+	local sourceDir = pxSymmetryTools_GetSourceDir()
+	if sourceDir == undefined then
+	(
+		format "pX Symmetry Tools: source file path is unavailable, cannot copy dependency assembly.\n"
+		false
+	)
 	else
 	(
-		local sourceDir = pxSymmetryTools_GetSourceDir()
-		if sourceDir == undefined then
+		local sourceDll = sourceDir + "\\dotnet\\symmetry\\symmetry.dll"
+		if not doesFileExist sourceDll then
 		(
-			format "pX Symmetry Tools: source file path is unavailable, cannot copy dependency assembly.\n"
+			format "pX Symmetry Tools: source dependency assembly not found: %\n" sourceDll
 			false
 		)
 		else
 		(
-			local sourceDll = sourceDir + "\\dotnet\\symmetry\\symmetry.dll"
-			if not doesFileExist sourceDll then
-			(
-				format "pX Symmetry Tools: source dependency assembly not found: %\n" sourceDll
-				false
-			)
-			else
-			(
-				messageBox ("pX Symmetry Tools is copying its dependency assembly to the user macros folder.\n\nFrom:\n" + sourceDll + "\n\nTo:\n" + targetDll) title:"pX Symmetry Tools"
-				copyFile sourceDll targetDll
-			)
+			if doesFileExist targetDll do deleteFile targetDll
+			messageBox ("pX Symmetry Tools is copying its dependency assembly to the user macros folder.\n\nFrom:\n" + sourceDll + "\n\nTo:\n" + targetDll) title:"pX Symmetry Tools"
+			copyFile sourceDll targetDll
 		)
 	)
 )
