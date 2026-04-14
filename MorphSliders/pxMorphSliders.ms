@@ -37,13 +37,12 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 		button 'btnRemoveAllChannels' "Remove All" pos:[11,364] width:66 height:19 align:#left
 		button 'btnRemoveSel' "Remove Selected" pos:[83,365] width:95 height:17 align:#left
 		spinner 'spnSize' "Size" pos:[205,303] width:85 height:16 range:[0.1,100,2] align:#left
+		checkbox 'chkChildOf' "Make it child of selected" pos:[205,325] checked:false 
+		checkbox 'chkReplace' "Replace existing by  name" pos:[205,350] checked:true
 		--progressBar pbar "ProgressBar" pos:[99,280] width:81 height:14
 		colorPicker 'cpSlider' "Slider" pos:[317,278] width:54 height:18 color:(color 220 255 100) title:"Choose a color" align:#left
 		colorPicker 'cpBase' "Base" pos:[322,304] width:52 height:19 color:(color 100 100 200) align:#left
-		HyperLink 'linkDenys' "by Denys Almaral" pos:[294,361] width:100 height:17 color:(color 0 0 255) hovercolor:(color 0 100 255) address:"http://www.denysalmaral.com" align:#left 
- 
- 
- 
+		 
  
 		HyperLink 'LinkHelp' "(?) Help" pos:[344,12] width:43 height:16 color:(color 0 0 255) hovercolor:(color 0 100 255) address:"https://denysalmaral.com/post/px-quick-morph-sliders-creation-tool-for-3ds-max/" align:#left
 		
@@ -100,8 +99,8 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 		(
 			
 				--settings
-				local replaceSliders = true
-				local skipWired = false								
+				local replaceSliders = chkReplace.checked
+				local skipWired = chkIgnoreWired.checked								
 				local SliderSize = SpnSize.value
 			    local SlidersSDx = 1.0 + SliderSize
 				local sliderShapes = true
@@ -113,17 +112,17 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 				-- Go for each channel
 				
 					cCount = 0
-						for i=1 to MorphList.count do 			 
+						for i=1 to MorphList.count do 
 						(
 							    --pbar.value = i*100/MorphList.count
-								cCount = cCount + 1
-																
+								
 								moName = MorphList[i][1]
 							    if (chkIgnoreWired.checked and ((classof MorphList[i][2].controller)==Float_Wire) )  then continue	
 								if (chkSelectedOnly.checked and (lbxChannels.selection!=i)) then continue
-																	
+								
+									cCount = cCount + 1
 									--SliderShapes 
-									sbase = rectangle()
+									sbase = rectangle()									
 									sbase.width = 0.4
 									sbase.length = SliderSize 
 									sbase.wireColor = cpBase.color
@@ -159,6 +158,16 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 									existObj =  Execute ("$"+newName)
 									if (existObj!=undefined) and replaceSliders then delete existObj
 									s.Name = newName
+
+									if (chkChildOf.checked) then 
+									(
+										local posi = sbase.pos 
+										sbase.parent = $
+										in coordsys parent
+										(
+											sbase.pos = posi
+										)
+									)
 								
 							
 						)--for i	
@@ -274,107 +283,110 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			local prefix = edtPrefix.text
 			local moName=""
 			
-			if ((MixItemUp!=0) or (MixItemDown!=0) or (MixItemLeft!=0) or (MixItemRight!=0)) then
+			if ((MixItemUp!=0) or (MixItemDown!=0) or (MixItemLeft!=0) or (MixItemRight!=0)) then 
 			(
-				sbase = rectangle()
-				sbase.width =SliderSize
-				sbase.length = SliderSize
-				sbase.wireColor = cpBase.color
+				
+					sbase = rectangle()
+					if (chkChildOf.checked) then sbase.parent = $
+					sbase.width =SliderSize
+					sbase.length = SliderSize
+					sbase.wireColor = cpBase.color
+							
+					s = donut()
+					
+					s.radius1 = 0.1
+					s.radius2 = SliderSize/4
+					s.wireColor = cpSlider.color
+					FreezeTransform s
+					s.parent = sbase
+					setTransformLockFlags s (#{1..9}-#{1,2})				
+					subaniX = s[#transform][#position][2][#X_position]
+					subaniY = s[#transform][#position][2][#Y_position]				
+					ncX = Float_Limit()
+					ncX.lower_limit = 0
+					ncX.upper_limit = 0
+					subaniX.controller = ncX
+					ncY = Float_Limit()
+					ncY.lower_limit = 0
+					ncY.upper_limit = 0
+					subaniY.controller = ncY
+					
+					if MixItemUp!=0 then
+					(
+						rect = rectangle()
+						rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemUp][1])
+						rect.parent = sbase					
+						rect.length = SliderSize 
+						rect.wireColor = cpBase.color
+						rect.pivot.y = -SliderSize/2
+						rect.pos.y = 0					
 						
-				s = donut()
-				
-				s.radius1 = 0.1
-				s.radius2 = SliderSize/4
-				s.wireColor = cpSlider.color
-				FreezeTransform s
-				s.parent = sbase
-				setTransformLockFlags s (#{1..9}-#{1,2})				
-				subaniX = s[#transform][#position][2][#X_position]
-				subaniY = s[#transform][#position][2][#Y_position]				
-				ncX = Float_Limit()
-				ncX.lower_limit = 0
-				ncX.upper_limit = 0
-				subaniX.controller = ncX
-				ncY = Float_Limit()
-				ncY.lower_limit = 0
-				ncY.upper_limit = 0
-				subaniY.controller = ncY
-				
-				if MixItemUp!=0 then
-				(
-					rect = rectangle()
-		            rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemUp][1])
-					rect.parent = sbase					
-					rect.length = SliderSize 
-					rect.wireColor = cpBase.color
-					rect.pivot.y = -SliderSize/2
-					rect.pos.y = 0					
+						ncY.upper_limit = SliderSize
+						moName = moName + "_" + MorphList[MixItemUp][1]
+						paramWire.connect subaniY MorphList[MixItemUp][2] ("(abs(Y_Position)+Y_Position)*50/"+(SliderSize as string))
+						paramWire.connect subaniY rect.baseObject[#width] ("Y_Position/2+0.1")	
+						sbase.length = SliderSize*2
+					)
+					if MixItemDown!=0 then
+					(		
+						rect = rectangle()
+						rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemDown][1])
+						rect.parent = sbase					
+						rect.length = SliderSize 
+						rect.wireColor = cpBase.color
+						rect.pivot.y = -SliderSize/2
+						rect.pos.y = 0					
+						rotate rect (angleaxis 180 [0,0,1])					
+						
+						ncY.lower_limit = -SliderSize	
+						moName = moName + "_" + MorphList[MixItemDown][1]
+						paramWire.connect subaniY MorphList[MixItemDown][2] ("(abs(-Y_Position)-Y_Position)*50/"+(SliderSize as string))
+						paramWire.connect subaniY rect.baseObject[#width] ("Y_Position/-2+0.1")		
+						sbase.length = SliderSize*2	
+					)
+					if MixItemLeft!=0 then
+					(
+						rect = rectangle()
+						rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemLeft][1])
+						rect.parent = sbase					
+						rect.length = SliderSize 
+						rect.wireColor = cpBase.color
+						rect.pivot.y = -SliderSize/2
+						rect.pos.y = 0
+						rotate rect (angleaxis 90 [0,0,1])					
+											
+						ncX.lower_limit = -SliderSize
+						moName = moName + "_" + MorphList[MixItemLeft][1]
+						paramWire.connect subaniX MorphList[MixItemLeft][2] ("(abs(-X_Position)-X_Position)*50/"+(SliderSize as string))
+						paramWire.connect subaniX rect.baseObject[#width] ("X_Position/-2+0.1")		
+						sbase.Width = SliderSize*2	
+					)
+					if MixItemRight!=0 then
+					(
+						rect = rectangle()
+						rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemRight][1])
+						rect.parent = sbase					
+						rect.length = SliderSize 
+						rect.wireColor = cpBase.color
+						rect.pivot.y = -SliderSize/2
+						rect.pos.y = 0
+						rotate rect (angleaxis -90 [0,0,1])	
+						
+						ncX.upper_limit = SliderSize
+						moName = moName + "_" + MorphList[MixItemRight][1]
+						paramWire.connect subaniX MorphList[MixItemRight][2] ("(abs(X_Position)+X_Position)*50/"+(SliderSize as string))
+						paramWire.connect subaniX rect.baseObject[#width] ("X_Position/2+0.1")	
+						sbase.width = SliderSize*2
+					)
 					
-					ncY.upper_limit = SliderSize
-					moName = moName + "_" + MorphList[MixItemUp][1]
-					paramWire.connect subaniY MorphList[MixItemUp][2] ("(abs(Y_Position)+Y_Position)*50/"+(SliderSize as string))
-					paramWire.connect subaniY rect.baseObject[#width] ("Y_Position/2+0.1")	
-					sbase.length = SliderSize*2
-				)
-				if MixItemDown!=0 then
-				(		
-					rect = rectangle()
-		            rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemDown][1])
-					rect.parent = sbase					
-					rect.length = SliderSize 
-					rect.wireColor = cpBase.color
-					rect.pivot.y = -SliderSize/2
-					rect.pos.y = 0					
-					rotate rect (angleaxis 180 [0,0,1])					
-					
-					ncY.lower_limit = -SliderSize	
-					moName = moName + "_" + MorphList[MixItemDown][1]
-					paramWire.connect subaniY MorphList[MixItemDown][2] ("(abs(-Y_Position)-Y_Position)*50/"+(SliderSize as string))
-					paramWire.connect subaniY rect.baseObject[#width] ("Y_Position/-2+0.1")		
-					sbase.length = SliderSize*2	
-				)
-				if MixItemLeft!=0 then
-				(
-					rect = rectangle()
-		            rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemLeft][1])
-					rect.parent = sbase					
-					rect.length = SliderSize 
-					rect.wireColor = cpBase.color
-					rect.pivot.y = -SliderSize/2
-					rect.pos.y = 0
-					rotate rect (angleaxis 90 [0,0,1])					
-										
-					ncX.lower_limit = -SliderSize
-					moName = moName + "_" + MorphList[MixItemLeft][1]
-					paramWire.connect subaniX MorphList[MixItemLeft][2] ("(abs(-X_Position)-X_Position)*50/"+(SliderSize as string))
-					paramWire.connect subaniX rect.baseObject[#width] ("X_Position/-2+0.1")		
-					sbase.Width = SliderSize*2	
-				)
-				if MixItemRight!=0 then
-				(
-					rect = rectangle()
-		            rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemRight][1])
-					rect.parent = sbase					
-					rect.length = SliderSize 
-					rect.wireColor = cpBase.color
-					rect.pivot.y = -SliderSize/2
-					rect.pos.y = 0
-					rotate rect (angleaxis -90 [0,0,1])	
-					
-					ncX.upper_limit = SliderSize
-					moName = moName + "_" + MorphList[MixItemRight][1]
-					paramWire.connect subaniX MorphList[MixItemRight][2] ("(abs(X_Position)+X_Position)*50/"+(SliderSize as string))
-					paramWire.connect subaniX rect.baseObject[#width] ("X_Position/2+0.1")	
-					sbase.width = SliderSize*2
-				)
+					sbase.name = uniquename (prefix + "mix_sliderb" + moName)
+					s.name = uniquename (prefix + "mix_slider" + moName)
+					sbase.pos.x = 0
+					sbase.pos.y = 0
+					sbase.pos.z = -1-SliderSize				
+					rotate sbase (angleaxis 90 [1,0,0])
+					UpdateListbox()
 				
-		        sbase.name = uniquename (prefix + "mix_sliderb" + moName)
-		        s.name = uniquename (prefix + "mix_slider" + moName)
-				sbase.pos.x = 0
-				sbase.pos.y = 0
-				sbase.pos.z = -1-SliderSize				
-				rotate sbase (angleaxis 90 [1,0,0])
-				UpdateListbox()
 			)
 		)
 		on btnUnwire pressed do
