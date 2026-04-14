@@ -9,7 +9,72 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 	local MixItemLeft   = 0
 	local MixItemRight  = 0
 	
-	
+	struct IniFile
+	(
+		filename,
+		section,
+		function read key =
+		(
+			(getINISetting filename section key)
+		),
+
+		function write key value =
+		(
+			(setINISetting filename section key (value as string))
+		),
+
+		function remove key =
+		(
+			delIniSetting filename section key
+		),
+
+		function removeSection =
+		(
+			delIniSetting filename section
+		),
+
+		function hasKey key =
+		(
+			(hasINISetting filename section key)
+		),
+
+		function hasSection =
+		(
+			(hasINISetting filename section)
+		)
+	)
+
+	fn getScriptIniFilePath =
+	(
+		return (getDir #usermacros) + "\\pxMorphSliders.ini"		
+	)
+
+	fn saveBool ini key value =
+	(
+		ini.write key (if value then "1" else "0")
+	)
+
+	fn loadBool ini key defaultValue =
+	(
+		local value = ini.read key
+		if value == "" then defaultValue else (value != "0")
+	)
+
+	fn colorToString c =
+	(
+		(c.r as string) + "_" + (c.g as string) + "_" + (c.b as string)
+	)
+
+	fn stringToColor s =
+	(
+		if s == undefined or s == "" then undefined
+		else
+		(
+			local parts = filterString s "_"
+			if parts.count == 3 then color (parts[1] as integer) (parts[2] as integer) (parts[3] as integer) else undefined
+		)
+	)
+
 	rollout roll_MorphSliders "Sliders" width:406 height:388
 	(
 		button 'btnCreate' "Create simple sliders" pos:[8,301] width:172 height:28 align:#left
@@ -90,10 +155,37 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 		--on lbxChannels 
 
         
+		on roll_MorphSliders open do
+		(
+			local ini = IniFile()
+			ini.filename = getScriptIniFilePath()
+			ini.section = "MorphSliders"
+			chkIgnoreWired.checked = loadBool ini "chkIgnoreWired" true
+			chkSelectedOnly.checked = loadBool ini "chkSelectedOnly" false
+			local prefixVal = ini.read "edtPrefix"
+			if prefixVal != "" then edtPrefix.text = prefixVal
+			local spnValue = ini.read "spnSize"
+			if spnValue != "" then spnSize.value = spnValue as float
+			chkChildOf.checked = loadBool ini "chkChildOf" false
+			chkReplace.checked = loadBool ini "chkReplace" true
+			local sliderColor = stringToColor (ini.read "cpSlider")
+			if sliderColor != undefined then cpSlider.color = sliderColor
+			local baseColor = stringToColor (ini.read "cpBase")
+			if baseColor != undefined then cpBase.color = baseColor
+		)
 		on roll_MorphSliders close do
 		(
-		    print "good bye"
-		
+			local ini = IniFile()
+			ini.filename = getScriptIniFilePath()
+			ini.section = "MorphSliders"
+			saveBool ini "chkIgnoreWired" chkIgnoreWired.checked
+			saveBool ini "chkSelectedOnly" chkSelectedOnly.checked
+			ini.write "edtPrefix" edtPrefix.text
+			ini.write "spnSize" (spnSize.value as string)
+			saveBool ini "chkChildOf" chkChildOf.checked
+			saveBool ini "chkReplace" chkReplace.checked
+			ini.write "cpSlider" (colorToString cpSlider.color)
+			ini.write "cpBase" (colorToString cpBase.color)
 		)
 		on btnCreate pressed do
 		(
@@ -290,7 +382,6 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 				(
 					
 						sbase = rectangle()
-						if (chkChildOf.checked) then sbase.parent = $
 						sbase.width =SliderSize
 						sbase.length = SliderSize
 						sbase.wireColor = cpBase.color
@@ -388,6 +479,16 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 						sbase.pos.y = 0
 						sbase.pos.z = -1-SliderSize				
 						rotate sbase (angleaxis 90 [1,0,0])
+
+						if (chkChildOf.checked) then 
+						(
+							local posi = sbase.pos 
+							sbase.parent = $
+							in coordsys parent
+							(
+								sbase.pos = posi
+							)
+						)
 						UpdateListbox()
 					
 				)
@@ -505,6 +606,23 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
                     )
                 )
             )
+        )
+        on roll_Tools open do
+        (
+            local ini = IniFile()
+            ini.filename = getScriptIniFilePath()
+            ini.section = "MorphSliders"
+            local radioValue = ini.read "radioAction"
+            if radioValue != "" then radioAction.state = radioValue as integer
+            chkUsePostFix.checked = loadBool ini "chkUsePostFix" true
+        )
+        on roll_Tools close do
+        (
+            local ini = IniFile()
+            ini.filename = getScriptIniFilePath()
+            ini.section = "MorphSliders"
+            ini.write "radioAction" (radioAction.state as string)
+            saveBool ini "chkUsePostFix" chkUsePostFix.checked
         )
     )
 
