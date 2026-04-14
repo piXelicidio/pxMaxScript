@@ -97,7 +97,8 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 		)
 		on btnCreate pressed do
 		(
-			
+			undo "Create Sliders" on
+			(
 				--settings
 				local replaceSliders = chkReplace.checked
 				local skipWired = chkIgnoreWired.checked								
@@ -171,8 +172,8 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 								
 							
 						)--for i	
-			UpdateListbox()				
-			
+				UpdateListbox()				
+			)
 		)--On button pressed
 		on btnGetMorphs pressed do
 		(
@@ -273,130 +274,136 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 		)
 		on btnCreateMix pressed do
 		(
-			local replaceSliders = true
-			local skipWired = false				
-			local SlidersSDx = SpnSize.value + 1
-			local SliderSize = SpnSize.value
-			local sliderShapes = true
-			
-			local SlidersColCount =8
-			local prefix = edtPrefix.text
-			local moName=""
-			
-			if ((MixItemUp!=0) or (MixItemDown!=0) or (MixItemLeft!=0) or (MixItemRight!=0)) then 
+			undo "Create Mix Slider" on
 			(
+				local replaceSliders = true
+				local skipWired = false				
+				local SlidersSDx = SpnSize.value + 1
+				local SliderSize = SpnSize.value
+				local sliderShapes = true
 				
-					sbase = rectangle()
-					if (chkChildOf.checked) then sbase.parent = $
-					sbase.width =SliderSize
-					sbase.length = SliderSize
-					sbase.wireColor = cpBase.color
+				local SlidersColCount =8
+				local prefix = edtPrefix.text
+				local moName=""
+				
+				if ((MixItemUp!=0) or (MixItemDown!=0) or (MixItemLeft!=0) or (MixItemRight!=0)) then 
+				(
+					
+						sbase = rectangle()
+						if (chkChildOf.checked) then sbase.parent = $
+						sbase.width =SliderSize
+						sbase.length = SliderSize
+						sbase.wireColor = cpBase.color
+								
+						s = donut()
+						
+						s.radius1 = 0.1
+						s.radius2 = SliderSize/4
+						s.wireColor = cpSlider.color
+						FreezeTransform s
+						s.parent = sbase
+						setTransformLockFlags s (#{1..9}-#{1,2})				
+						subaniX = s[#transform][#position][2][#X_position]
+						subaniY = s[#transform][#position][2][#Y_position]				
+						ncX = Float_Limit()
+						ncX.lower_limit = 0
+						ncX.upper_limit = 0
+						subaniX.controller = ncX
+						ncY = Float_Limit()
+						ncY.lower_limit = 0
+						ncY.upper_limit = 0
+						subaniY.controller = ncY
+						
+						if MixItemUp!=0 then
+						(
+							rect = rectangle()
+							rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemUp][1])
+							rect.parent = sbase					
+							rect.length = SliderSize 
+							rect.wireColor = cpBase.color
+							rect.pivot.y = -SliderSize/2
+							rect.pos.y = 0					
 							
-					s = donut()
-					
-					s.radius1 = 0.1
-					s.radius2 = SliderSize/4
-					s.wireColor = cpSlider.color
-					FreezeTransform s
-					s.parent = sbase
-					setTransformLockFlags s (#{1..9}-#{1,2})				
-					subaniX = s[#transform][#position][2][#X_position]
-					subaniY = s[#transform][#position][2][#Y_position]				
-					ncX = Float_Limit()
-					ncX.lower_limit = 0
-					ncX.upper_limit = 0
-					subaniX.controller = ncX
-					ncY = Float_Limit()
-					ncY.lower_limit = 0
-					ncY.upper_limit = 0
-					subaniY.controller = ncY
-					
-					if MixItemUp!=0 then
-					(
-						rect = rectangle()
-						rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemUp][1])
-						rect.parent = sbase					
-						rect.length = SliderSize 
-						rect.wireColor = cpBase.color
-						rect.pivot.y = -SliderSize/2
-						rect.pos.y = 0					
+							ncY.upper_limit = SliderSize
+							moName = moName + "_" + MorphList[MixItemUp][1]
+							paramWire.connect subaniY MorphList[MixItemUp][2] ("(abs(Y_Position)+Y_Position)*50/"+(SliderSize as string))
+							paramWire.connect subaniY rect.baseObject[#width] ("Y_Position/2+0.1")	
+							sbase.length = SliderSize*2
+						)
+						if MixItemDown!=0 then
+						(		
+							rect = rectangle()
+							rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemDown][1])
+							rect.parent = sbase					
+							rect.length = SliderSize 
+							rect.wireColor = cpBase.color
+							rect.pivot.y = -SliderSize/2
+							rect.pos.y = 0					
+							rotate rect (angleaxis 180 [0,0,1])					
+							
+							ncY.lower_limit = -SliderSize	
+							moName = moName + "_" + MorphList[MixItemDown][1]
+							paramWire.connect subaniY MorphList[MixItemDown][2] ("(abs(-Y_Position)-Y_Position)*50/"+(SliderSize as string))
+							paramWire.connect subaniY rect.baseObject[#width] ("Y_Position/-2+0.1")		
+							sbase.length = SliderSize*2	
+						)
+						if MixItemLeft!=0 then
+						(
+							rect = rectangle()
+							rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemLeft][1])
+							rect.parent = sbase					
+							rect.length = SliderSize 
+							rect.wireColor = cpBase.color
+							rect.pivot.y = -SliderSize/2
+							rect.pos.y = 0
+							rotate rect (angleaxis 90 [0,0,1])					
+												
+							ncX.lower_limit = -SliderSize
+							moName = moName + "_" + MorphList[MixItemLeft][1]
+							paramWire.connect subaniX MorphList[MixItemLeft][2] ("(abs(-X_Position)-X_Position)*50/"+(SliderSize as string))
+							paramWire.connect subaniX rect.baseObject[#width] ("X_Position/-2+0.1")		
+							sbase.Width = SliderSize*2	
+						)
+						if MixItemRight!=0 then
+						(
+							rect = rectangle()
+							rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemRight][1])
+							rect.parent = sbase					
+							rect.length = SliderSize 
+							rect.wireColor = cpBase.color
+							rect.pivot.y = -SliderSize/2
+							rect.pos.y = 0
+							rotate rect (angleaxis -90 [0,0,1])	
+							
+							ncX.upper_limit = SliderSize
+							moName = moName + "_" + MorphList[MixItemRight][1]
+							paramWire.connect subaniX MorphList[MixItemRight][2] ("(abs(X_Position)+X_Position)*50/"+(SliderSize as string))
+							paramWire.connect subaniX rect.baseObject[#width] ("X_Position/2+0.1")	
+							sbase.width = SliderSize*2
+						)
 						
-						ncY.upper_limit = SliderSize
-						moName = moName + "_" + MorphList[MixItemUp][1]
-						paramWire.connect subaniY MorphList[MixItemUp][2] ("(abs(Y_Position)+Y_Position)*50/"+(SliderSize as string))
-						paramWire.connect subaniY rect.baseObject[#width] ("Y_Position/2+0.1")	
-						sbase.length = SliderSize*2
-					)
-					if MixItemDown!=0 then
-					(		
-						rect = rectangle()
-						rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemDown][1])
-						rect.parent = sbase					
-						rect.length = SliderSize 
-						rect.wireColor = cpBase.color
-						rect.pivot.y = -SliderSize/2
-						rect.pos.y = 0					
-						rotate rect (angleaxis 180 [0,0,1])					
-						
-						ncY.lower_limit = -SliderSize	
-						moName = moName + "_" + MorphList[MixItemDown][1]
-						paramWire.connect subaniY MorphList[MixItemDown][2] ("(abs(-Y_Position)-Y_Position)*50/"+(SliderSize as string))
-						paramWire.connect subaniY rect.baseObject[#width] ("Y_Position/-2+0.1")		
-						sbase.length = SliderSize*2	
-					)
-					if MixItemLeft!=0 then
-					(
-						rect = rectangle()
-						rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemLeft][1])
-						rect.parent = sbase					
-						rect.length = SliderSize 
-						rect.wireColor = cpBase.color
-						rect.pivot.y = -SliderSize/2
-						rect.pos.y = 0
-						rotate rect (angleaxis 90 [0,0,1])					
-											
-						ncX.lower_limit = -SliderSize
-						moName = moName + "_" + MorphList[MixItemLeft][1]
-						paramWire.connect subaniX MorphList[MixItemLeft][2] ("(abs(-X_Position)-X_Position)*50/"+(SliderSize as string))
-						paramWire.connect subaniX rect.baseObject[#width] ("X_Position/-2+0.1")		
-						sbase.Width = SliderSize*2	
-					)
-					if MixItemRight!=0 then
-					(
-						rect = rectangle()
-						rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemRight][1])
-						rect.parent = sbase					
-						rect.length = SliderSize 
-						rect.wireColor = cpBase.color
-						rect.pivot.y = -SliderSize/2
-						rect.pos.y = 0
-						rotate rect (angleaxis -90 [0,0,1])	
-						
-						ncX.upper_limit = SliderSize
-						moName = moName + "_" + MorphList[MixItemRight][1]
-						paramWire.connect subaniX MorphList[MixItemRight][2] ("(abs(X_Position)+X_Position)*50/"+(SliderSize as string))
-						paramWire.connect subaniX rect.baseObject[#width] ("X_Position/2+0.1")	
-						sbase.width = SliderSize*2
-					)
+						sbase.name = uniquename (prefix + "mix_sliderb" + moName)
+						s.name = uniquename (prefix + "mix_slider" + moName)
+						sbase.pos.x = 0
+						sbase.pos.y = 0
+						sbase.pos.z = -1-SliderSize				
+						rotate sbase (angleaxis 90 [1,0,0])
+						UpdateListbox()
 					
-					sbase.name = uniquename (prefix + "mix_sliderb" + moName)
-					s.name = uniquename (prefix + "mix_slider" + moName)
-					sbase.pos.x = 0
-					sbase.pos.y = 0
-					sbase.pos.z = -1-SliderSize				
-					rotate sbase (angleaxis 90 [1,0,0])
-					UpdateListbox()
-				
+				)
 			)
 		)
 		on btnUnwire pressed do
 		(
-			for i=1 to MorphList.count do 			 
-			(				
-				if (chkSelectedOnly.checked and (lbxChannels.selection!=i)) then continue
-				if  ((classof MorphList[i][2].controller)==Float_Wire)   then MorphList[i][2].controller=Bezier_Float()
-			)			
-			UpdateListbox()
+			undo "Unwire Morphs" on
+			(
+				for i=1 to MorphList.count do 			 
+				(				
+					if (chkSelectedOnly.checked and (lbxChannels.selection!=i)) then continue
+					if  ((classof MorphList[i][2].controller)==Float_Wire)   then MorphList[i][2].controller=Bezier_Float()
+				)			
+				UpdateListbox()
+			)
 		)
 		on btnRemoveAllChannels pressed do
 		(
@@ -435,60 +442,66 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
         
         on btnAssignMorphTargets pressed do 
         (
-            if objWithMorpher != undefined then  
+            undo "Assign Morph Targets" on
             (
-                morpherMod  = objWithMorpher.modifiers[#morpher]
-                if morpherMod != undefined then
-                (                        
-                    local usePostfixName = chkUsePostFix.checked 
-                    local currentChannel = 1
-                    
-                    for i=1 to selection.count do 
-                    (
-                        local obj = selection[i]
-                        local targetChannel = i
+                if objWithMorpher != undefined then  
+                (
+                    morpherMod  = objWithMorpher.modifiers[#morpher]
+                    if morpherMod != undefined then
+                    (                        
+                        local usePostfixName = chkUsePostFix.checked 
+                        local currentChannel = 1
                         
-                        -- Find target channel based on operation
-                        if radioAction.state == 2 then ( -- "Add" operation
-                            while (WM3_MC_HasData morpherMod currentChannel) and currentChannel <= 100 do
-                                currentChannel += 1
-                            targetChannel = currentChannel
-                        )
-                        
-                        -- Assign if within range
-                        if targetChannel <= 100 then (
-                            WM3_MC_BuildFromNode morpherMod targetChannel obj 
+                        for i=1 to selection.count do 
+                        (
+                            local obj = selection[i]
+                            local targetChannel = i
                             
-                            if usePostfixName then (
-                                local namesParts = (FilterString obj.name "_")
-                                if namesParts.count > 0 then (
-                                    local postfix = namesParts[namesParts.count]
-                                    WM3_MC_SetName morpherMod targetChannel postfix
-                                )
+                            -- Find target channel based on operation
+                            if radioAction.state == 2 then ( -- "Add" operation
+                                while (WM3_MC_HasData morpherMod currentChannel) and currentChannel <= 100 do
+                                    currentChannel += 1
+                                targetChannel = currentChannel
                             )
                             
-                            -- Prepare for next search if in Add mode
-                            if radioAction.state == 2 then currentChannel += 1
-                        )
-                        else (
-                            messageBox "Morpher channel limit reached (100)!" title:"pX Tools"
-                            exit
+                            -- Assign if within range
+                            if targetChannel <= 100 then (
+                                WM3_MC_BuildFromNode morpherMod targetChannel obj 
+                                
+                                if usePostfixName then (
+                                    local namesParts = (FilterString obj.name "_")
+                                    if namesParts.count > 0 then (
+                                        local postfix = namesParts[namesParts.count]
+                                        WM3_MC_SetName morpherMod targetChannel postfix
+                                    )
+                                )
+                                
+                                -- Prepare for next search if in Add mode
+                                if radioAction.state == 2 then currentChannel += 1
+                            )
+                            else (
+                                messageBox "Morpher channel limit reached (100)!" title:"pX Tools"
+                                exit
+                            )
                         )
                     )
-                )
-            )                
+                )                
+            )
         )
 
         on btnResetMorpher pressed do 
         (
-            if objWithMorpher != undefined then 
+            undo "Reset Morpher" on
             (
-                morpherMod = objWithMorpher.modifiers[#morpher]
-                if morpherMod != undefined then
+                if objWithMorpher != undefined then 
                 (
-                    for i = 1 to 100 do 
+                    morpherMod = objWithMorpher.modifiers[#morpher]
+                    if morpherMod != undefined then
                     (
-                        WM3_MC_Delete morpherMod i
+                        for i = 1 to 100 do 
+                        (
+                            WM3_MC_Delete morpherMod i
+                        )
                     )
                 )
             )
