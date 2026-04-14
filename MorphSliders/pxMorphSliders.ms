@@ -12,40 +12,40 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 	
 	rollout roll_MorphSliders "Sliders" width:406 height:388
 	(
-		button btnCreate "Create simple sliders" pos:[8,301] width:172 height:28
-		listbox lbxChannels "Channel List" pos:[7,38] width:176 height:15 
+		button 'btnCreate' "Create simple sliders" pos:[8,301] width:172 height:28 align:#left
+		listbox 'lbxChannels' "Channel List" pos:[7,38] width:176 height:15 align:#left 
  
+		button 'btnGetMorphs' "ADD MORPH CHANNELS" pos:[20,8] width:200 height:25 toolTip:"Get Mopher Channels from seleted object" align:#left
+		GroupBox 'grp1' "4 channels Mix Slider" pos:[193,47] width:201 height:211 align:#left
 
-		button btnGetMorphs "ADD MORPH CHANNELS" pos:[20,8] width:200 height:25 toolTip:"Get Mopher Channels from seleted object"
-		GroupBox grp1 "4 channels Mix Slider" pos:[247,47] width:147 height:211
-		button btnSetUp ">  Up" pos:[191,74] width:52 height:24								
-								
-
-		button btnSetDown ">  Down" pos:[190,105] width:52 height:24
-		button btnSetLeft ">  Left" pos:[189,137] width:52 height:24
-		button btnSetRight ">  Right" pos:[189,166] width:52 height:24
-		label lblUp "---" pos:[256,78] width:133 height:18
-		label lblDown "---" pos:[256,110] width:133 height:18
-		label lblLeft "---" pos:[256,141] width:133 height:18
-		label lblRight "---" pos:[256,171] width:129 height:18				
+		button 'btnSetUp' "^  Up" pos:[242,75] width:100 height:24 align:#left			
+			
 				
+		button 'btnSetDown' "V  Down" pos:[246,180] width:100 height:24 align:#left
+		button 'btnSetLeft' "<  Left" pos:[200,128] width:78 height:24 align:#left
+		button 'btnSetRight' "Right >" pos:[304,128] width:82 height:24 align:#left
 
-		button btnRemoveAll "<<" pos:[189,221] width:51 height:24 toolTip:"Remove All"
-		button btnCreateMix "Create Slider Mix" pos:[257,215] width:125 height:34
-		edittext edtPrefix "Prefix" pos:[204,277] width:95 height:17
-		checkbox chkIgnoreWired "Skip wired" pos:[10,277] width:77 height:18 checked:true
-		checkbox chkSelectedOnly "Selected Item Only" pos:[11,259] width:120 height:18 checked:false
-		button btnUnwire "Restore controllers (Unwire)" pos:[8,332] width:171 height:26 toolTip:"Restore morph channel controllers to Float Blezier without wiring"
-		button btnRemoveAllChannels "Remove All" pos:[11,364] width:66 height:19
-		button btnRemoveSel "Remove Selected" pos:[83,365] width:95 height:17
-		spinner spnSize "Size" pos:[219,304] width:85 height:16 range:[0.1,100,2]
+
+
+		button 'btnRemoveAll' "clear" pos:[200,223] width:51 height:24 toolTip:"Remove All" align:#left
+		button 'btnCreateMix' "Create Slider Mix" pos:[257,215] width:125 height:34 align:#left
+		
+		edittext 'edtPrefix' "Prefix" pos:[204,277] width:95 height:17 align:#left
+		checkbox 'chkIgnoreWired' "Skip wired" pos:[10,277] width:77 height:18 checked:true align:#left
+		checkbox 'chkSelectedOnly' "Selected Item Only" pos:[11,259] width:120 height:18 checked:false align:#left
+		button 'btnUnwire' "Restore controllers (Unwire)" pos:[8,332] width:171 height:26 toolTip:"Restore morph channel controllers to Float Blezier without wiring" align:#left
+		button 'btnRemoveAllChannels' "Remove All" pos:[11,364] width:66 height:19 align:#left
+		button 'btnRemoveSel' "Remove Selected" pos:[83,365] width:95 height:17 align:#left
+		spinner 'spnSize' "Size" pos:[205,303] width:85 height:16 range:[0.1,100,2] align:#left
 		--progressBar pbar "ProgressBar" pos:[99,280] width:81 height:14
-		colorPicker cpSlider "Slider" pos:[317,278] width:54 height:18 color:(color 220 255 100) title:"Choose a color"
-		colorPicker cpBase "Base" pos:[322,304] width:52 height:19 color:(color 100 100 200)
-		HyperLink linkDenys "by Denys Almaral" pos:[294,361] width:100 height:17 color:(color 0 0 255) hovercolor:(color 0 100 255) address:"http://www.denysalmaral.com" 
+		colorPicker 'cpSlider' "Slider" pos:[317,278] width:54 height:18 color:(color 220 255 100) title:"Choose a color" align:#left
+		colorPicker 'cpBase' "Base" pos:[322,304] width:52 height:19 color:(color 100 100 200) align:#left
+		HyperLink 'linkDenys' "by Denys Almaral" pos:[294,361] width:100 height:17 color:(color 0 0 255) hovercolor:(color 0 100 255) address:"http://www.denysalmaral.com" align:#left 
  
  
-		HyperLink LinkHelp "(?) Help" pos:[344,12] width:43 height:16 color:(color 0 0 255) hovercolor:(color 0 100 255) address:"http://www.denysalmaral.com/2012/04/px-spritesrender-3ds-max-scripted.html"
+ 
+ 
+		HyperLink 'LinkHelp' "(?) Help" pos:[344,12] width:43 height:16 color:(color 0 0 255) hovercolor:(color 0 100 255) address:"https://denysalmaral.com/post/px-quick-morph-sliders-creation-tool-for-3ds-max/" align:#left
 		
 		function FreezeTransform CurObj = 	
 		( 			
@@ -90,6 +90,12 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 
 		--on lbxChannels 
 
+        
+		on roll_MorphSliders close do
+		(
+		    print "good bye"
+		
+		)
 		on btnCreate pressed do
 		(
 			
@@ -200,7 +206,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			(	
 				if idx!=0 then
 				(
-					lblUp.text = MorphList[idx][1]
+					btnSetUp.text = "^ " + MorphList[idx][1]
 					MixItemUp = idx
 					if lbxChannels.selection<lbxChannels.items.count then lbxChannels.selection = idx+1
 				)
@@ -213,7 +219,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			(	
 				if idx!=0 then
 				(
-				lblDown.text = MorphList[idx][1]
+				btnSetDown.text = "V " + MorphList[idx][1]
 				MixItemDown = idx
 				if lbxChannels.selection<lbxChannels.items.count then lbxChannels.selection = idx+1
 				)
@@ -226,7 +232,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			(	
 				if idx!=0 then
 				(
-				lblLeft.text = MorphList[idx][1]
+				btnSetLeft.text = "< " + MorphList[idx][1]
 				MixItemLeft = idx
 				if lbxChannels.selection<lbxChannels.items.count then lbxChannels.selection = idx+1
 				)
@@ -239,7 +245,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			(	
 				if idx!=0 then
 				(
-				lblRight.text = MorphList[idx][1]
+				btnSetRight.text = MorphList[idx][1] + " >"
 				MixItemRight = idx
 				if lbxChannels.selection<lbxChannels.items.count then lbxChannels.selection = idx+1
 				)
@@ -247,10 +253,10 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 		)
 		on btnRemoveAll pressed do
 		(
-			lblUp.text = "---"			
-			lblDown.text = "---"
-			lblLeft.text = "---"
-			lblRight.text = "---"
+			btnSetUp.text = "^  Up"			
+			btnSetDown.text = "V  Down"
+			btnSetLeft.text = "<  Left"
+			btnSetRight.text = "Right >"
 			MixItemDown = 0
 			MixItemUp = 0			
 			MixItemLeft = 0
@@ -267,12 +273,10 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			local SlidersColCount =8
 			local prefix = edtPrefix.text
 			local moName=""
-            local sliderName = uniquename (prefix + "mix_slider_" )
 			
 			if ((MixItemUp!=0) or (MixItemDown!=0) or (MixItemLeft!=0) or (MixItemRight!=0)) then
 			(
 				sbase = rectangle()
-                sbase.name = uniquename (prefix + "mix_base")
 				sbase.width =SliderSize
 				sbase.length = SliderSize
 				sbase.wireColor = cpBase.color
@@ -299,7 +303,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 				if MixItemUp!=0 then
 				(
 					rect = rectangle()
-                    rect.name = uniquename (prefix + "mix_rec")
+		            rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemUp][1])
 					rect.parent = sbase					
 					rect.length = SliderSize 
 					rect.wireColor = cpBase.color
@@ -315,7 +319,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 				if MixItemDown!=0 then
 				(		
 					rect = rectangle()
-                    rect.name = uniquename (prefix + "mix_rec")
+		            rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemDown][1])
 					rect.parent = sbase					
 					rect.length = SliderSize 
 					rect.wireColor = cpBase.color
@@ -332,7 +336,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 				if MixItemLeft!=0 then
 				(
 					rect = rectangle()
-                    rect.name = uniquename (prefix + "mix_rec")
+		            rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemLeft][1])
 					rect.parent = sbase					
 					rect.length = SliderSize 
 					rect.wireColor = cpBase.color
@@ -349,7 +353,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 				if MixItemRight!=0 then
 				(
 					rect = rectangle()
-                    rect.name = uniquename (prefix + "mix_rec")
+		            rect.name = uniquename (prefix + "mix_rec_" + MorphList[MixItemRight][1])
 					rect.parent = sbase					
 					rect.length = SliderSize 
 					rect.wireColor = cpBase.color
@@ -364,7 +368,8 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 					sbase.width = SliderSize*2
 				)
 				
-                s.name = sliderName
+		        sbase.name = uniquename (prefix + "mix_sliderb" + moName)
+		        s.name = uniquename (prefix + "mix_slider" + moName)
 				sbase.pos.x = 0
 				sbase.pos.y = 0
 				sbase.pos.z = -1-SliderSize				
@@ -391,13 +396,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			if (LbxChannels.selection!=undefined)  then DeleteItem MorphList LbxChannels.selection
 			UpdateListbox()
 		)
-        
-        on roll_MorphSliders close do 
-        (
-            print "good bye"
-		
-        )
-	)--endRollout
+	)
 	
     rollout roll_Tools "Tools" width:395 height:38
     (
@@ -405,10 +404,11 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
         local operations = #("replace", "add")
         function morphFilter obj = (obj.modifiers[#morpher]!=undefined)
         group "Assign Multiple Morph Targets" (
-            pickbutton pickMorpher "Pick Object with Morpher" pos:[7,25] width:139 height:29 filter:morphFilter
-            button btnAssignMorphTargets "<<-- Assign all selected as Morph Tergerts" pos:[156,25] width:230 height:29
-            radiobuttons radioAction "Operation" labels:operations default:1 columns:2
-            checkBox chkUsePostFix "Use only name text after last underscore" checked:true
+            pickbutton pickMorpher "Pick Object with Morpher" filter:morphFilter across:2
+            button btnAssignMorphTargets "<< Assign selected as Targets" enabled:false
+            radiobuttons radioAction "" labels:operations default:1 columns:2 across:2 enabled:false
+            checkBox chkUsePostFix "Use _<postfix> only" checked:true toolTip:"Use only name text after last underscore" enabled:false
+			button btnResetMorpher "Reset Morpher" enabled:false
         )
         
         on pickMorpher picked obj  do 
@@ -417,6 +417,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
             (
                 pickMorpher.text = obj.name
                 objWithMorpher = obj
+                btnAssignMorphTargets.enabled = radioAction.enabled = chkUsePostFix.enabled = btnResetMorpher.enabled = true
             )
         )
         
@@ -427,20 +428,58 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
                 morpherMod  = objWithMorpher.modifiers[#morpher]
                 if morpherMod != undefined then
                 (                        
-                        local usePostfixName = chkUsePostFix.checked --use only last part of object name as marph target channel name
-                        for i=1 to selection.count do 
-                        (
-                            local obj =selection[i]
-                            local targetString = (FilterString obj.name "_")
-                            local postfix = targetString[ targetString.count ]
-                            WM3_MC_BuildFromNode morpherMod i obj 
-                            if usePostfixName then
-                            (
-                                WM3_MC_SetName morpherMod i postfix
-                            )
+                    local usePostfixName = chkUsePostFix.checked 
+                    local currentChannel = 1
+                    
+                    for i=1 to selection.count do 
+                    (
+                        local obj = selection[i]
+                        local targetChannel = i
+                        
+                        -- Find target channel based on operation
+                        if radioAction.state == 2 then ( -- "Add" operation
+                            while (WM3_MC_HasData morpherMod currentChannel) and currentChannel <= 100 do
+                                currentChannel += 1
+                            targetChannel = currentChannel
                         )
+                        
+                        -- Assign if within range
+                        if targetChannel <= 100 then (
+                            WM3_MC_BuildFromNode morpherMod targetChannel obj 
+                            
+                            if usePostfixName then (
+                                local namesParts = (FilterString obj.name "_")
+                                if namesParts.count > 0 then (
+                                    local postfix = namesParts[namesParts.count]
+                                    WM3_MC_SetName morpherMod targetChannel postfix
+                                )
+                            )
+                            
+                            -- Prepare for next search if in Add mode
+                            if radioAction.state == 2 then currentChannel += 1
+                        )
+                        else (
+                            messageBox "Morpher channel limit reached (100)!" title:"pX Tools"
+                            exit
+                        )
+                    )
                 )
             )                
+        )
+
+        on btnResetMorpher pressed do 
+        (
+            if objWithMorpher != undefined then 
+            (
+                morpherMod = objWithMorpher.modifiers[#morpher]
+                if morpherMod != undefined then
+                (
+                    for i = 1 to 100 do 
+                    (
+                        WM3_MC_Delete morpherMod i
+                    )
+                )
+            )
         )
     )
 
