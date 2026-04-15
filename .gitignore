@@ -19,3 +19,4 @@ MaxScripts.code-workspace
 *.dll
 *.dll
 AGENT.MD
+.github/copilot-instructions.md

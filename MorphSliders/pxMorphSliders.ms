@@ -1,5 +1,23 @@
---Morph sliders by Denys Almaral
+/*
+    pX Quick Morph Sliders
+    Automated shape-control generation for 3ds Max Morpher Modifier.
+    -- by Denys Alamaral (https://denysalmaral.com)
 
+    OVERVIEW:
+    A productivity tool to quickly generate and wire shape-based slider controls 
+    (individual and 2D-mixers) to Morpher channels. 
+
+    FEATURES:
+    * One-click simple slider generation for multiple morph channels.
+    * 2D Mix Sliders: Combine up to 4 morph channels in a single XY controller.
+    * Persistent Settings: Remembers UI preferences, sizes, and colors across sessions.
+    * Smart Scene Management: Automatic parenting and naming-based replacement of old sliders.
+    * Unwire/Restore: Safely disconnect controls and revert to standard Bezier Float controllers.
+    * Batch Morpher Tools: Quickly assign multiple scene objects as morph targets by name.
+	
+	TODO:
+	* Reuse sliders from existing rig with compatible morph targets. Keeping positions sizes and links.
+*/
 
 macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 (
@@ -77,6 +95,12 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 
 	rollout roll_MorphSliders "Sliders" width:406 height:388
 	(
+		local EXPR_SIMPLE = "Y_Position*100/"
+		local EXPR_UP     = "(abs(Y_Position)+Y_Position)*50/"
+		local EXPR_DOWN   = "(abs(-Y_Position)-Y_Position)*50/"
+		local EXPR_LEFT   = "(abs(-X_Position)-X_Position)*50/"
+		local EXPR_RIGHT  = "(abs(X_Position)+X_Position)*50/"
+
 		button 'btnCreate' "Create simple sliders" pos:[8,301] width:172 height:28 align:#left
 		listbox 'lbxChannels' "Channel List" pos:[7,38] width:176 height:15 align:#left 
  
@@ -265,7 +289,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 									
 									rotate sbase (angleaxis 90 [1,0,0])
 									-- Parameters wiring
-									paramWire.connect subani itemsToProcess[i][2] ("Y_Position*100/"+(SliderSize as string))
+									paramWire.connect subani itemsToProcess[i][2] (EXPR_SIMPLE+(SliderSize as string))
 									paramWire.connect subani sbase.baseObject[#width] ("Y_Position/2+0.1")
 									--deleting olds, setNames
 									newName = prefix+"Sliderb_" + moName					
@@ -468,7 +492,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 							
 							ncY.upper_limit = SliderSize
 							moName = moName + "_" + MorphList[MixItemUp][1]
-							paramWire.connect subaniY MorphList[MixItemUp][2] ("(abs(Y_Position)+Y_Position)*50/"+(SliderSize as string))
+							paramWire.connect subaniY MorphList[MixItemUp][2] (EXPR_UP+(SliderSize as string))
 							paramWire.connect subaniY rect.baseObject[#width] ("Y_Position/2+0.1")	
 							sbase.length = SliderSize*2
 						)
@@ -485,7 +509,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 							
 							ncY.lower_limit = -SliderSize	
 							moName = moName + "_" + MorphList[MixItemDown][1]
-							paramWire.connect subaniY MorphList[MixItemDown][2] ("(abs(-Y_Position)-Y_Position)*50/"+(SliderSize as string))
+							paramWire.connect subaniY MorphList[MixItemDown][2] (EXPR_DOWN+(SliderSize as string))
 							paramWire.connect subaniY rect.baseObject[#width] ("Y_Position/-2+0.1")		
 							sbase.length = SliderSize*2	
 						)
@@ -502,7 +526,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 												
 							ncX.lower_limit = -SliderSize
 							moName = moName + "_" + MorphList[MixItemLeft][1]
-							paramWire.connect subaniX MorphList[MixItemLeft][2] ("(abs(-X_Position)-X_Position)*50/"+(SliderSize as string))
+							paramWire.connect subaniX MorphList[MixItemLeft][2] (EXPR_LEFT+(SliderSize as string))
 							paramWire.connect subaniX rect.baseObject[#width] ("X_Position/-2+0.1")		
 							sbase.Width = SliderSize*2	
 						)
@@ -519,7 +543,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 							
 							ncX.upper_limit = SliderSize
 							moName = moName + "_" + MorphList[MixItemRight][1]
-							paramWire.connect subaniX MorphList[MixItemRight][2] ("(abs(X_Position)+X_Position)*50/"+(SliderSize as string))
+							paramWire.connect subaniX MorphList[MixItemRight][2] (EXPR_RIGHT+(SliderSize as string))
 							paramWire.connect subaniX rect.baseObject[#width] ("X_Position/2+0.1")	
 							sbase.width = SliderSize*2
 						)
@@ -573,6 +597,79 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			if (LbxChannels.selection!=undefined)  then DeleteItem MorphList LbxChannels.selection
 			UpdateListbox()
 			UpdateCreateButtonCaption()
+		)
+
+		function getWiredMorphTargets obj =
+		(
+			local targets = #()
+			try (
+				if obj != undefined then
+				(
+					local searchAnims = #(obj[#transform][#position][2][#X_position], obj[#transform][#position][2][#Y_position])
+					for sa in searchAnims do
+					(
+						if sa != undefined and sa.controller != undefined then
+						(
+							local deps = refs.dependents sa.controller
+							for d in deps do
+							(
+								if classof d == Float_Wire then
+								(
+									local wireDeps = refs.dependents d
+									for wd in wireDeps do
+									(
+										if classof wd == Morpher then
+										(
+											for i=1 to 100 do
+											(
+												if (WM3_MC_HasData wd i) and wd[i].controller == d then
+												(
+													local mName = WM3_MC_GetName wd i
+													local dir = "Unknown"
+													local expr = ""
+													
+													-- Use the wireController interface method to get the expression
+													try (
+														for w=1 to d.numWires do expr += (d.getExprText w)
+													) catch ()
+													
+													if findString expr EXPR_UP != undefined then dir = "Up"
+													else if findString expr EXPR_DOWN != undefined then dir = "Down"
+													else if findString expr EXPR_LEFT != undefined then dir = "Left"
+													else if findString expr EXPR_RIGHT != undefined then dir = "Right"
+													else if findString expr EXPR_SIMPLE != undefined then dir = "Single"
+													
+													appendIfUnique targets (dir + ": " + mName)
+												)
+											)
+										)
+									)
+								)
+							)
+						)
+					)
+				)
+			) catch ()
+			return targets
+		)
+
+		button 'btnTestWired' "Test Get Wired Morphs" pos:[240,364] width:140 height:19 align:#left
+		on btnTestWired pressed do
+		(
+			if selection.count > 0 then
+			(
+				local names = getWiredMorphTargets selection[1]
+				if names.count > 0 then
+				(
+					local txt = ""
+					for n in names do txt += " - " + n + "\n"
+					messageBox ("Wired morph targets mapped by expression:\n\n" + txt) title:"Wired Targets Info"
+				)
+				else
+					messageBox "No wired morph targets found for the selected object's X/Y positions." title:"Wired Targets"
+			)
+			else
+				messageBox "Please select a slider object first." title:"Wired Targets"
 		)
 	)
 	

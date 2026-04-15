@@ -1,0 +1,1 @@
+b = box(); s = sphere(); paramWire.connect b.pos.controller[#X_Position] s.pos.controller[#X_Position] "X_Position*2"; showProperties b.pos.controller[#X_Position]; print "---"; showProperties s.pos.controller[#X_Position]
