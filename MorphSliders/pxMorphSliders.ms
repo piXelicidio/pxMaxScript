@@ -80,7 +80,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 		button 'btnCreate' "Create simple sliders" pos:[8,301] width:172 height:28 align:#left
 		listbox 'lbxChannels' "Channel List" pos:[7,38] width:176 height:15 align:#left 
  
-		button 'btnGetMorphs' "ADD MORPH CHANNELS" pos:[20,8] width:200 height:25 toolTip:"Get Mopher Channels from seleted object" align:#left
+		button 'btnGetMorphs' "ADD MORPH CHANNELS" pos:[20,8] width:200 height:25 toolTip:"Get Morpher Channels from selected object" align:#left
 		GroupBox 'grp1' "4 channels Mix Slider" pos:[193,47] width:201 height:211 align:#left
 
 		button 'btnSetUp' "^  Up" pos:[242,75] width:100 height:24 align:#left			
@@ -98,7 +98,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 		edittext 'edtPrefix' "Prefix" pos:[204,277] width:95 height:17 align:#left
 		checkbox 'chkIgnoreWired' "Skip wired" pos:[10,277] width:77 height:18 checked:true align:#left
 		checkbox 'chkSelectedOnly' "Selected Item Only" pos:[11,259] width:120 height:18 checked:false align:#left
-		button 'btnUnwire' "Restore controllers (Unwire)" pos:[8,332] width:171 height:26 toolTip:"Restore morph channel controllers to Float Blezier without wiring" align:#left
+		button 'btnUnwire' "Restore controllers (Unwire)" pos:[8,332] width:171 height:26 toolTip:"Restore morph channel controllers to Float Bezier without wiring" align:#left
 		button 'btnRemoveAllChannels' "Remove All" pos:[11,364] width:66 height:19 align:#left
 		button 'btnRemoveSel' "Remove Selected" pos:[83,365] width:95 height:17 align:#left
 		spinner 'spnSize' "Size" pos:[205,303] width:85 height:16 range:[0.1,100,2] align:#left
@@ -155,6 +155,35 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 		--on lbxChannels 
 
         
+		function GetItemsToProcess =
+		(
+			local items = #()
+			for i=1 to MorphList.count do
+			(
+				if (chkIgnoreWired.checked and ((classof MorphList[i][2].controller)==Float_Wire)) then continue
+				if (chkSelectedOnly.checked and (lbxChannels.selection!=i)) then continue
+				append items MorphList[i]
+			)
+			return items
+		)
+
+		function UpdateCreateButtonCaption =
+		(
+			local items = GetItemsToProcess()
+			btnCreate.caption = "Create (" + (items.count as string) + ") simple sliders"
+			if (items.count == 0) then btnCreate.enabled = false else btnCreate.enabled = true
+		)
+
+		function UpdateMixButtonState =
+		(
+			local count = 0
+			if MixItemUp != 0 then count += 1
+			if MixItemDown != 0 then count += 1
+			if MixItemLeft != 0 then count += 1
+			if MixItemRight != 0 then count += 1
+			btnCreateMix.enabled = (count >= 2)
+		)
+
 		on roll_MorphSliders open do
 		(
 			local ini = IniFile()
@@ -172,6 +201,8 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			if sliderColor != undefined then cpSlider.color = sliderColor
 			local baseColor = stringToColor (ini.read "cpBase")
 			if baseColor != undefined then cpBase.color = baseColor
+			UpdateCreateButtonCaption()
+			UpdateMixButtonState()
 		)
 		on roll_MorphSliders close do
 		(
@@ -200,22 +231,16 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 				
 				local prefix = edtPrefix.text
 		
-				
-		
 				-- Go for each channel
+				local itemsToProcess = GetItemsToProcess()
 				
-					cCount = 0
-						for i=1 to MorphList.count do 
-						(
-							    --pbar.value = i*100/MorphList.count
-								
-								moName = MorphList[i][1]
-							    if (chkIgnoreWired.checked and ((classof MorphList[i][2].controller)==Float_Wire) )  then continue	
-								if (chkSelectedOnly.checked and (lbxChannels.selection!=i)) then continue
-								
-									cCount = cCount + 1
-									--SliderShapes 
-									sbase = rectangle()									
+				cCount = 0
+				for i=1 to itemsToProcess.count do 
+				(
+						moName = itemsToProcess[i][1]
+						cCount = cCount + 1
+						--SliderShapes 
+						sbase = rectangle()									
 									sbase.width = 0.4
 									sbase.length = SliderSize 
 									sbase.wireColor = cpBase.color
@@ -240,7 +265,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 									
 									rotate sbase (angleaxis 90 [1,0,0])
 									-- Parameters wiring
-									paramWire.connect subani MorphList[i][2] ("Y_Position*100/"+(SliderSize as string))
+									paramWire.connect subani itemsToProcess[i][2] ("Y_Position*100/"+(SliderSize as string))
 									paramWire.connect subani sbase.baseObject[#width] ("Y_Position/2+0.1")
 									--deleting olds, setNames
 									newName = prefix+"Sliderb_" + moName					
@@ -262,11 +287,15 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 										)
 									)
 								
-							
-						)--for i	
-				UpdateListbox()				
+						) -- for i=1 to itemsToProcess.count
+						
+				UpdateListbox()
+				UpdateCreateButtonCaption()
 			)
 		)--On button pressed
+		on chkIgnoreWired changed state do UpdateCreateButtonCaption()
+		on chkSelectedOnly changed state do UpdateCreateButtonCaption()
+		on lbxChannels selected idx do UpdateCreateButtonCaption()
 		on btnGetMorphs pressed do
 		(
 			if $!=undefined then
@@ -298,6 +327,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 					
 				)
 				UpdateListbox()
+				UpdateCreateButtonCaption()
 				
 			)				
 		)
@@ -310,7 +340,12 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 				(
 					btnSetUp.text = "^ " + MorphList[idx][1]
 					MixItemUp = idx
-					if lbxChannels.selection<lbxChannels.items.count then lbxChannels.selection = idx+1
+					UpdateMixButtonState()
+					if lbxChannels.selection<lbxChannels.items.count then 
+					(
+						lbxChannels.selection = idx+1
+						UpdateCreateButtonCaption()
+					)
 				)
 			)
 		)
@@ -321,9 +356,14 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			(	
 				if idx!=0 then
 				(
-				btnSetDown.text = "V " + MorphList[idx][1]
-				MixItemDown = idx
-				if lbxChannels.selection<lbxChannels.items.count then lbxChannels.selection = idx+1
+					btnSetDown.text = "V " + MorphList[idx][1]
+					MixItemDown = idx
+					UpdateMixButtonState()
+					if lbxChannels.selection<lbxChannels.items.count then 
+					(
+						lbxChannels.selection = idx+1
+						UpdateCreateButtonCaption()
+					)
 				)
 			)
 		)
@@ -334,9 +374,14 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			(	
 				if idx!=0 then
 				(
-				btnSetLeft.text = "< " + MorphList[idx][1]
-				MixItemLeft = idx
-				if lbxChannels.selection<lbxChannels.items.count then lbxChannels.selection = idx+1
+					btnSetLeft.text = "< " + MorphList[idx][1]
+					MixItemLeft = idx
+					UpdateMixButtonState()
+					if lbxChannels.selection<lbxChannels.items.count then 
+					(
+						lbxChannels.selection = idx+1
+						UpdateCreateButtonCaption()
+					)
 				)
 			)
 		)
@@ -347,9 +392,14 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			(	
 				if idx!=0 then
 				(
-				btnSetRight.text = MorphList[idx][1] + " >"
-				MixItemRight = idx
-				if lbxChannels.selection<lbxChannels.items.count then lbxChannels.selection = idx+1
+					btnSetRight.text = MorphList[idx][1] + " >"
+					MixItemRight = idx
+					UpdateMixButtonState()
+					if lbxChannels.selection<lbxChannels.items.count then 
+					(
+						lbxChannels.selection = idx+1
+						UpdateCreateButtonCaption()
+					)
 				)
 			)
 		)
@@ -363,6 +413,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			MixItemUp = 0			
 			MixItemLeft = 0
 			MixItemRight = 0
+			UpdateMixButtonState()
 		)
 		on btnCreateMix pressed do
 		(
@@ -496,25 +547,32 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 		)
 		on btnUnwire pressed do
 		(
-			undo "Unwire Morphs" on
+			local msg = "This will remove the wiring for the selected morph channels and restore them to default Bezier Float controllers.\n\nSliders will stop working for these channels. Do you want to continue?"
+			if (queryBox msg title:"Restore Controllers (Unwire)") then
 			(
-				for i=1 to MorphList.count do 			 
-				(				
-					if (chkSelectedOnly.checked and (lbxChannels.selection!=i)) then continue
-					if  ((classof MorphList[i][2].controller)==Float_Wire)   then MorphList[i][2].controller=Bezier_Float()
-				)			
-				UpdateListbox()
+				undo "Unwire Morphs" on
+				(
+					for i=1 to MorphList.count do 			 
+					(				
+						if (chkSelectedOnly.checked and (lbxChannels.selection!=i)) then continue
+						if  ((classof MorphList[i][2].controller)==Float_Wire)   then MorphList[i][2].controller=Bezier_Float()
+					)			
+					UpdateListbox()
+					UpdateCreateButtonCaption()
+				)
 			)
 		)
 		on btnRemoveAllChannels pressed do
 		(
 			MorphList=#()
 			UpdateListbox()
+			UpdateCreateButtonCaption()
 		)
 		on btnRemoveSel pressed do
 		(
 			if (LbxChannels.selection!=undefined)  then DeleteItem MorphList LbxChannels.selection
 			UpdateListbox()
+			UpdateCreateButtonCaption()
 		)
 	)
 	
