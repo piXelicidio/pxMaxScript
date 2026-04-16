@@ -93,8 +93,9 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 		)
 	)
 
-	rollout roll_MorphSliders "Sliders" width:406 height:388
+	rollout roll_MorphSliders "Sliders" width:406 height:416
 	(
+		-- Expression strings (used by creation and diagnosis)
 		local EXPR_SIMPLE = "Y_Position*100/"
 		local EXPR_UP     = "(abs(Y_Position)+Y_Position)*50/"
 		local EXPR_DOWN   = "(abs(-Y_Position)-Y_Position)*50/"
@@ -125,6 +126,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 		button 'btnUnwire' "Restore controllers (Unwire)" pos:[8,332] width:171 height:26 toolTip:"Restore morph channel controllers to Float Bezier without wiring" align:#left
 		button 'btnRemoveAllChannels' "Remove All" pos:[11,364] width:66 height:19 align:#left
 		button 'btnRemoveSel' "Remove Selected" pos:[83,365] width:95 height:17 align:#left
+		button 'btnReuseSliders' "Reuse existing sliders" pos:[11,388] width:160 height:24 align:#left
 		spinner 'spnSize' "Size" pos:[205,303] width:85 height:16 range:[0.1,100,2] align:#left
 		checkbox 'chkChildOf' "Make it child of selected" pos:[205,325] checked:false 
 		checkbox 'chkReplace' "Replace existing by  name" pos:[205,350] checked:true
@@ -300,6 +302,9 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 									existObj =  Execute ("$"+newName)
 									if (existObj!=undefined) and replaceSliders then delete existObj
 									s.Name = newName
+
+									-- Store wired morph target as User Property
+									setUserProp s "slider_single" moName
 
 									if (chkChildOf.checked) then 
 									(
@@ -550,6 +555,13 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 						
 						sbase.name = uniquename (prefix + "mix_sliderb" + moName)
 						s.name = uniquename (prefix + "mix_slider" + moName)
+
+						-- Store wired morph targets as User Properties
+						if MixItemUp != 0 then setUserProp s "slider_mix_up" MorphList[MixItemUp][1]
+						if MixItemDown != 0 then setUserProp s "slider_mix_down" MorphList[MixItemDown][1]
+						if MixItemLeft != 0 then setUserProp s "slider_mix_left" MorphList[MixItemLeft][1]
+						if MixItemRight != 0 then setUserProp s "slider_mix_right" MorphList[MixItemRight][1]
+
 						sbase.pos.x = 0
 						sbase.pos.y = 0
 						sbase.pos.z = -1-SliderSize				
@@ -599,6 +611,138 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			UpdateCreateButtonCaption()
 		)
 
+		on btnReuseSliders pressed do
+		(
+			undo "Reuse Sliders" on
+			(
+				local SliderSize = spnSize.value
+				local itemsProcessed = 0
+				
+				for s in selection do
+				(
+					local sbase = s.parent
+					if sbase == undefined then continue
+
+					-- Helper function to find morph target in current MorphList
+					fn findMorphTarget nameIn = (
+						local cleanName = substituteString nameIn " (wired)" ""
+						local foundIdx = 0
+						for i = 1 to MorphList.count while foundIdx == 0 do (
+							if MorphList[i][1] == cleanName then foundIdx = i
+						)
+						return if foundIdx > 0 then MorphList[foundIdx][2] else undefined
+					)
+
+					-- 1. Single Sliders
+					local moNameSingle = getUserProp s "slider_single"
+					if moNameSingle != undefined then (
+						local target = findMorphTarget moNameSingle
+						if target != undefined then (
+							-- Re-apply limits
+							local subani = s[#transform][#position][2][#Y_position]
+							if subani != undefined then (
+								local nc = Float_Limit()
+								nc.lower_limit = 0
+								nc.upper_limit = SliderSize
+								subani.controller = Bezier_Float()
+								subani.controller = nc
+								
+								-- Rewire
+								paramWire.connect subani target (EXPR_SIMPLE + (SliderSize as string))
+								
+								-- Update Base Visuals
+								sbase.width = 0.4
+								sbase.length = SliderSize
+								paramWire.connect subani sbase.baseObject[#width] ("Y_Position/2+0.1")
+								itemsProcessed += 1
+							)
+						)
+					)
+
+					-- 2. Mix Sliders (2D)
+					local mixProps = #("slider_mix_up", "slider_mix_down", "slider_mix_left", "slider_mix_right")
+					local isMix = false
+					for p in mixProps while not isMix do ( if getUserProp s p != undefined then isMix = true )
+
+					if isMix then (
+						local subaniX = s[#transform][#position][2][#X_position]
+						local subaniY = s[#transform][#position][2][#Y_position]
+						
+						if subaniX != undefined and subaniY != undefined then (
+							local ncX = Float_Limit(); ncX.lower_limit = 0; ncX.upper_limit = 0; subaniX.controller = Bezier_Float(); subaniX.controller = ncX
+							local ncY = Float_Limit(); ncY.lower_limit = 0; ncY.upper_limit = 0; subaniY.controller = Bezier_Float(); subaniY.controller = ncY
+							
+							local baseMaxW = 0.4; local baseMaxL = 0.4
+
+							local upName = getUserProp s "slider_mix_up"
+							if upName != undefined then (
+								local target = findMorphTarget upName
+								if target != undefined then (
+									ncY.upper_limit = SliderSize
+									paramWire.connect subaniY target (EXPR_UP+(SliderSize as string))
+									for child in sbase.children where (findString child.name upName != undefined and (hasProperty child "length")) do (
+										child.length = SliderSize
+										paramWire.connect subaniY child.baseObject[#width] ("Y_Position/2+0.1")
+									)
+									baseMaxL = SliderSize * 2
+								)
+							)
+
+							local downName = getUserProp s "slider_mix_down"
+							if downName != undefined then (
+								local target = findMorphTarget downName
+								if target != undefined then (
+									ncY.lower_limit = -SliderSize
+									paramWire.connect subaniY target (EXPR_DOWN+(SliderSize as string))
+									for child in sbase.children where (findString child.name downName != undefined and (hasProperty child "length")) do (
+										child.length = SliderSize
+										paramWire.connect subaniY child.baseObject[#width] ("Y_Position/-2+0.1")
+									)
+									baseMaxL = SliderSize * 2
+								)
+							)
+
+							local leftName = getUserProp s "slider_mix_left"
+							if leftName != undefined then (
+								local target = findMorphTarget leftName
+								if target != undefined then (
+									ncX.lower_limit = -SliderSize
+									paramWire.connect subaniX target (EXPR_LEFT+(SliderSize as string))
+									for child in sbase.children where (findString child.name leftName != undefined and (hasProperty child "length")) do (
+										child.length = SliderSize
+										paramWire.connect subaniX child.baseObject[#width] ("X_Position/-2+0.1")
+									)
+									baseMaxW = SliderSize * 2
+								)
+							)
+
+							local rightName = getUserProp s "slider_mix_right"
+							if rightName != undefined then (
+								local target = findMorphTarget rightName
+								if target != undefined then (
+									ncX.upper_limit = SliderSize
+									paramWire.connect subaniX target (EXPR_RIGHT+(SliderSize as string))
+									for child in sbase.children where (findString child.name rightName != undefined and (hasProperty child "length")) do (
+										child.length = SliderSize
+										paramWire.connect subaniX child.baseObject[#width] ("X_Position/2+0.1")
+									)
+									baseMaxW = SliderSize * 2
+								)
+							)
+							sbase.width = baseMaxW
+							sbase.length = baseMaxL
+							itemsProcessed += 1
+						)
+					)
+				)
+				UpdateListbox()
+				UpdateCreateButtonCaption()
+			)
+		)
+	)
+	
+    rollout roll_Tools "Tools" width:395 height:38
+    (
 		function getWiredMorphTargets obj =
 		(
 			local targets = #()
@@ -633,11 +777,11 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 														for w=1 to d.numWires do expr += (d.getExprText w)
 													) catch ()
 													
-													if findString expr EXPR_UP != undefined then dir = "Up"
-													else if findString expr EXPR_DOWN != undefined then dir = "Down"
-													else if findString expr EXPR_LEFT != undefined then dir = "Left"
-													else if findString expr EXPR_RIGHT != undefined then dir = "Right"
-													else if findString expr EXPR_SIMPLE != undefined then dir = "Single"
+													if findString expr roll_MorphSliders.EXPR_UP != undefined then dir = "Up"
+													else if findString expr roll_MorphSliders.EXPR_DOWN != undefined then dir = "Down"
+													else if findString expr roll_MorphSliders.EXPR_LEFT != undefined then dir = "Left"
+													else if findString expr roll_MorphSliders.EXPR_RIGHT != undefined then dir = "Right"
+													else if findString expr roll_MorphSliders.EXPR_SIMPLE != undefined then dir = "Single"
 													
 													appendIfUnique targets (dir + ": " + mName)
 												)
@@ -653,28 +797,6 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 			return targets
 		)
 
-		button 'btnTestWired' "Test Get Wired Morphs" pos:[240,364] width:140 height:19 align:#left
-		on btnTestWired pressed do
-		(
-			if selection.count > 0 then
-			(
-				local names = getWiredMorphTargets selection[1]
-				if names.count > 0 then
-				(
-					local txt = ""
-					for n in names do txt += " - " + n + "\n"
-					messageBox ("Wired morph targets mapped by expression:\n\n" + txt) title:"Wired Targets Info"
-				)
-				else
-					messageBox "No wired morph targets found for the selected object's X/Y positions." title:"Wired Targets"
-			)
-			else
-				messageBox "Please select a slider object first." title:"Wired Targets"
-		)
-	)
-	
-    rollout roll_Tools "Tools" width:395 height:38
-    (
         local objWithMorpher = undefined
         local operations = #("replace", "add")
         function morphFilter obj = (obj.modifiers[#morpher]!=undefined)
@@ -685,6 +807,46 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
             checkBox chkUsePostFix "Use _<postfix> only" checked:true toolTip:"Use only name text after last underscore" enabled:false
 			button btnResetMorpher "Reset Morpher" enabled:false
         )
+
+		group "Diagnosis" (
+			button 'btnStoreWired' "Store Morph Names into UserProp" width:200 height:25 align:#center
+		)
+		
+		on btnStoreWired pressed do
+		(
+			if selection.count > 0 then
+			(
+				undo "Store Morph UserProps" on
+				(
+					local processedCount = 0
+					for obj in selection do
+					(
+						local targets = getWiredMorphTargets obj
+						if targets.count > 0 then
+						(
+							for item in targets do
+							(
+								local parts = filterString item ":"
+								if parts.count >= 2 then
+								(
+									local dir = trimLeft (trimRight parts[1])
+									local mName = trimLeft (trimRight parts[2])
+									local key = "slider_" + (toLower dir)
+									if dir == "Single" then key = "slider_single"
+									else key = "slider_mix_" + (toLower dir)
+									
+									setUserProp obj key mName
+								)
+							)
+							processedCount += 1
+						)
+					)
+					messageBox ("Updated User Defined Properties for " + (processedCount as string) + " objects.") title:"pX Tools"
+				)
+			)
+			else
+				messageBox "Please select at least one slider object." title:"pX Tools"
+		)
         
         on pickMorpher picked obj  do 
         (
@@ -781,7 +943,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
         )
     )
 
-	global morphsliders_floater = newRolloutFloater "pX Quick Morph Sliders" 406 550
+	global morphsliders_floater = newRolloutFloater "pX Quick Morph Sliders" 406 580
 
     addRollout roll_MorphSliders morphsliders_floater
     addRollout roll_Tools morphsliders_floater
