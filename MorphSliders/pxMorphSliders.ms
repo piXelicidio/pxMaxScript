@@ -102,37 +102,37 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
 		local EXPR_LEFT   = "(abs(-X_Position)-X_Position)*50/"
 		local EXPR_RIGHT  = "(abs(X_Position)+X_Position)*50/"
 
-		button 'btnCreate' "Create simple sliders" pos:[8,301] width:172 height:28 align:#left
-		listbox 'lbxChannels' "Channel List" pos:[7,38] width:176 height:15 align:#left 
+		button 'btnCreate' "Create simple sliders" pos:[8,301] width:172 height:28 toolTip:"Batch-create single sliders for all un-wired channels in the MorphList" align:#left
+		listbox 'lbxChannels' "Channel List" pos:[7,38] width:176 height:15 toolTip:"List of collected Morpher channels. (wired) suffix indicates existing connection." align:#left 
  
-		button 'btnGetMorphs' "ADD MORPH CHANNELS" pos:[20,8] width:200 height:25 toolTip:"Get Morpher Channels from selected object" align:#left
+		button 'btnGetMorphs' "ADD MORPH CHANNELS" pos:[20,8] width:200 height:25 toolTip:"Collect all active channels from the Morpher modifier of the selected object" align:#left
 		GroupBox 'grp1' "4 channels Mix Slider" pos:[193,47] width:201 height:211 align:#left
 
-		button 'btnSetUp' "^  Up" pos:[242,75] width:100 height:24 align:#left			
+		button 'btnSetUp' "^  Up" pos:[242,75] width:100 height:24 toolTip:"Set the currently selected MorphList item to the Upward axis of the mix slider" align:#left			
 			
 				
-		button 'btnSetDown' "V  Down" pos:[246,180] width:100 height:24 align:#left
-		button 'btnSetLeft' "<  Left" pos:[200,128] width:78 height:24 align:#left
-		button 'btnSetRight' "Right >" pos:[304,128] width:82 height:24 align:#left
+		button 'btnSetDown' "V  Down" pos:[246,180] width:100 height:24 toolTip:"Set the currently selected MorphList item to the Downward axis of the mix slider" align:#left
+		button 'btnSetLeft' "<  Left" pos:[200,128] width:78 height:24 toolTip:"Set the currently selected MorphList item to the Leftward axis of the mix slider" align:#left
+		button 'btnSetRight' "Right >" pos:[304,128] width:82 height:24 toolTip:"Set the currently selected MorphList item to the Rightward axis of the mix slider" align:#left
 
 
 
-		button 'btnRemoveAll' "clear" pos:[200,223] width:51 height:24 toolTip:"Remove All" align:#left
-		button 'btnCreateMix' "Create Slider Mix" pos:[257,215] width:125 height:34 align:#left
+		button 'btnRemoveAll' "clear" pos:[200,223] width:51 height:24 toolTip:"Clear all direction assignments from the Mix Slider setup" align:#left
+		button 'btnCreateMix' "Create Slider Mix" pos:[257,215] width:125 height:34 toolTip:"Generate a 2D mixer controller combining the 2-4 assigned morph channels" align:#left
 		
-		edittext 'edtPrefix' "Prefix" pos:[204,277] width:95 height:17 align:#left
-		checkbox 'chkIgnoreWired' "Skip wired" pos:[10,277] width:77 height:18 checked:true align:#left
-		checkbox 'chkSelectedOnly' "Selected Item Only" pos:[11,259] width:120 height:18 checked:false align:#left
-		button 'btnUnwire' "Restore controllers (Unwire)" pos:[8,332] width:171 height:26 toolTip:"Restore morph channel controllers to Float Bezier without wiring" align:#left
-		button 'btnRemoveAllChannels' "Remove All" pos:[11,364] width:66 height:19 align:#left
-		button 'btnRemoveSel' "Remove Selected" pos:[83,365] width:95 height:17 align:#left
-		button 'btnReuseSliders' "Reuse existing sliders" pos:[11,388] width:160 height:24 align:#left
-		spinner 'spnSize' "Size" pos:[205,303] width:85 height:16 range:[0.1,100,2] align:#left
-		checkbox 'chkChildOf' "Make it child of selected" pos:[205,325] checked:false 
-		checkbox 'chkReplace' "Replace existing by  name" pos:[205,350] checked:true
+		edittext 'edtPrefix' "Prefix" pos:[204,277] width:95 height:17 toolTip:"Optional prefix added to the names of newly created slider objects" align:#left
+		checkbox 'chkIgnoreWired' "Skip wired" pos:[10,277] width:77 height:18 checked:true toolTip:"When enabled, 'Create simple sliders' will skip channels that already have wire controllers" align:#left
+		checkbox 'chkSelectedOnly' "Selected Item Only" pos:[11,259] width:120 height:18 checked:false toolTip:"Apply creation and unwire operations only to the highlighted item in the list" align:#left
+		button 'btnUnwire' "Restore controllers (Unwire)" pos:[8,332] width:171 height:26 toolTip:"Disconnect selected morph channels from sliders and revert them to default Bezier Float controllers" align:#left
+		button 'btnRemoveAllChannels' "Remove All" pos:[11,364] width:66 height:19 toolTip:"Clear the entire MorphList" align:#left
+		button 'btnRemoveSel' "Remove Selected" pos:[83,365] width:95 height:17 toolTip:"Remove the highlighted item from the MorphList" align:#left
+		button 'btnReuseSliders' "Reuse existing sliders" pos:[11,388] width:160 height:24 toolTip:"Rewire selected scene sliders to the current MorphList targets and update their size/limits" align:#left
+		spinner 'spnSize' "Size" pos:[205,303] width:85 height:16 range:[0.1,100,2] toolTip:"Set the visual size and movement range for new and reused sliders" align:#left
+		checkbox 'chkChildOf' "Make it child of selected" pos:[205,325] checked:false toolTip:"Link newly created sliders to the currently selected object in the scene"
+		checkbox 'chkReplace' "Replace existing by  name" pos:[205,350] checked:true toolTip:"Automatically delete any existing objects with the same generated name before creating new sliders"
 		--progressBar pbar "ProgressBar" pos:[99,280] width:81 height:14
-		colorPicker 'cpSlider' "Slider" pos:[317,278] width:54 height:18 color:(color 220 255 100) title:"Choose a color" align:#left
-		colorPicker 'cpBase' "Base" pos:[322,304] width:52 height:19 color:(color 100 100 200) align:#left
+		colorPicker 'cpSlider' "Slider" pos:[317,278] width:54 height:18 color:(color 220 255 100) title:"Choose a color" toolTip:"Visual color for the slider knob/donut" align:#left
+		colorPicker 'cpBase' "Base" pos:[322,304] width:52 height:19 color:(color 100 100 200) toolTip:"Visual color for the slider background/base" align:#left
 		 
  
 		HyperLink 'LinkHelp' "(?) Help" pos:[344,12] width:43 height:16 color:(color 0 0 255) hovercolor:(color 0 100 255) address:"https://denysalmaral.com/post/px-quick-morph-sliders-creation-tool-for-3ds-max/" align:#left
@@ -801,15 +801,15 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
         local operations = #("replace", "add")
         function morphFilter obj = (obj.modifiers[#morpher]!=undefined)
         group "Assign Multiple Morph Targets" (
-            pickbutton pickMorpher "Pick Object with Morpher" filter:morphFilter across:2
-            button btnAssignMorphTargets "<< Assign selected as Targets" enabled:false
-            radiobuttons radioAction "" labels:operations default:1 columns:2 across:2 enabled:false
-            checkBox chkUsePostFix "Use _<postfix> only" checked:true toolTip:"Use only name text after last underscore" enabled:false
-			button btnResetMorpher "Reset Morpher" enabled:false
+            pickbutton pickMorpher "Pick Object with Morpher" filter:morphFilter across:2 toolTip:"Choose the object whose Morpher channels will receive new targets"
+            button btnAssignMorphTargets "<< Assign selected as Targets" enabled:false toolTip:"Instantly assign the currently selected scene objects as targets for the picked Morpher"
+            radiobuttons radioAction "" labels:operations default:1 columns:2 across:2 enabled:false toolTip:"Replace existing channels or Add to the next available slots"
+            checkBox chkUsePostFix "Use _<postfix> only" checked:true toolTip:"Trim target names to use only the text after the final underscore (e.g., 'Head_Smile' becomes 'Smile')" enabled:false
+			button btnResetMorpher "Reset Morpher" enabled:false toolTip:"CLEAR ALL 100 channels in the picked Morpher modifier. Use with caution!"
         )
 
 		group "Diagnosis" (
-			button 'btnStoreWired' "Store Morph Names into UserProp" width:200 height:25 align:#center
+			button 'btnStoreWired' "Store Morph Names into UserProp" width:200 height:25 toolTip:"Analyze current wire connections on selection and record target names into object User Properties for future reuse" align:#center
 		)
 		
 		on btnStoreWired pressed do
@@ -943,7 +943,7 @@ macroScript MorphSliders category:"pX Tools" buttonText:"Quick Morph Sliders"
         )
     )
 
-	global morphsliders_floater = newRolloutFloater "pX Quick Morph Sliders" 406 580
+	global morphsliders_floater = newRolloutFloater "pX Quick Morph Sliders" 406 620
 
     addRollout roll_MorphSliders morphsliders_floater
     addRollout roll_Tools morphsliders_floater
