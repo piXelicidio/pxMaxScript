@@ -26,6 +26,45 @@
 -- Need more UI room?, experiment with all inside subRollouts. Test inter-Rollout communications.
 
 
+fn pxPolyPaint_GetSourceDir =
+(
+	local sourceFile = getThisScriptFilename()
+	if sourceFile == undefined or sourceFile == "" then
+		undefined
+	else
+		pathConfig.removePathLeaf sourceFile
+)
+
+fn pxPolyPaint_CopyDependency =
+(
+	local userMacroDir = getDir #userMacros
+	local targetFile = userMacroDir + "\\pxtools_PolypaintHelpers.cs"
+
+	local sourceDir = pxPolyPaint_GetSourceDir()
+	if sourceDir == undefined then
+	(
+		format "pX Poly Paint: source file path is unavailable, cannot copy dependency.\n"
+		false
+	)
+	else
+	(
+		local sourceFile = sourceDir + "\\dotnet_polypaint\\PolypaintHelpers.cs"
+		if not doesFileExist sourceFile then
+		(
+			format "pX Poly Paint: source dependency not found: %\n" sourceFile
+			false
+		)
+		else
+		(
+			if doesFileExist targetFile do deleteFile targetFile
+			messageBox ("pX Poly Paint is copying its dependency to the user macros folder.\n\nFrom:\n" + sourceFile + "\n\nTo:\n" + targetFile) title:"pX Poly Paint"
+			copyFile sourceFile targetFile
+		)
+	)
+)
+
+pxPolyPaint_CopyDependency()
+
 macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Poly Paint"
 (	
 	global g_PolyPaint	
@@ -37,6 +76,37 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			destroyDialog g_PolyPaint			
 		)		
 	)
+	
+	global PolypaintHelpers = undefined
+	function CompileCSharpHelper =
+	(
+		local userMacroDir = getDir #userMacros
+		local targetFile = userMacroDir + "\\pxtools_PolypaintHelpers.cs"
+		csharpProvider = dotNetObject "Microsoft.CSharp.CSharpCodeProvider"
+		compilerParams = dotNetObject "System.CodeDom.Compiler.CompilerParameters"
+		compilerParams.GenerateInMemory = true
+		compilerParams.ReferencedAssemblies.Add "System.dll"
+		compilerResults = csharpProvider.CompileAssemblyFromFile compilerParams #(targetFile)
+		
+		/* Quick check to catch compilation errors gracefully */
+		if compilerResults.Errors.HasErrors then
+		(
+			for i = 0 to (compilerResults.Errors.Count - 1) do
+			(
+				print compilerResults.Errors.Item[i].ErrorText
+			)
+		)
+		else
+		(
+			PolypaintHelpers = compilerResults.CompiledAssembly.CreateInstance "dotnet_polypaint.PolypaintHelpers"
+			result = PolypaintHelpers.sum 5 10
+			print "Testing compiled csharp"
+			print result
+		)
+	)
+	
+	CompileCSharpHelper()
+	
 	
 	-------------------------------------------------------------------- roll_polyPaint ------------------------------------ 
 	rollout roll_polyPaint "Painter" 
