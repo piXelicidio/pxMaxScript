@@ -20,3 +20,5 @@ MaxScripts.code-workspace
 *.dll
 AGENT.MD
 .github/copilot-instructions.md
+/PolyPainter/dotnet_polypaint/bin
+/PolyPainter/dotnet_polypaint/obj
