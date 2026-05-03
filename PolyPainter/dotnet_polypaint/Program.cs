@@ -10,7 +10,8 @@ namespace dotnet_polypaint
     {
         static void Main(string[] args)
         {
-            Console.WriteLine(PolypaintHelpers.sum(5, 5));
+            var ph = new PolypaintHelpers();
+           
         }
     }
 }

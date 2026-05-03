@@ -86,6 +86,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 		compilerParams = dotNetObject "System.CodeDom.Compiler.CompilerParameters"
 		compilerParams.GenerateInMemory = true
 		compilerParams.ReferencedAssemblies.Add "System.dll"
+		compilerParams.ReferencedAssemblies.Add "System.Drawing.dll"
 		compilerResults = csharpProvider.CompileAssemblyFromFile compilerParams #(targetFile)
 		
 		/* Quick check to catch compilation errors gracefully */
@@ -1571,11 +1572,140 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 		hyperLink hl_web "pX Poly Paint by Denys Almaral" align:#right address:@"https://denysalmaral.com/2018/09/free-polygon-painting-script-and-lowpoly-owl.html" align:#center
 	)
 
+	rollout roll_tools "Tools"
+	(
+		fn exportTempBitmap diffMap =
+		(
+			local bmp = diffMap.bitmap
+			local originalFilename = bmp.filename
+			local tempFilename = ""
+			
+			if originalFilename != undefined and originalFilename != "" then
+			(
+				local p = getFilenamePath originalFilename
+				local n = getFilenameFile originalFilename
+				tempFilename = p + n + "_pxTemp.bmp"
+			)
+			else
+			(
+				tempFilename = sysInfo.tempDir + "pxTempPolyPaint.bmp"
+			)
+			
+			local tempBmp = copy bmp
+			tempBmp.filename = tempFilename
+			save tempBmp
+			close tempBmp
+			
+			format "Saved temporary texture for C# to: %\n" tempFilename
+			tempFilename
+		)
+		
+		fn extractUVData obj mapChannel =
+		(
+			local numUVs = polyOp.getNumMapVerts obj mapChannel
+			local uvArray = #()
+			uvArray.count = numUVs * 2 
+			
+			local uvIdx = 1
+			for i = 1 to numUVs do
+			(
+				local uv = polyOp.getMapVert obj mapChannel i
+				uvArray[uvIdx] = uv.x
+				uvArray[uvIdx+1] = uv.y
+				uvIdx += 2
+			)
+			
+			local TFloatArray = dotNetClass "System.Single[]"
+			local csUVs = dotNet.valueToDotNetObject uvArray TFloatArray
+			format "Extracted % UV coordinates to System.Single[]\n" numUVs
+			csUVs
+		)
+		
+		fn extractMapFaces obj mapChannel =
+		(
+			local numFaces = polyOp.getNumFaces obj
+			local mapFacesArray = #()
+			mapFacesArray.count = numFaces
+			
+			for i = 1 to numFaces do
+			(
+				local faceMapVerts = polyOp.getMapFace obj mapChannel i
+				local csFace = #()
+				csFace.count = faceMapVerts.count
+				for j = 1 to faceMapVerts.count do
+				(
+					-- Crucial: Subtract 1 to convert MaxScript's 1-based index to C#'s 0-based index
+					csFace[j] = faceMapVerts[j] - 1
+				)
+				mapFacesArray[i] = csFace
+			)
+			
+			local TIntArrayArray = dotNetClass "System.Int32[][]"
+			local csMapFaces = dotNet.valueToDotNetObject mapFacesArray TIntArrayArray
+			format "Extracted % Map Faces to System.Int32[][]\n" numFaces
+			csMapFaces
+		)
 
+		group "Convert To LowPoly Style" (
+			button btnConvert "Convert Selected"
+		)
+		
+		on btnConvert pressed do
+		(
+			local sel = selection as array
+			if sel.count > 0 then
+			(
+				local obj = sel[1]
+				if obj.material != undefined then
+				(
+					local diffMap = roll_PolyPaint.findMatDiffuseMap obj.material
+					if diffMap != undefined and diffMap.bitmap != undefined then
+					(
+						local tempFilename = exportTempBitmap diffMap
+						local mapChannel = 1
+						
+						if polyOp.getMapSupport obj mapChannel then
+						(
+							local csUVs = extractUVData obj mapChannel
+							local csMapFaces = extractMapFaces obj mapChannel
+							
+							-- Ready to pass everything to C#
+							if PolypaintHelpers != undefined then
+							(
+								local csResult = PolypaintHelpers.ProcessLowPoly tempFilename csUVs csMapFaces
+								print csResult
+							)
+							else
+							(
+								print "Error: PolypaintHelpers C# assembly is not compiled or loaded."
+							)
+						)
+						else
+						(
+							print "The selected object has no UV mapping on channel 1."
+						)
+					)
+					else
+					(
+						print "The selected object's material does not have a valid diffuse bitmap."
+					)
+				)
+				else
+				(
+					print "The selected object has no material."
+				)
+			)
+			else
+			(
+				print "Please select an object first."
+			)
+		)
+	)
 
-	g_polypaint_rf = newRolloutFloater "pX Poly Paint" (roll_PolyPaint.bmpSize + 10) (roll_PolyPaint.bmpSize + 460 )
+	g_polypaint_rf = newRolloutFloater "pX Poly Paint" (roll_PolyPaint.bmpSize + 10) (roll_PolyPaint.bmpSize + 500 )
 	addRollout roll_PolyPaint g_polypaint_rf
 	addRollout roll_help g_polyPaint_rf rolledup:true
+	addRollout roll_tools g_polyPaint_rf rolledup:false
 	
 	g_polyPaint = roll_PolyPaint
 
