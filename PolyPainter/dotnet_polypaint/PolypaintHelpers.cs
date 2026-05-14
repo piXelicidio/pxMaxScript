@@ -1,39 +1,80 @@
 using System;
 using System.Drawing;
-using System.Drawing.Imaging;
-using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace dotnet_polypaint
 {
     public class PolypaintHelpers
     {
+        private byte[] resultBitmapPixels;
+        private int resultBitmapWidth;
+        private int resultBitmapHeight;
+        private int resultBitmapCellSize;
+        private int resultBitmapColumns;
+
         public int sum(int a, int b)
         {
             return a * 2 + b * 2;
         }
 
-        public string TestLoadBitmap(string filePath)
+        public byte[] GetResultBitmapPixels()
         {
-            try
-            {
-                using (Bitmap bmp = new Bitmap(filePath))
-                {
-                    Color firstPixel = bmp.GetPixel(0, 0);
-                    return string.Format("Success! Image is {0}x{1}. Pixel(0,0) is R:{2} G:{3} B:{4}", bmp.Width, bmp.Height, firstPixel.R, firstPixel.G, firstPixel.B);
-                }
-            }
-            catch (Exception ex)
-            {
-                return "Error loading bitmap: " + ex.Message;
-            }
+            return resultBitmapPixels;
         }
 
-        public string ProcessLowPoly(string imagePath, float[] uvData, int[][] mapFaces)
+        public int GetResultBitmapWidth()
         {
+            return resultBitmapWidth;
+        }
+
+        public int GetResultBitmapHeight()
+        {
+            return resultBitmapHeight;
+        }
+
+        public int GetResultBitmapCellSize()
+        {
+            return resultBitmapCellSize;
+        }
+
+        public int GetResultBitmapColumns()
+        {
+            return resultBitmapColumns;
+        }
+
+        public string ProcessLowPolyPixels(int width, int height, byte[] pixels, float[] uvData, int[][] mapFaces)
+        {
+            resultBitmapPixels = null;
+            resultBitmapWidth = 0;
+            resultBitmapHeight = 0;
+            resultBitmapCellSize = 0;
+            resultBitmapColumns = 0;
+
             var sb = new System.Text.StringBuilder();
             sb.AppendLine("[PolypaintHelpers] --- Processing LowPoly Data ---");
-            sb.AppendLine(string.Format("[PolypaintHelpers] Image Path: {0}", imagePath));
+            sb.AppendLine(string.Format("[PolypaintHelpers] Bitmap: {0}x{1}", width, height));
+
+            if (width <= 0 || height <= 0)
+            {
+                sb.AppendLine("[PolypaintHelpers] ERROR: bitmap dimensions must be greater than zero.");
+                sb.AppendLine("[PolypaintHelpers] ---------------------------------");
+                return sb.ToString();
+            }
+
+            if (pixels == null)
+            {
+                sb.AppendLine("[PolypaintHelpers] ERROR: pixels is null.");
+                sb.AppendLine("[PolypaintHelpers] ---------------------------------");
+                return sb.ToString();
+            }
+
+            int expectedPixelBytes = width * height * 4;
+            if (pixels.Length != expectedPixelBytes)
+            {
+                sb.AppendLine(string.Format("[PolypaintHelpers] ERROR: pixels length is {0}, expected {1}.", pixels.Length, expectedPixelBytes));
+                sb.AppendLine("[PolypaintHelpers] ---------------------------------");
+                return sb.ToString();
+            }
 
             if (uvData == null)
             {
@@ -59,58 +100,52 @@ namespace dotnet_polypaint
             int uvPoints = uvData.Length / 2;
             int facesCount = mapFaces.Length;
 
+            if (facesCount <= 0)
+            {
+                sb.AppendLine("[PolypaintHelpers] ERROR: mapFaces has no faces.");
+                sb.AppendLine("[PolypaintHelpers] ---------------------------------");
+                return sb.ToString();
+            }
+
             sb.AppendLine(string.Format("[PolypaintHelpers] Total UV Points: {0}", uvPoints));
             sb.AppendLine(string.Format("[PolypaintHelpers] Total Map Faces: {0}", facesCount));
 
             Stopwatch stopwatch = Stopwatch.StartNew();
 
-            try
+            PointF[][] facePixelPolygons = BuildFacePixelPolygons(uvData, uvPoints, mapFaces, width, height, sb);
+            if (facePixelPolygons == null)
             {
-                ImageFormat imageFormat;
-                Bitmap bitmap;
-                using (Bitmap sourceBitmap = new Bitmap(imagePath))
-                {
-                    imageFormat = sourceBitmap.RawFormat;
-                    bitmap = new Bitmap(sourceBitmap);
-                }
-
-                using (bitmap)
-                {
-                    sb.AppendLine(string.Format("[PolypaintHelpers] Loaded Bitmap: {0}x{1}", bitmap.Width, bitmap.Height));
-
-                    PointF[][] facePixelPolygons = BuildFacePixelPolygons(uvData, uvPoints, mapFaces, bitmap.Width, bitmap.Height, sb);
-                    if (facePixelPolygons == null)
-                    {
-                        sb.AppendLine("[PolypaintHelpers] ---------------------------------");
-                        return sb.ToString();
-                    }
-
-                    for (int faceIndex = 0; faceIndex < facePixelPolygons.Length; faceIndex++)
-                    {
-                        Color averageColor;
-                        int pixelCount;
-                        bool gotPixels = ScanFaceTexelsAverageAndFill(bitmap, facePixelPolygons[faceIndex], out averageColor, out pixelCount);
-
-                        if (gotPixels)
-                        {
-                            sb.AppendLine(string.Format("[PolypaintHelpers] Face {0}: pixels={1}, average=({2}, {3}, {4})", faceIndex, pixelCount, averageColor.R, averageColor.G, averageColor.B));
-                        }
-                        else
-                        {
-                            sb.AppendLine(string.Format("[PolypaintHelpers] Face {0}: pixels=0", faceIndex));
-                        }
-                    }
-
-                    bitmap.Save(imagePath, imageFormat);
-                    sb.AppendLine(string.Format("[PolypaintHelpers] Saved averaged texture: {0}", imagePath));
-                }
-            }
-            catch (Exception ex)
-            {
-                sb.AppendLine("[PolypaintHelpers] ERROR: Could not load or process bitmap: " + ex.Message);
                 sb.AppendLine("[PolypaintHelpers] ---------------------------------");
                 return sb.ToString();
             }
+
+            int[] averageColors = new int[facesCount * 3];
+
+            for (int faceIndex = 0; faceIndex < facePixelPolygons.Length; faceIndex++)
+            {
+                int averageR;
+                int averageG;
+                int averageB;
+                int pixelCount;
+                bool gotPixels = ScanFaceTexelsAverage(pixels, width, height, facePixelPolygons[faceIndex], out averageR, out averageG, out averageB, out pixelCount);
+
+                int colorOffset = faceIndex * 3;
+                averageColors[colorOffset] = averageR;
+                averageColors[colorOffset + 1] = averageG;
+                averageColors[colorOffset + 2] = averageB;
+
+                if (gotPixels)
+                {
+                    sb.AppendLine(string.Format("[PolypaintHelpers] Face {0}: pixels={1}, average=({2}, {3}, {4})", faceIndex, pixelCount, averageR, averageG, averageB));
+                }
+                else
+                {
+                    sb.AppendLine(string.Format("[PolypaintHelpers] Face {0}: pixels=0, center=({1}, {2}, {3})", faceIndex, averageR, averageG, averageB));
+                }
+            }
+
+            BuildResultBitmap(averageColors, facesCount);
+            sb.AppendLine(string.Format("[PolypaintHelpers] Result Bitmap: {0}x{1}, columns={2}, cell={3}", resultBitmapWidth, resultBitmapHeight, resultBitmapColumns, resultBitmapCellSize));
 
             stopwatch.Stop();
             sb.AppendLine(string.Format("[PolypaintHelpers] Process Time: {0} ms", stopwatch.ElapsedMilliseconds));
@@ -163,18 +198,83 @@ namespace dotnet_polypaint
             return facePixelPolygons;
         }
 
-        private static bool ScanFaceTexelsAverageAndFill(Bitmap bitmap, PointF[] face, out Color averageColor, out int pixelCount)
+        private void BuildResultBitmap(int[] averageColors, int colorCount)
         {
-            int minX = ClampToBitmap((int)Math.Floor(GetMinX(face)), bitmap.Width);
-            int maxX = ClampToBitmap((int)Math.Ceiling(GetMaxX(face)), bitmap.Width);
-            int minY = ClampToBitmap((int)Math.Floor(GetMinY(face)), bitmap.Height);
-            int maxY = ClampToBitmap((int)Math.Ceiling(GetMaxY(face)), bitmap.Height);
+            int bitmapSize = 256;
+            int columns = 1;
+            int cellSize = bitmapSize;
+
+            while (true)
+            {
+                columns = (int)Math.Ceiling(Math.Sqrt(colorCount));
+                cellSize = bitmapSize / columns;
+                if (cellSize > 8)
+                {
+                    break;
+                }
+
+                bitmapSize *= 2;
+            }
+
+            resultBitmapWidth = bitmapSize;
+            resultBitmapHeight = bitmapSize;
+            resultBitmapCellSize = cellSize;
+            resultBitmapColumns = columns;
+            resultBitmapPixels = new byte[bitmapSize * bitmapSize * 4];
+
+            for (int i = 0; i < resultBitmapPixels.Length; i += 4)
+            {
+                resultBitmapPixels[i] = 0;
+                resultBitmapPixels[i + 1] = 0;
+                resultBitmapPixels[i + 2] = 0;
+                resultBitmapPixels[i + 3] = 255;
+            }
+
+            for (int colorIndex = 0; colorIndex < colorCount; colorIndex++)
+            {
+                int gridX = colorIndex % columns;
+                int gridY = colorIndex / columns;
+                int startX = gridX * cellSize;
+                int startY = gridY * cellSize;
+                int colorOffset = colorIndex * 3;
+
+                FillResultSquare(
+                    startX,
+                    startY,
+                    cellSize,
+                    (byte)averageColors[colorOffset],
+                    (byte)averageColors[colorOffset + 1],
+                    (byte)averageColors[colorOffset + 2]
+                );
+            }
+        }
+
+        private void FillResultSquare(int startX, int startY, int size, byte r, byte g, byte b)
+        {
+            for (int y = startY; y < startY + size; y++)
+            {
+                for (int x = startX; x < startX + size; x++)
+                {
+                    int pixelOffset = (y * resultBitmapWidth + x) * 4;
+                    resultBitmapPixels[pixelOffset] = r;
+                    resultBitmapPixels[pixelOffset + 1] = g;
+                    resultBitmapPixels[pixelOffset + 2] = b;
+                    resultBitmapPixels[pixelOffset + 3] = 255;
+                }
+            }
+        }
+
+        private static bool ScanFaceTexelsAverage(byte[] pixels, int width, int height, PointF[] face, out int averageR, out int averageG, out int averageB, out int pixelCount)
+        {
+            int minX = ClampToBitmap((int)Math.Floor(GetMinX(face)), width);
+            int maxX = ClampToBitmap((int)Math.Ceiling(GetMaxX(face)), width);
+            int minY = ClampToBitmap((int)Math.Floor(GetMinY(face)), height);
+            int maxY = ClampToBitmap((int)Math.Ceiling(GetMaxY(face)), height);
 
             long totalR = 0;
             long totalG = 0;
             long totalB = 0;
             pixelCount = 0;
-            List<Point> pixelsInside = new List<Point>();
 
             for (int y = minY; y <= maxY; y++)
             {
@@ -182,35 +282,49 @@ namespace dotnet_polypaint
                 {
                     if (PointInsidePolygon(x + 0.5f, y + 0.5f, face))
                     {
-                        Color pixel = bitmap.GetPixel(x, y);
-                        totalR += pixel.R;
-                        totalG += pixel.G;
-                        totalB += pixel.B;
+                        int pixelOffset = (y * width + x) * 4;
+                        totalR += pixels[pixelOffset];
+                        totalG += pixels[pixelOffset + 1];
+                        totalB += pixels[pixelOffset + 2];
                         pixelCount++;
-                        pixelsInside.Add(new Point(x, y));
                     }
                 }
             }
 
             if (pixelCount == 0)
             {
-                averageColor = Color.Empty;
+                SampleFaceCenter(pixels, width, height, face, out averageR, out averageG, out averageB);
                 return false;
             }
 
-            averageColor = Color.FromArgb(
-                (int)(totalR / pixelCount),
-                (int)(totalG / pixelCount),
-                (int)(totalB / pixelCount)
-            );
-
-            for (int i = 0; i < pixelsInside.Count; i++)
-            {
-                Point p = pixelsInside[i];
-                bitmap.SetPixel(p.X, p.Y, averageColor);
-            }
+            averageR = (int)(totalR / pixelCount);
+            averageG = (int)(totalG / pixelCount);
+            averageB = (int)(totalB / pixelCount);
 
             return true;
+        }
+
+        private static void SampleFaceCenter(byte[] pixels, int width, int height, PointF[] face, out int r, out int g, out int b)
+        {
+            float centerX = 0.0f;
+            float centerY = 0.0f;
+
+            for (int i = 0; i < face.Length; i++)
+            {
+                centerX += face[i].X;
+                centerY += face[i].Y;
+            }
+
+            centerX /= face.Length;
+            centerY /= face.Length;
+
+            int x = ClampToBitmap((int)Math.Floor(centerX), width);
+            int y = ClampToBitmap((int)Math.Floor(centerY), height);
+            int pixelOffset = (y * width + x) * 4;
+
+            r = pixels[pixelOffset];
+            g = pixels[pixelOffset + 1];
+            b = pixels[pixelOffset + 2];
         }
 
         private static bool PointInsidePolygon(float x, float y, PointF[] polygon)

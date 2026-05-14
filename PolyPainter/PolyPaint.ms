@@ -1318,6 +1318,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			print p
 			set_ini "dialogPos" (p as string)
 			set_ini "curr_uv" (curr_UV as string)
+			set_ini "auto_start" (chk_AutoStart.checked as string)
 		)
 		
 		on roll_polyPaint open do
@@ -1336,6 +1337,12 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			(
 				curr_UV = p
 				--updateCurrColor()
+			)
+			s = get_ini "auto_start"
+			if s != "" then
+			(
+				p = eval s
+				chk_AutoStart.checked = if (classof p) == BooleanClass then p else false
 			)
 			
 			--
@@ -1574,32 +1581,69 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 
 	rollout roll_tools "Tools"
 	(
-		fn exportTempBitmap diffMap =
+		fn extractBitmapPixels bmp =
 		(
-			local bmp = diffMap.bitmap
-			local originalFilename = bmp.filename
-			local tempFilename = ""
-			
-			if originalFilename != undefined and originalFilename != "" then
+			local pixelArray = #()
+			pixelArray.count = bmp.width * bmp.height * 4
+			local byteIdx = 1
+
+			for y = 0 to (bmp.height - 1) do
 			(
-				local p = getFilenamePath originalFilename
-				local n = getFilenameFile originalFilename
-				tempFilename = p + n + "_pxTemp.bmp"
+				local rowPixels = getPixels bmp [0, y] bmp.width linear:false
+				for x = 1 to rowPixels.count do
+				(
+					local c = rowPixels[x]
+					pixelArray[byteIdx] = c.r as integer
+					pixelArray[byteIdx + 1] = c.g as integer
+					pixelArray[byteIdx + 2] = c.b as integer
+					pixelArray[byteIdx + 3] = 255
+					byteIdx += 4
+				)
+			)
+
+			local TByteArray = dotNetClass "System.Byte[]"
+			dotNet.valueToDotNetObject pixelArray TByteArray
+		)
+
+		fn buildBitmapFromPixels width height csPixels =
+		(
+			width = width as integer
+			height = height as integer
+			local resultBmp = bitmap width height color:(color 0 0 0)
+
+			for y = 0 to (height - 1) do
+			(
+				local rowPixels = #()
+				rowPixels.count = width
+
+				for x = 0 to (width - 1) do
+				(
+					local byteIdx = ((y * width + x) * 4) + 1
+					rowPixels[x + 1] = color (csPixels[byteIdx] as integer) (csPixels[byteIdx + 1] as integer) (csPixels[byteIdx + 2] as integer)
+				)
+
+				setPixels resultBmp [0, y] rowPixels
+			)
+
+			resultBmp
+		)
+
+		fn displayResultBitmap =
+		(
+			local resultPixels = PolypaintHelpers.GetResultBitmapPixels()
+			local resultWidth = PolypaintHelpers.GetResultBitmapWidth()
+			local resultHeight = PolypaintHelpers.GetResultBitmapHeight()
+			if resultPixels != undefined and resultWidth > 0 and resultHeight > 0 then
+			(
+				local resultBmp = buildBitmapFromPixels resultWidth resultHeight resultPixels
+				display resultBmp
 			)
 			else
 			(
-				tempFilename = sysInfo.tempDir + "pxTempPolyPaint.bmp"
+				print "No C# result bitmap generated."
 			)
-			
-			local tempBmp = copy bmp
-			tempBmp.filename = tempFilename
-			save tempBmp
-			close tempBmp
-			
-			format "Saved temporary texture for C# to: %\n" tempFilename
-			tempFilename
 		)
-		
+
 		fn extractUVData obj mapChannel =
 		(
 			local numUVs = polyOp.getNumMapVerts obj mapChannel
@@ -1661,19 +1705,21 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 					local diffMap = roll_PolyPaint.findMatDiffuseMap obj.material
 					if diffMap != undefined and diffMap.bitmap != undefined then
 					(
-						local tempFilename = exportTempBitmap diffMap
+						local bmp = diffMap.bitmap
 						local mapChannel = 1
 						
 						if polyOp.getMapSupport obj mapChannel then
 						(
+							local csPixels = extractBitmapPixels bmp
 							local csUVs = extractUVData obj mapChannel
 							local csMapFaces = extractMapFaces obj mapChannel
 							
 							-- Ready to pass everything to C#
 							if PolypaintHelpers != undefined then
 							(
-								local csResult = PolypaintHelpers.ProcessLowPoly tempFilename csUVs csMapFaces
+								local csResult = PolypaintHelpers.ProcessLowPolyPixels bmp.width bmp.height csPixels csUVs csMapFaces
 								print csResult
+								displayResultBitmap()
 							)
 							else
 							(
