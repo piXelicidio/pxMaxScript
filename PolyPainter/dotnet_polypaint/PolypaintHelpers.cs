@@ -7,8 +7,7 @@ namespace dotnet_polypaint
 {
     public class PolypaintHelpers
     {
-        private const int ColorMergeThreshold = 20;
-        private const int ColorMergeThresholdSquared = ColorMergeThreshold * ColorMergeThreshold;
+        private const int ColorMergeThresholdSquared = 5;
 
         private byte[] resultBitmapPixels;
         private int resultBitmapWidth;
@@ -123,7 +122,9 @@ namespace dotnet_polypaint
 
             Stopwatch stopwatch = Stopwatch.StartNew();
 
+            long stageStartMs = stopwatch.ElapsedMilliseconds;
             PointF[][] facePixelPolygons = BuildFacePixelPolygons(uvData, uvPoints, mapFaces, width, height, sb);
+            long buildFacePolygonsMs = stopwatch.ElapsedMilliseconds - stageStartMs;
             if (facePixelPolygons == null)
             {
                 sb.AppendLine("[PolypaintHelpers] ---------------------------------");
@@ -132,6 +133,7 @@ namespace dotnet_polypaint
 
             int[] averageColors = new int[facesCount * 3];
 
+            stageStartMs = stopwatch.ElapsedMilliseconds;
             for (int faceIndex = 0; faceIndex < facePixelPolygons.Length; faceIndex++)
             {
                 int averageR;
@@ -145,12 +147,22 @@ namespace dotnet_polypaint
                 averageColors[colorOffset + 1] = averageG;
                 averageColors[colorOffset + 2] = averageB;
             }
+            long scanFaceTexelsMs = stopwatch.ElapsedMilliseconds - stageStartMs;
 
+            stageStartMs = stopwatch.ElapsedMilliseconds;
             List<ColorGroup> colorGroups = ReduceColorGroups(averageColors, facesCount, sb);
+            long reduceColorGroupsMs = stopwatch.ElapsedMilliseconds - stageStartMs;
+
+            stageStartMs = stopwatch.ElapsedMilliseconds;
             BuildResultBitmap(colorGroups, facesCount);
+            long buildResultBitmapMs = stopwatch.ElapsedMilliseconds - stageStartMs;
             sb.AppendLine(string.Format("[PolypaintHelpers] Result Bitmap: {0}x{1}, columns={2}, cell={3}", resultBitmapWidth, resultBitmapHeight, resultBitmapColumns, resultBitmapCellSize));
 
             stopwatch.Stop();
+            sb.AppendLine(string.Format("[PolypaintHelpers] Build Face Pixel Polygons Time: {0} ms", buildFacePolygonsMs));
+            sb.AppendLine(string.Format("[PolypaintHelpers] Scan Face Texels Time: {0} ms", scanFaceTexelsMs));
+            sb.AppendLine(string.Format("[PolypaintHelpers] Reduce Color Groups Time: {0} ms", reduceColorGroupsMs));
+            sb.AppendLine(string.Format("[PolypaintHelpers] Build Result Bitmap/UVs Time: {0} ms", buildResultBitmapMs));
             sb.AppendLine(string.Format("[PolypaintHelpers] Process Time: {0} ms", stopwatch.ElapsedMilliseconds));
             sb.AppendLine("[PolypaintHelpers] ---------------------------------");
 
@@ -219,7 +231,7 @@ namespace dotnet_polypaint
                 mergeCount++;
             }
 
-            sb.AppendLine(string.Format("[PolypaintHelpers] Color Groups: {0} -> {1}, merges={2}, threshold={3}", facesCount, groups.Count, mergeCount, ColorMergeThreshold));
+            sb.AppendLine(string.Format("[PolypaintHelpers] Color Groups: {0} -> {1}, merges={2}, threshold={3}", facesCount, groups.Count, mergeCount, ColorMergeThresholdSquared));
             return groups;
         }
 

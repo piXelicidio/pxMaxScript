@@ -1581,6 +1581,10 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 
 	rollout roll_tools "Tools"
 	(
+		group "Convert To LowPoly Style" (
+			button btnConvert "Convert Selected"
+		)
+		
 		fn extractBitmapPixels bmp =
 		(
 			local pixelArray = #()
@@ -1609,7 +1613,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 		(
 			width = width as integer
 			height = height as integer
-			local resultBmp = bitmap width height color:(color 0 0 0)
+			local resultBmp = bitmap width height color:(color 0 0 0) gamma:1.0
 
 			for y = 0 to (height - 1) do
 			(
@@ -1674,7 +1678,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			if savePath != undefined then
 			(
 				resultBmp.filename = savePath
-				if (save resultBmp) then
+				if (save resultBmp gamma:1.0) then
 				(
 					savePath
 				)
@@ -1723,12 +1727,26 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 
 		fn applyGeneratedTexture obj mapChannel texturePath resultFaceUVs =
 		(
+			if not (doesFileExist texturePath) then
+			(
+				print ("Failed to load generated texture: " + texturePath)
+				return false
+			)
+
+			local newMap = Bitmaptexture filename:texturePath
+			newMap.name = (getFilenameFile texturePath + "_lowpoly")
+
+			local newMat = copy obj.material
+			newMat.name = (obj.material.name + "_LowPoly")
+			roll_PolyPaint.replaceDiffuseMap newMat newMap
+
 			with undo "PolyPaint LowPoly Convert" on
 			(
 				applyPolypaintUVMapping obj mapChannel resultFaceUVs
-				local newMap = Bitmaptexture filename:texturePath
-				roll_PolyPaint.replaceDiffuseMap obj.material newMap
+				obj.material = newMat
 			)
+
+			true
 		)
 
 		fn extractUVData obj mapChannel =
@@ -1777,9 +1795,6 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			csMapFaces
 		)
 
-		group "Convert To LowPoly Style" (
-			button btnConvert "Convert Selected"
-		)
 		
 		on btnConvert pressed do
 		(
@@ -1799,28 +1814,50 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 						(
 							if PolypaintHelpers != undefined then
 							(
-								if queryBox "This will modify the selected object's UV mapping and assign a newly generated diffuse texture.\n\nContinue?" title:"PolyPaint LowPoly Convert" beep:true then
+								if queryBox "This will modify the selected object's UV mapping and assign a new material with a generated diffuse texture.\n\nContinue?" title:"PolyPaint LowPoly Convert" beep:true then
 								(
+									local totalStart = timeStamp()
+									local prepStart = timeStamp()
 									local csPixels = extractBitmapPixels bmp
 									local csUVs = extractUVData obj mapChannel
 									local csMapFaces = extractMapFaces obj mapChannel
+									local prepMs = timeStamp() - prepStart
+
+									local csCallStart = timeStamp()
 									local csResult = PolypaintHelpers.ProcessLowPolyPixels bmp.width bmp.height csPixels csUVs csMapFaces
+									local csCallMs = timeStamp() - csCallStart
 									print csResult
 
+									local receiveStart = timeStamp()
 									local resultBmp = displayResultBitmap()
 									local resultFaceUVs = PolypaintHelpers.GetResultFaceUVs()
+									local receiveMs = timeStamp() - receiveStart
+
+									format "[PolyPaint LowPoly Timing] MaxScript prepare data: % ms\n" prepMs
+									format "[PolyPaint LowPoly Timing] C# call total: % ms\n" csCallMs
+									format "[PolyPaint LowPoly Timing] MaxScript receive/build result: % ms\n" receiveMs
+
 									if resultBmp != undefined and resultFaceUVs != undefined then
 									(
+										local saveStart = timeStamp()
 										local texturePath = saveResultBitmap resultBmp bmp
+										local saveMs = timeStamp() - saveStart
+										format "[PolyPaint LowPoly Timing] Save result texture: % ms\n" saveMs
+
 										if texturePath != undefined then
 										(
+											local applyStart = timeStamp()
 											applyGeneratedTexture obj mapChannel texturePath resultFaceUVs
+											local applyMs = timeStamp() - applyStart
+											format "[PolyPaint LowPoly Timing] Apply UV/material: % ms\n" applyMs
 										)
 										else
 										(
 											print "LowPoly conversion canceled: no texture save path selected."
 										)
 									)
+
+									format "[PolyPaint LowPoly Timing] Total after confirmation: % ms\n" (timeStamp() - totalStart)
 								)
 							)
 							else
