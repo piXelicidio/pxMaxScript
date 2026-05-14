@@ -15,6 +15,7 @@ namespace dotnet_polypaint
         private int resultBitmapHeight;
         private int resultBitmapCellSize;
         private int resultBitmapColumns;
+        private float[] resultFaceUVs;
 
         public int sum(int a, int b)
         {
@@ -46,6 +47,11 @@ namespace dotnet_polypaint
             return resultBitmapColumns;
         }
 
+        public float[] GetResultFaceUVs()
+        {
+            return resultFaceUVs;
+        }
+
         public string ProcessLowPolyPixels(int width, int height, byte[] pixels, float[] uvData, int[][] mapFaces)
         {
             resultBitmapPixels = null;
@@ -53,6 +59,7 @@ namespace dotnet_polypaint
             resultBitmapHeight = 0;
             resultBitmapCellSize = 0;
             resultBitmapColumns = 0;
+            resultFaceUVs = null;
 
             var sb = new System.Text.StringBuilder();
             sb.AppendLine("[PolypaintHelpers] --- Processing LowPoly Data ---");
@@ -137,19 +144,10 @@ namespace dotnet_polypaint
                 averageColors[colorOffset] = averageR;
                 averageColors[colorOffset + 1] = averageG;
                 averageColors[colorOffset + 2] = averageB;
-
-                if (gotPixels)
-                {
-                    sb.AppendLine(string.Format("[PolypaintHelpers] Face {0}: pixels={1}, average=({2}, {3}, {4})", faceIndex, pixelCount, averageR, averageG, averageB));
-                }
-                else
-                {
-                    sb.AppendLine(string.Format("[PolypaintHelpers] Face {0}: pixels=0, center=({1}, {2}, {3})", faceIndex, averageR, averageG, averageB));
-                }
             }
 
             List<ColorGroup> colorGroups = ReduceColorGroups(averageColors, facesCount, sb);
-            BuildResultBitmap(colorGroups);
+            BuildResultBitmap(colorGroups, facesCount);
             sb.AppendLine(string.Format("[PolypaintHelpers] Result Bitmap: {0}x{1}, columns={2}, cell={3}", resultBitmapWidth, resultBitmapHeight, resultBitmapColumns, resultBitmapCellSize));
 
             stopwatch.Stop();
@@ -282,7 +280,7 @@ namespace dotnet_polypaint
             groups.RemoveAt(indexB);
         }
 
-        private void BuildResultBitmap(List<ColorGroup> colorGroups)
+        private void BuildResultBitmap(List<ColorGroup> colorGroups, int facesCount)
         {
             int colorCount = colorGroups.Count;
             int bitmapSize = 256;
@@ -306,6 +304,7 @@ namespace dotnet_polypaint
             resultBitmapCellSize = cellSize;
             resultBitmapColumns = columns;
             resultBitmapPixels = new byte[bitmapSize * bitmapSize * 4];
+            resultFaceUVs = new float[facesCount * 2];
 
             for (int i = 0; i < resultBitmapPixels.Length; i += 4)
             {
@@ -322,6 +321,8 @@ namespace dotnet_polypaint
                 int startX = gridX * cellSize;
                 int startY = gridY * cellSize;
                 ColorGroup group = colorGroups[colorIndex];
+                float u = ((float)startX + ((float)cellSize * 0.5f)) / (float)resultBitmapWidth;
+                float v = 1.0f - (((float)startY + ((float)cellSize * 0.5f)) / (float)resultBitmapHeight);
 
                 FillResultSquare(
                     startX,
@@ -331,6 +332,14 @@ namespace dotnet_polypaint
                     (byte)group.G,
                     (byte)group.B
                 );
+
+                for (int i = 0; i < group.Faces.Count; i++)
+                {
+                    int faceIndex = group.Faces[i];
+                    int uvOffset = faceIndex * 2;
+                    resultFaceUVs[uvOffset] = u;
+                    resultFaceUVs[uvOffset + 1] = v;
+                }
             }
         }
 

@@ -1637,10 +1637,97 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			(
 				local resultBmp = buildBitmapFromPixels resultWidth resultHeight resultPixels
 				display resultBmp
+				resultBmp
 			)
 			else
 			(
 				print "No C# result bitmap generated."
+				undefined
+			)
+		)
+
+		fn getResultTextureSavePath sourceBmp =
+		(
+			local sourceFilename = sourceBmp.filename
+			local suggestedFilename = sysInfo.tempDir + "polypaint_lowpoly.png"
+
+			if sourceFilename != undefined and sourceFilename != "" then
+			(
+				local sourcePath = getFilenamePath sourceFilename
+				local sourceName = getFilenameFile sourceFilename
+				if sourcePath != "" then
+				(
+					suggestedFilename = sourcePath + sourceName + "_lowpoly.png"
+				)
+				else
+				(
+					suggestedFilename = sourceName + "_lowpoly.png"
+				)
+			)
+
+			getSaveFileName caption:"Save Generated LowPoly Texture" filename:suggestedFilename types:"PNG (*.png)|*.png|Bitmap (*.bmp)|*.bmp|All Files (*.*)|*.*|"
+		)
+
+		fn saveResultBitmap resultBmp sourceBmp =
+		(
+			local savePath = getResultTextureSavePath sourceBmp
+			if savePath != undefined then
+			(
+				resultBmp.filename = savePath
+				if (save resultBmp) then
+				(
+					savePath
+				)
+				else
+				(
+					print ("Failed to save generated texture: " + savePath)
+					undefined
+				)
+			)
+			else
+			(
+				undefined
+			)
+		)
+
+		fn applyPolypaintUVMapping obj mapChannel resultFaceUVs =
+		(
+			local faceCount = polyop.getNumFaces obj
+			if not (polyop.getMapSupport obj mapChannel) then
+			(
+				polyop.setMapSupport obj mapChannel true
+			)
+
+			polyop.setNumMapFaces obj mapChannel faceCount keep:false
+			polyop.setNumMapVerts obj mapChannel faceCount keep:false
+
+			for faceIdx = 1 to faceCount do
+			(
+				local uvOffset = ((faceIdx - 1) * 2) + 1
+				local u = resultFaceUVs[uvOffset]
+				local v = resultFaceUVs[uvOffset + 1]
+				polyop.setMapVert obj mapChannel faceIdx [u, v, 0]
+
+				local faceDeg = polyop.getFaceDeg obj faceIdx
+				local newFace = #()
+				newFace.count = faceDeg
+				for i = 1 to faceDeg do
+				(
+					newFace[i] = faceIdx
+				)
+				polyop.setMapFace obj mapChannel faceIdx newFace
+			)
+
+			update obj
+		)
+
+		fn applyGeneratedTexture obj mapChannel texturePath resultFaceUVs =
+		(
+			with undo "PolyPaint LowPoly Convert" on
+			(
+				applyPolypaintUVMapping obj mapChannel resultFaceUVs
+				local newMap = Bitmaptexture filename:texturePath
+				roll_PolyPaint.replaceDiffuseMap obj.material newMap
 			)
 		)
 
@@ -1710,16 +1797,31 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 						
 						if polyOp.getMapSupport obj mapChannel then
 						(
-							local csPixels = extractBitmapPixels bmp
-							local csUVs = extractUVData obj mapChannel
-							local csMapFaces = extractMapFaces obj mapChannel
-							
-							-- Ready to pass everything to C#
 							if PolypaintHelpers != undefined then
 							(
-								local csResult = PolypaintHelpers.ProcessLowPolyPixels bmp.width bmp.height csPixels csUVs csMapFaces
-								print csResult
-								displayResultBitmap()
+								if queryBox "This will modify the selected object's UV mapping and assign a newly generated diffuse texture.\n\nContinue?" title:"PolyPaint LowPoly Convert" beep:true then
+								(
+									local csPixels = extractBitmapPixels bmp
+									local csUVs = extractUVData obj mapChannel
+									local csMapFaces = extractMapFaces obj mapChannel
+									local csResult = PolypaintHelpers.ProcessLowPolyPixels bmp.width bmp.height csPixels csUVs csMapFaces
+									print csResult
+
+									local resultBmp = displayResultBitmap()
+									local resultFaceUVs = PolypaintHelpers.GetResultFaceUVs()
+									if resultBmp != undefined and resultFaceUVs != undefined then
+									(
+										local texturePath = saveResultBitmap resultBmp bmp
+										if texturePath != undefined then
+										(
+											applyGeneratedTexture obj mapChannel texturePath resultFaceUVs
+										)
+										else
+										(
+											print "LowPoly conversion canceled: no texture save path selected."
+										)
+									)
+								)
 							)
 							else
 							(
