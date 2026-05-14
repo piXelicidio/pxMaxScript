@@ -1,6 +1,8 @@
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace dotnet_polypaint
 {
@@ -60,6 +62,8 @@ namespace dotnet_polypaint
             sb.AppendLine(string.Format("[PolypaintHelpers] Total UV Points: {0}", uvPoints));
             sb.AppendLine(string.Format("[PolypaintHelpers] Total Map Faces: {0}", facesCount));
 
+            Stopwatch stopwatch = Stopwatch.StartNew();
+
             try
             {
                 ImageFormat imageFormat;
@@ -81,12 +85,11 @@ namespace dotnet_polypaint
                         return sb.ToString();
                     }
 
-                    int facesToDebug = Math.Min(facePixelPolygons.Length, 3);
-                    for (int faceIndex = 0; faceIndex < facesToDebug; faceIndex++)
+                    for (int faceIndex = 0; faceIndex < facePixelPolygons.Length; faceIndex++)
                     {
                         Color averageColor;
                         int pixelCount;
-                        bool gotPixels = ScanFaceTexelsAverageAndPink(bitmap, facePixelPolygons[faceIndex], out averageColor, out pixelCount);
+                        bool gotPixels = ScanFaceTexelsAverageAndFill(bitmap, facePixelPolygons[faceIndex], out averageColor, out pixelCount);
 
                         if (gotPixels)
                         {
@@ -99,7 +102,7 @@ namespace dotnet_polypaint
                     }
 
                     bitmap.Save(imagePath, imageFormat);
-                    sb.AppendLine(string.Format("[PolypaintHelpers] Saved pink debug texture: {0}", imagePath));
+                    sb.AppendLine(string.Format("[PolypaintHelpers] Saved averaged texture: {0}", imagePath));
                 }
             }
             catch (Exception ex)
@@ -109,6 +112,8 @@ namespace dotnet_polypaint
                 return sb.ToString();
             }
 
+            stopwatch.Stop();
+            sb.AppendLine(string.Format("[PolypaintHelpers] Process Time: {0} ms", stopwatch.ElapsedMilliseconds));
             sb.AppendLine("[PolypaintHelpers] ---------------------------------");
 
             return sb.ToString();
@@ -158,7 +163,7 @@ namespace dotnet_polypaint
             return facePixelPolygons;
         }
 
-        private static bool ScanFaceTexelsAverageAndPink(Bitmap bitmap, PointF[] face, out Color averageColor, out int pixelCount)
+        private static bool ScanFaceTexelsAverageAndFill(Bitmap bitmap, PointF[] face, out Color averageColor, out int pixelCount)
         {
             int minX = ClampToBitmap((int)Math.Floor(GetMinX(face)), bitmap.Width);
             int maxX = ClampToBitmap((int)Math.Ceiling(GetMaxX(face)), bitmap.Width);
@@ -169,6 +174,7 @@ namespace dotnet_polypaint
             long totalG = 0;
             long totalB = 0;
             pixelCount = 0;
+            List<Point> pixelsInside = new List<Point>();
 
             for (int y = minY; y <= maxY; y++)
             {
@@ -181,8 +187,7 @@ namespace dotnet_polypaint
                         totalG += pixel.G;
                         totalB += pixel.B;
                         pixelCount++;
-
-                        bitmap.SetPixel(x, y, Color.FromArgb(255, 255, 0, 255));
+                        pixelsInside.Add(new Point(x, y));
                     }
                 }
             }
@@ -198,6 +203,13 @@ namespace dotnet_polypaint
                 (int)(totalG / pixelCount),
                 (int)(totalB / pixelCount)
             );
+
+            for (int i = 0; i < pixelsInside.Count; i++)
+            {
+                Point p = pixelsInside[i];
+                bitmap.SetPixel(p.X, p.Y, averageColor);
+            }
+
             return true;
         }
 
