@@ -1,11 +1,15 @@
 using System;
 using System.Drawing;
+using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace dotnet_polypaint
 {
     public class PolypaintHelpers
     {
+        private const int ColorMergeThreshold = 20;
+        private const int ColorMergeThresholdSquared = ColorMergeThreshold * ColorMergeThreshold;
+
         private byte[] resultBitmapPixels;
         private int resultBitmapWidth;
         private int resultBitmapHeight;
@@ -144,7 +148,8 @@ namespace dotnet_polypaint
                 }
             }
 
-            BuildResultBitmap(averageColors, facesCount);
+            List<ColorGroup> colorGroups = ReduceColorGroups(averageColors, facesCount, sb);
+            BuildResultBitmap(colorGroups);
             sb.AppendLine(string.Format("[PolypaintHelpers] Result Bitmap: {0}x{1}, columns={2}, cell={3}", resultBitmapWidth, resultBitmapHeight, resultBitmapColumns, resultBitmapCellSize));
 
             stopwatch.Stop();
@@ -198,8 +203,88 @@ namespace dotnet_polypaint
             return facePixelPolygons;
         }
 
-        private void BuildResultBitmap(int[] averageColors, int colorCount)
+        private static List<ColorGroup> ReduceColorGroups(int[] averageColors, int facesCount, System.Text.StringBuilder sb)
         {
+            List<ColorGroup> groups = new List<ColorGroup>();
+
+            for (int faceIndex = 0; faceIndex < facesCount; faceIndex++)
+            {
+                int colorOffset = faceIndex * 3;
+                ColorGroup group = new ColorGroup(averageColors[colorOffset], averageColors[colorOffset + 1], averageColors[colorOffset + 2]);
+                group.Faces.Add(faceIndex);
+                groups.Add(group);
+            }
+
+            int mergeCount = 0;
+            while (MergeClosestGroupPair(groups))
+            {
+                mergeCount++;
+            }
+
+            sb.AppendLine(string.Format("[PolypaintHelpers] Color Groups: {0} -> {1}, merges={2}, threshold={3}", facesCount, groups.Count, mergeCount, ColorMergeThreshold));
+            return groups;
+        }
+
+        private static bool MergeClosestGroupPair(List<ColorGroup> groups)
+        {
+            int bestA = -1;
+            int bestB = -1;
+            int bestDistanceSquared = ColorMergeThresholdSquared + 1;
+
+            for (int a = 0; a < groups.Count - 1; a++)
+            {
+                for (int b = a + 1; b < groups.Count; b++)
+                {
+                    int distanceSquared = ColorDistanceSquared(groups[a], groups[b]);
+                    if (distanceSquared < bestDistanceSquared)
+                    {
+                        bestDistanceSquared = distanceSquared;
+                        bestA = a;
+                        bestB = b;
+                    }
+                }
+            }
+
+            if (bestA < 0 || bestDistanceSquared > ColorMergeThresholdSquared)
+            {
+                return false;
+            }
+
+            MergeGroups(groups, bestA, bestB);
+            return true;
+        }
+
+        private static int ColorDistanceSquared(ColorGroup a, ColorGroup b)
+        {
+            int dr = a.R - b.R;
+            int dg = a.G - b.G;
+            int db = a.B - b.B;
+            return dr * dr + dg * dg + db * db;
+        }
+
+        private static void MergeGroups(List<ColorGroup> groups, int indexA, int indexB)
+        {
+            ColorGroup a = groups[indexA];
+            ColorGroup b = groups[indexB];
+            int faceCountA = a.Faces.Count;
+            int faceCountB = b.Faces.Count;
+            int mergedFaceCount = faceCountA + faceCountB;
+
+            a.R = ((a.R * faceCountA) + (b.R * faceCountB)) / mergedFaceCount;
+            a.G = ((a.G * faceCountA) + (b.G * faceCountB)) / mergedFaceCount;
+            a.B = ((a.B * faceCountA) + (b.B * faceCountB)) / mergedFaceCount;
+
+            for (int i = 0; i < b.Faces.Count; i++)
+            {
+                a.Faces.Add(b.Faces[i]);
+            }
+
+            groups.RemoveAt(indexB);
+        }
+
+        private void BuildResultBitmap(List<ColorGroup> colorGroups)
+        {
+            int colorCount = colorGroups.Count;
             int bitmapSize = 256;
             int columns = 1;
             int cellSize = bitmapSize;
@@ -236,16 +321,32 @@ namespace dotnet_polypaint
                 int gridY = colorIndex / columns;
                 int startX = gridX * cellSize;
                 int startY = gridY * cellSize;
-                int colorOffset = colorIndex * 3;
+                ColorGroup group = colorGroups[colorIndex];
 
                 FillResultSquare(
                     startX,
                     startY,
                     cellSize,
-                    (byte)averageColors[colorOffset],
-                    (byte)averageColors[colorOffset + 1],
-                    (byte)averageColors[colorOffset + 2]
+                    (byte)group.R,
+                    (byte)group.G,
+                    (byte)group.B
                 );
+            }
+        }
+
+        private class ColorGroup
+        {
+            public int R;
+            public int G;
+            public int B;
+            public List<int> Faces;
+
+            public ColorGroup(int r, int g, int b)
+            {
+                R = r;
+                G = g;
+                B = b;
+                Faces = new List<int>();
             }
         }
 
