@@ -1613,7 +1613,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 		(
 			width = width as integer
 			height = height as integer
-			local resultBmp = bitmap width height color:(color 0 0 0) gamma:1.0
+			local resultBmp = bitmap width height color:(color 0 0 0) gamma:2.2
 
 			for y = 0 to (height - 1) do
 			(
@@ -1678,7 +1678,7 @@ macroScript PolyPaint buttonText:"Poly Paint" category:"pX Tools" tooltip:"pX Po
 			if savePath != undefined then
 			(
 				resultBmp.filename = savePath
-				if (save resultBmp gamma:1.0) then
+				if (save resultBmp gamma:2.2) then
 				(
 					savePath
 				)

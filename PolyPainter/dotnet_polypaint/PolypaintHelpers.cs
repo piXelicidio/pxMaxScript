@@ -336,13 +336,17 @@ namespace dotnet_polypaint
                 float u = ((float)startX + ((float)cellSize * 0.5f)) / (float)resultBitmapWidth;
                 float v = 1.0f - (((float)startY + ((float)cellSize * 0.5f)) / (float)resultBitmapHeight);
 
+                // Apply inverse 2.2 gamma to cancel out 3ds Max's double-brightening
+                byte finalR = (byte)Math.Min(255, Math.Max(0, Math.Pow(group.R / 255.0, 2.2) * 255.0));
+                byte finalG = (byte)Math.Min(255, Math.Max(0, Math.Pow(group.G / 255.0, 2.2) * 255.0));
+                byte finalB = (byte)Math.Min(255, Math.Max(0, Math.Pow(group.B / 255.0, 2.2) * 255.0));
                 FillResultSquare(
                     startX,
                     startY,
                     cellSize,
-                    (byte)group.R,
-                    (byte)group.G,
-                    (byte)group.B
+                    finalR,
+                    finalG,
+                    finalB
                 );
 
                 for (int i = 0; i < group.Faces.Count; i++)
